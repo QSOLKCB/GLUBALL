@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - agent/operation-replace-dave-with-gluball
+      - "agent/**"
   pull_request:
     branches:
       - main
@@ -20,5 +20,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Runtime
         run: node --version
-      - name: Contract smoke suite
+      - name: Geometry contract smoke suite
         run: node tests/smoke.mjs
+      - name: AI agent contract validation
+        run: node tests/agent-contract.mjs
