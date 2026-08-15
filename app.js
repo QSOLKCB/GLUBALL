@@ -196,6 +196,7 @@
 
   exportButton.addEventListener("click", async () => {
     const previousLabel = exportButton.textContent;
+    const exportTick = tick;
     exportButton.disabled = true;
     exportButton.textContent = "Sealing…";
     try {
@@ -203,18 +204,18 @@
       const envelope = phase2.makeEvidenceEnvelope({
         geometrySnapshot,
         sampling: samplingConfig,
-        tick,
+        tick: exportTick,
         implementation: { name: "gluball-browser", version: phase2.VERSION },
         runtime: {
           name: "browser-webcrypto",
-          userAgent: navigator.userAgent,
+          version: navigator.userAgent,
           platform: navigator.platform || "unknown"
         }
       });
       const receipt = await phase2.evidenceReceipt(envelope);
       const capture = phase2.captureManifest({
         profile: "json-canonical-v1",
-        tick,
+        tick: exportTick,
         presentation: {
           canvasWidth: canvas.width,
           canvasHeight: canvas.height,
@@ -224,19 +225,20 @@
       const previewIndices = [0, 1, Math.floor(mesh.config.uSegments / 2), mesh.config.uSegments - 1];
       const payload = {
         geometry: geometrySnapshot,
-        tick,
-        pose: core.tickPose(tick),
+        tick: exportTick,
+        pose: core.tickPose(exportTick),
         sampling: phase2.serializableSamplingConfig(samplingConfig),
         samplePreview: phase2.sampleVector(samplingConfig, previewIndices),
-        sonificationPreview: phase2.sonificationStream(samplingConfig, { count: 6, startTick: tick, ticksPerEvent: 120 }),
+        sonificationPreview: phase2.sonificationStream(samplingConfig, { count: 6, startTick: exportTick, ticksPerEvent: 120 }),
         capture,
         evidence: { envelope, receipt }
       };
-      const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+      const canonicalPayload = phase2.canonicalJSONStringify(payload);
+      const blob = new Blob([canonicalPayload], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `gluball-evidence-v1-tick-${tick}.json`;
+      link.download = `gluball-evidence-v1-tick-${exportTick}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();
