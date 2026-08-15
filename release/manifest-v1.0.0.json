@@ -1,0 +1,56 @@
+{
+  "schema": "gluball-release-manifest/1",
+  "release": {
+    "version": "1.0.0",
+    "tag": "v1.0.0",
+    "status": "release-candidate",
+    "freeze_base_commit": "3326feaa3040ac2e6e19cc8de524c97a56b7f010",
+    "tag_target_rule": "v1.0.0 must resolve to the merge commit containing this manifest with release-preflight green"
+  },
+  "contracts": {
+    "geometry": "GLUBALL-KNOT-V1",
+    "sampling": "GLUBALL-SAMPLING-V1",
+    "evidence": "GLUBALL-EVIDENCE-V1",
+    "sonification": "GLUBALL-SONIFICATION-V1",
+    "capture": "GLUBALL-CAPTURE-PROFILES-V1"
+  },
+  "implementation_versions": {
+    "gluball-core.js": "1.0.0",
+    "phase2-core.js": "1.0.0"
+  },
+  "sealed_vectors": {
+    "path": "test-vectors/phase2-v1.json",
+    "sampling_vector_names": [
+      "uniform_2p24_to_96",
+      "phi_2p24_to_96",
+      "uniform_2p32_to_4096"
+    ],
+    "receipt_sha256": "9d62bc513908b63c816e229dac48819ab84658cf145e6b4110ca4eec071fe49f"
+  },
+  "conformance": {
+    "javascript_reference": "included-and-tested",
+    "cpu_wasm": "not-in-v1.0.0",
+    "gpu": "not-in-v1.0.0",
+    "accelerator_authority": "residual-sidecar-only"
+  },
+  "provenance": {
+    "canonical_geometry_origin": "independently-specified-GLUBALL-KNOT-V1",
+    "historical_archives": "reference-only",
+    "retired_geometry_imported": false
+  },
+  "claim_boundaries": {
+    "receipts": "deterministic-identity-evidence-only",
+    "ternary_triality": "non-topological-metadata-only",
+    "global_tube_embeddedness": "not-claimed",
+    "physical_interpretation": "not-claimed",
+    "png_webm_cross_runtime_binary_identity": "not-claimed"
+  },
+  "rsh_handoff": {
+    "target_repository": "QSOLKCB/RSH",
+    "target_formal_surface": "RSH-GLUBALL-FORMAL-V1",
+    "integration_mode": "additive-geometry-family",
+    "allowed_after_tag_verification": true,
+    "required_tag": "v1.0.0",
+    "verify_tag_before_import": true
+  }
+}
