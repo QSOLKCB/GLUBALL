@@ -24,7 +24,8 @@
       mediaType: "application/json",
       deterministicPayload: true,
       binaryCrossRuntimeCanonical: true,
-      authority: "evidence-envelope"
+      authority: "canonical-evidence-bundle",
+      receiptScope: "embedded-evidence-envelope"
     }),
     "png-canvas-v1": Object.freeze({
       contract: CAPTURE_CONTRACT,
@@ -246,6 +247,10 @@
     ));
   }
 
+  function unsupportedCanonicalValue(value) {
+    return value === undefined || typeof value === "function" || typeof value === "symbol";
+  }
+
   function canonicalize(value, path = "$", seen = new Set()) {
     if (value === null || typeof value === "string" || typeof value === "boolean") return value;
     if (typeof value === "bigint") return value.toString();
@@ -253,26 +258,70 @@
       if (!Number.isFinite(value)) throw new TypeError(`${path} contains a non-finite number`);
       return Object.is(value, -0) ? 0 : value;
     }
-    if (Array.isArray(value)) return value.map((item, index) => canonicalize(item, `${path}[${index}]`, seen));
     if (typeof value === "object") {
       if (seen.has(value)) throw new TypeError(`${path} contains a cycle`);
       seen.add(value);
-      const output = {};
-      for (const key of Object.keys(value).sort()) {
-        const item = value[key];
-        if (item === undefined || typeof item === "function" || typeof item === "symbol") {
-          throw new TypeError(`${path}.${key} is not canonical-JSON compatible`);
+      try {
+        if (Array.isArray(value)) {
+          return value.map((item, index) => canonicalize(item, `${path}[${index}]`, seen));
         }
-        output[key] = canonicalize(item, `${path}.${key}`, seen);
+        const output = Object.create(null);
+        for (const key of Object.keys(value).sort()) {
+          const item = value[key];
+          if (unsupportedCanonicalValue(item)) {
+            throw new TypeError(`${path}.${key} is not canonical-JSON compatible`);
+          }
+          Object.defineProperty(output, key, {
+            value: canonicalize(item, `${path}.${key}`, seen),
+            enumerable: true,
+            writable: true,
+            configurable: true
+          });
+        }
+        return output;
+      } finally {
+        seen.delete(value);
       }
-      seen.delete(value);
-      return output;
     }
     throw new TypeError(`${path} is not canonical-JSON compatible`);
   }
 
   function canonicalJSONStringify(value) {
-    return JSON.stringify(canonicalize(value));
+    const seen = new Set();
+
+    function encode(current, path) {
+      if (current === null) return "null";
+      if (typeof current === "string" || typeof current === "boolean") return JSON.stringify(current);
+      if (typeof current === "bigint") return JSON.stringify(current.toString());
+      if (typeof current === "number") {
+        if (!Number.isFinite(current)) throw new TypeError(`${path} contains a non-finite number`);
+        return JSON.stringify(Object.is(current, -0) ? 0 : current);
+      }
+      if (typeof current === "object") {
+        if (seen.has(current)) throw new TypeError(`${path} contains a cycle`);
+        seen.add(current);
+        try {
+          if (Array.isArray(current)) {
+            const items = current.map((item, index) => encode(item, `${path}[${index}]`));
+            return `[${items.join(",")}]`;
+          }
+          const pairs = [];
+          for (const key of Object.keys(current).sort()) {
+            const item = current[key];
+            if (unsupportedCanonicalValue(item)) {
+              throw new TypeError(`${path}.${key} is not canonical-JSON compatible`);
+            }
+            pairs.push(`${JSON.stringify(key)}:${encode(item, `${path}.${key}`)}`);
+          }
+          return `{${pairs.join(",")}}`;
+        } finally {
+          seen.delete(current);
+        }
+      }
+      throw new TypeError(`${path} is not canonical-JSON compatible`);
+    }
+
+    return encode(value, "$");
   }
 
   function utf8Bytes(text) {
@@ -312,11 +361,91 @@
     });
   }
 
-  async function evidenceReceipt(envelopeInput) {
+  function requireRecord(value, label) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new TypeError(`${label} must be an object`);
+    }
+    return value;
+  }
+
+  function requireOwn(record, key, label) {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) {
+      throw new TypeError(`${label}.${key} is required`);
+    }
+    return record[key];
+  }
+
+  function requireNonEmptyString(value, label) {
+    if (typeof value !== "string" || value.length === 0) {
+      throw new TypeError(`${label} must be a non-empty string`);
+    }
+    return value;
+  }
+
+  function validateEvidenceEnvelope(envelopeInput) {
     const envelope = canonicalize(envelopeInput);
-    if (envelope.evidenceContract !== EVIDENCE_CONTRACT) {
+    requireRecord(envelope, "evidence envelope");
+    if (requireOwn(envelope, "evidenceContract", "evidence envelope") !== EVIDENCE_CONTRACT) {
       throw new RangeError(`evidenceContract must be ${EVIDENCE_CONTRACT}`);
     }
+
+    const geometry = requireRecord(requireOwn(envelope, "geometry", "evidence envelope"), "geometry");
+    if (requireOwn(geometry, "contract", "geometry") !== "GLUBALL-KNOT-V1") {
+      throw new RangeError("geometry.contract must be GLUBALL-KNOT-V1");
+    }
+    const parameters = requireRecord(requireOwn(geometry, "parameters", "geometry"), "geometry.parameters");
+    for (const key of ["majorRadius", "minorRadius", "tubeRadius", "uSegments", "vSegments"]) {
+      const value = requireOwn(parameters, key, "geometry.parameters");
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new TypeError(`geometry.parameters.${key} must be finite numeric data`);
+      }
+    }
+    for (const key of ["uSegments", "vSegments"]) {
+      if (!Number.isSafeInteger(parameters[key]) || parameters[key] <= 0) {
+        throw new RangeError(`geometry.parameters.${key} must be a positive integer`);
+      }
+    }
+
+    const sampling = requireRecord(requireOwn(envelope, "sampling", "evidence envelope"), "sampling");
+    if (requireOwn(sampling, "contract", "sampling") !== SAMPLING_CONTRACT) {
+      throw new RangeError(`sampling.contract must be ${SAMPLING_CONTRACT}`);
+    }
+    const samplingPolicy = requireOwn(sampling, "policy", "sampling");
+    const logicalCount = requireOwn(sampling, "logicalCount", "sampling");
+    const renderedCount = requireOwn(sampling, "renderedCount", "sampling");
+    const normalizedSampling = serializableSamplingConfig({
+      policy: samplingPolicy,
+      logicalCount,
+      renderedCount
+    });
+    if (sampling.policy !== normalizedSampling.policy ||
+        sampling.logicalCount !== normalizedSampling.logicalCount ||
+        sampling.renderedCount !== normalizedSampling.renderedCount) {
+      throw new RangeError("sampling fields are not in canonical GLUBALL-SAMPLING-V1 form");
+    }
+
+    const tick = requireOwn(envelope, "tick", "evidence envelope");
+    if (!Number.isSafeInteger(tick) || tick < 0) {
+      throw new RangeError("tick must be a non-negative integer");
+    }
+
+    const implementation = requireRecord(requireOwn(envelope, "implementation", "evidence envelope"), "implementation");
+    requireNonEmptyString(requireOwn(implementation, "name", "implementation"), "implementation.name");
+    requireNonEmptyString(requireOwn(implementation, "version", "implementation"), "implementation.version");
+
+    const runtime = requireRecord(requireOwn(envelope, "runtime", "evidence envelope"), "runtime");
+    requireNonEmptyString(requireOwn(runtime, "name", "runtime"), "runtime.name");
+    requireNonEmptyString(requireOwn(runtime, "version", "runtime"), "runtime.version");
+
+    if (requireOwn(envelope, "claimBoundary", "evidence envelope") !== "deterministic-identity-evidence-only") {
+      throw new RangeError("claimBoundary must be deterministic-identity-evidence-only");
+    }
+
+    return envelope;
+  }
+
+  async function evidenceReceipt(envelopeInput) {
+    const envelope = validateEvidenceEnvelope(envelopeInput);
     const canonicalJSON = canonicalJSONStringify(envelope);
     const domainBytes = utf8Bytes(RECEIPT_DOMAIN);
     const payloadBytes = utf8Bytes(canonicalJSON);
@@ -348,7 +477,7 @@
       presentation: canonicalize(source.presentation ?? {}),
       canonicalGeometryStateIncluded: false,
       note: profile.binaryCrossRuntimeCanonical
-        ? "canonical payload"
+        ? "canonical payload; any embedded evidence receipt covers the evidence envelope named by receiptScope"
         : "presentation settings are reproducible; encoded binary bytes are runtime-dependent"
     });
   }
@@ -389,6 +518,7 @@
     canonicalJSONStringify,
     sha256Hex,
     makeEvidenceEnvelope,
+    validateEvidenceEnvelope,
     evidenceReceipt,
     captureManifest
   });
