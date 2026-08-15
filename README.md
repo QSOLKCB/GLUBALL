@@ -6,6 +6,22 @@ GLUBALL is an independently specified successor implementation. The retired VORT
 
 **Live visual:** <https://qsolkcb.github.io/GLUBALL/>
 
+## v1.0.0 release candidate
+
+GLUBALL is now in a **v1.0.0 contract-freeze candidate**. The machine-readable release inventory is [`release/manifest-v1.0.0.json`](release/manifest-v1.0.0.json), both executable reference modules report implementation version `1.0.0`, and CI includes a release preflight that cross-checks versions, contract identifiers, sealed vectors, release metadata, and the RSH handoff gate.
+
+The candidate becomes the immutable release only after this freeze PR is merged and the exact merge commit is tagged `v1.0.0`.
+
+The v1.0.0 contract set is:
+
+- `GLUBALL-KNOT-V1`;
+- `GLUBALL-SAMPLING-V1`;
+- `GLUBALL-EVIDENCE-V1`;
+- `GLUBALL-SONIFICATION-V1`;
+- `GLUBALL-CAPTURE-PROFILES-V1`.
+
+CPU/WASM and GPU execution are deliberately outside the v1.0.0 release surface. They remain future residual-sidecar conformance work, not release blockers and not geometry authority.
+
 ## GLUBALL-KNOT-V1
 
 The canonical centreline is
@@ -20,7 +36,7 @@ C(t) = (
 
 with `R = 2.10`, `r = 0.85`, and a deterministic tube of radius `ρ = 0.34`. The surface uses the host-torus normal plus an orthogonal binormal, avoiding a renderer dependency on a Frenet-normal singularity assumption.
 
-The Pages laboratory renders the same canonical surface as a moving depth-sorted mesh. Animation state is an integer tick, with pause/step/reset controls and JSON export.
+The Pages laboratory renders the same canonical surface as a moving depth-sorted mesh. Animation state is an integer tick, with pause/step/reset controls and canonical evidence JSON export.
 
 ## Phase 2 deterministic/evidence layer
 
@@ -61,13 +77,14 @@ because software archaeology should occasionally be funny.
 node tests/smoke.mjs
 node tests/phase2.mjs
 node tests/agent-contract.mjs
+node tests/release-preflight.mjs
 ```
 
-The suites check the geometry invariants, exact logical sampling/golden vectors, worker-range coverage, phi-policy determinism, ternary/triality metadata boundaries, sonification event determinism, canonical JSON, sealed SHA-256 receipts, capture-profile claim boundaries, stress profiles, machine-readable agent rules, and semantic quarantine.
+The suites check the geometry invariants, exact logical sampling/golden vectors, worker-range coverage, phi-policy determinism, ternary/triality metadata boundaries, sonification event determinism, canonical JSON, sealed SHA-256 receipts, capture-profile claim boundaries, stress profiles, machine-readable agent rules, release-manifest alignment, and semantic quarantine.
 
 ## Formalization direction
 
-The contract is intentionally proof-friendly. A later RSH integration can target:
+The frozen contract is intentionally proof-friendly. After the `v1.0.0` tag is verified, the RSH integration can target:
 
 - `C(t + 2π) = C(t)`;
 - `C(t + 2π/3) = Rz(4π/3) C(t)`;
@@ -82,13 +99,13 @@ Global embeddedness of the thick tube is not claimed yet; it is a later theorem 
 ## Sequence
 
 1. **GLUBALL Phase 1 — complete:** clean canonical geometry + deterministic Pages visual.
-2. **GLUBALL Phase 2 — implemented, not yet frozen:** deterministic sampling/evidence/metadata/sonification/capture contracts and sealed vectors.
-3. **GLUBALL release freeze:** tag stable Phase 2 contracts and vectors.
-4. **RSH integration:** add GLUBALL as a separately versioned geometry family and formalize the stable contract under `RSH-GLUBALL-FORMAL-V1`.
+2. **GLUBALL Phase 2 — complete:** deterministic sampling/evidence/metadata/sonification/capture contracts and sealed vectors.
+3. **GLUBALL v1.0.0 freeze — current:** merge this release candidate with all four validation suites green, then tag the exact merge commit `v1.0.0`.
+4. **RSH integration:** after tag verification, add GLUBALL as a separately versioned geometry family and formalize the stable contract under `RSH-GLUBALL-FORMAL-V1`.
 
-Phase 2 implementation is intentionally **not** treated as permission to modify RSH yet; the tagged-release gates in [ROADMAP.md](ROADMAP.md) must be satisfied first.
+The tagged release gate in [ROADMAP.md](ROADMAP.md) must be satisfied before any RSH integration begins.
 
-For AI/coding agents, start with [`AGENTS.md`](AGENTS.md) and [`docs/AI_AGENT_CONTRACT.json`](docs/AI_AGENT_CONTRACT.json).
+See [`CHANGELOG.md`](CHANGELOG.md) and [`RELEASE_NOTES_v1.0.0.md`](RELEASE_NOTES_v1.0.0.md) for the release record. For AI/coding agents, start with [`AGENTS.md`](AGENTS.md) and [`docs/AI_AGENT_CONTRACT.json`](docs/AI_AGENT_CONTRACT.json).
 
 ## Licence
 

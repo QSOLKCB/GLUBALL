@@ -1,19 +1,21 @@
 # GLUBALL agent contract
 
-This repository is intentionally structured so AI coding/research agents can distinguish canonical geometry, deterministic evidence, presentation, historical reference material, and the future RSH handoff.
+This repository is intentionally structured so AI coding/research agents can distinguish canonical geometry, deterministic evidence, presentation, historical reference material, release state, and the future RSH handoff.
 
 ## Read order
 
 1. `docs/AI_AGENT_CONTRACT.json` — normative machine-readable project contract.
-2. `docs/GLUBALL_KNOT.md` — canonical `GLUBALL-KNOT-V1` geometry.
-3. `docs/PROVENANCE_BOUNDARY.md` — migration/provenance boundary.
-4. `docs/SAMPLING.md` — `GLUBALL-SAMPLING-V1` exact index contract.
-5. `docs/EVIDENCE.md` — `GLUBALL-EVIDENCE-V1` receipt contract.
-6. `docs/PORTABLE_REFERENCE.md` — Phase 2 runtime/conformance boundary.
-7. `ROADMAP.md` — implementation sequence and RSH entry gates.
-8. `gluball-core.js` — executable reference geometry.
-9. `phase2-core.js` — portable deterministic/evidence reference layer.
-10. `test-vectors/` and `tests/` — sealed vectors, executable invariants, and semantic quarantine.
+2. `release/manifest-v1.0.0.json` — machine-readable v1.0.0 release candidate/freeze manifest.
+3. `docs/GLUBALL_KNOT.md` — canonical `GLUBALL-KNOT-V1` geometry.
+4. `docs/PROVENANCE_BOUNDARY.md` — migration/provenance boundary.
+5. `docs/SAMPLING.md` — `GLUBALL-SAMPLING-V1` exact index contract.
+6. `docs/EVIDENCE.md` — `GLUBALL-EVIDENCE-V1` receipt contract.
+7. `docs/PORTABLE_REFERENCE.md` — Phase 2 runtime/conformance boundary.
+8. `ROADMAP.md` — implementation sequence and RSH entry gates.
+9. `CHANGELOG.md` and `RELEASE_NOTES_v1.0.0.md` — human release record.
+10. `gluball-core.js` — executable reference geometry.
+11. `phase2-core.js` — portable deterministic/evidence reference layer.
+12. `test-vectors/` and `tests/` — sealed vectors, executable invariants, release preflight, and semantic quarantine.
 
 If prose and `docs/AI_AGENT_CONTRACT.json` disagree, stop and request human review rather than guessing.
 
@@ -28,6 +30,22 @@ If prose and `docs/AI_AGENT_CONTRACT.json` disagree, stop and request human revi
 - Receipts prove deterministic identity under a declared encoding/runtime contract; they do not prove physical truth.
 - PNG/WebM encoder bytes are not cross-runtime canonical merely because capture settings are deterministic.
 - Accelerators are residual sidecars. CPU/WASM/GPU speed or agreement never promotes an accelerator to geometry authority.
+
+## GLUBALL v1.0.0 freeze rules
+
+The current release candidate freezes these contract identifiers when tag `v1.0.0` is created on the exact freeze merge commit:
+
+- `GLUBALL-KNOT-V1`;
+- `GLUBALL-SAMPLING-V1`;
+- `GLUBALL-EVIDENCE-V1`;
+- `GLUBALL-SONIFICATION-V1`;
+- `GLUBALL-CAPTURE-PROFILES-V1`.
+
+`release/manifest-v1.0.0.json` is the machine-readable release inventory. The release candidate sets both executable reference modules to implementation version `1.0.0` and deliberately excludes CPU/WASM and GPU execution from the v1.0.0 release surface.
+
+Do not describe the release candidate branch as a published immutable release. After merge, `v1.0.0` must resolve to the exact merge commit containing the manifest and all release-preflight checks must be green. A future agent must verify that tag before beginning RSH integration.
+
+After the tag exists, do not modify the meaning of any frozen V1 contract in place. Corrections that change contract semantics require a new versioned contract/release rather than silently moving v1.0.0.
 
 ## Implemented Phase 2 contracts
 
@@ -60,7 +78,9 @@ Do not casually regenerate golden hashes after a failing test.
 
 ## Future RSH handoff
 
-Do not open or implement the RSH integration until **every release-level Phase 3 entry gate** in `ROADMAP.md` and `docs/AI_AGENT_CONTRACT.json` is satisfied. Phase 2 implementation on a branch is not the same thing as a frozen tagged GLUBALL release.
+Do not open or implement the RSH integration until **every release-level Phase 3 entry gate** in `ROADMAP.md` and `docs/AI_AGENT_CONTRACT.json` is satisfied.
+
+Before doing any RSH work, query GitHub for `v1.0.0`, resolve it to an exact commit SHA, verify that commit contains `release/manifest-v1.0.0.json`, and confirm the release-preflight suite was green. If the tag is missing, moved, or does not identify the freeze commit, refuse the integration and report the failed gate.
 
 The RSH integration is additive:
 
@@ -79,6 +99,7 @@ At minimum run:
 node tests/smoke.mjs
 node tests/phase2.mjs
 node tests/agent-contract.mjs
+node tests/release-preflight.mjs
 ```
 
-A change that modifies a canonical contract must update its documentation, machine-readable contract, tests, and release/version metadata together.
+A change that modifies a canonical contract or release candidate must update its documentation, machine-readable contract, tests, release manifest, and version metadata together.

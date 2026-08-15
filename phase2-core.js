@@ -6,7 +6,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "2.0.0-alpha.1";
+  const VERSION = "1.0.0";
   const SAMPLING_CONTRACT = "GLUBALL-SAMPLING-V1";
   const EVIDENCE_CONTRACT = "GLUBALL-EVIDENCE-V1";
   const SONIFICATION_CONTRACT = "GLUBALL-SONIFICATION-V1";

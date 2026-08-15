@@ -44,38 +44,55 @@ See `docs/EVIDENCE.md`.
 ### 2D — cross-runtime conformance
 
 - [x] Add a portable JavaScript reference boundary before accelerator work.
-- [ ] Add CPU/WASM conformance where it improves portability.
+- [ ] Add CPU/WASM conformance in a later release where it materially improves portability.
 - [ ] Add GPU residual comparison only after a stable CPU/WASM reference exists.
-- [ ] Treat accelerator output as a residual sidecar, never geometry authority.
+- [x] Treat accelerator output as a residual sidecar, never geometry authority.
 - [x] Add bounded stress profiles derived from the useful large-logical-field engineering pattern without importing retired geometry.
+
+CPU/WASM and GPU surfaces are deliberately **not selected for GLUBALL v1.0.0**. Their absence therefore does not block the v1.0.0 contract freeze; if a later release includes either surface, the relevant conformance gate becomes mandatory for that release.
 
 See `docs/PORTABLE_REFERENCE.md`.
 
+### 2E — GLUBALL v1.0.0 contract freeze
+
+- [x] Prepare `release/manifest-v1.0.0.json` as the machine-readable release candidate manifest.
+- [x] Set `gluball-core.js` implementation version to `1.0.0` without changing geometry equations.
+- [x] Set `phase2-core.js` implementation version to `1.0.0` without changing Phase 2 contract semantics.
+- [x] Preserve the sealed sampling vectors and canonical receipt vector unchanged.
+- [x] Add `CHANGELOG.md` and `RELEASE_NOTES_v1.0.0.md`.
+- [x] Add `tests/release-preflight.mjs` and run it in CI.
+- [x] Record that CPU/WASM and GPU are outside the v1.0.0 release surface.
+- [ ] Merge the v1.0.0 freeze PR with all four validation suites green.
+- [ ] Tag the exact freeze merge commit as `v1.0.0`.
+- [ ] Publish the GitHub release using `RELEASE_NOTES_v1.0.0.md`.
+
+The freeze PR is a release candidate, not the release itself. The tagged commit is the immutable dependency RSH must cite.
+
 ## Phase 3 — RSH integration
 
-GLUBALL enters RSH only after the GLUBALL contracts are **released and frozen**, not merely implemented on a development branch. RSH integration is additive: the Robitaille–Slade helix remains intact and authoritative for its existing contract.
+GLUBALL enters RSH only after the GLUBALL contracts are **released and frozen**, not merely implemented or merged without a tag. RSH integration is additive: the Robitaille–Slade helix remains intact and authoritative for its existing contract.
 
 ### RSH entry gates
 
 All of the following must be true before opening the RSH integration PR:
 
-- [ ] `GLUBALL-KNOT-V1` is frozen in a tagged GLUBALL release.
-- [ ] `GLUBALL-SAMPLING-V1` is frozen in that release, with sealed index/golden vectors.
-- [ ] `GLUBALL-EVIDENCE-V1` is frozen in that release, with canonical receipt vectors.
-- [x] Reference geometry and deterministic sampling tests are green on the Phase 2 branch.
-- [ ] Any CPU/WASM conformance surface used by the release is green.
-- [x] The provenance/semantic quarantine test is green on the Phase 2 branch.
+- [ ] `GLUBALL-KNOT-V1` is frozen in tagged release `v1.0.0`.
+- [ ] `GLUBALL-SAMPLING-V1` is frozen in `v1.0.0`, with sealed index/golden vectors.
+- [ ] `GLUBALL-EVIDENCE-V1` is frozen in `v1.0.0`, with canonical receipt vectors.
+- [x] Reference geometry and deterministic sampling tests are green on the release candidate branch.
+- [x] CPU/WASM is not part of the v1.0.0 release surface, so no CPU/WASM conformance claim is being imported into RSH.
+- [x] The provenance/semantic quarantine test is green on the release candidate branch.
 - [x] Historical VORTEX/VORTEX2/NEXUS archives remain reference-only and are not copied into the canonical GLUBALL implementation.
 - [x] Ternary/triality metadata remains explicitly non-topological.
 - [x] No physical, empirical, biological, or consciousness claim has been introduced by the geometry/evidence layers.
 
-Implementation-complete checkboxes above do **not** satisfy the release-freeze gates. Until tagged contracts exist, agents must refuse RSH integration.
+Immediately before RSH integration, an agent must resolve tag `v1.0.0`, record its exact commit SHA, confirm that commit contains `release/manifest-v1.0.0.json`, and confirm the release-preflight suite was green. If any check fails, refuse the RSH integration.
 
 ### RSH software integration contract
 
 - [ ] Add GLUBALL as a separately versioned geometry family; do not replace the RSH helix or silently revise the existing geometry contract.
 - [ ] Import the stable GLUBALL mathematical contract and sealed reference vectors, not the browser renderer as scientific authority.
-- [ ] Preserve GLUBALL provenance identifiers and the exact source release/commit used by RSH.
+- [ ] Preserve GLUBALL provenance identifiers and the exact `v1.0.0` source commit used by RSH.
 - [ ] Keep renderer/capture behavior outside the theorem-facing geometry core.
 - [ ] Extend RSH release metadata only after runtime and formal checks are green.
 
@@ -128,7 +145,8 @@ If global embeddedness is later claimed, it requires its own theorem and an expl
 
 ## Phase 4 — archival release and publication
 
-- [ ] Publish a stable GLUBALL release only after Phase 2 contracts and conformance gates selected for that release are sealed.
-- [ ] Record immutable source commit, contract identifiers, test vectors, and receipts in release metadata.
-- [ ] After RSH integration is merged and machine-checked, cite the exact GLUBALL release from the RSH release/Zenodo metadata.
-- [ ] Keep GLUBALL and RSH as separately versioned projects with explicit provenance links rather than collapsing their histories.
+- [ ] Publish GLUBALL `v1.0.0` only after the freeze PR is merged and the release candidate checks are green.
+- [x] Record contract identifiers, test-vector path, canonical receipt hash, selected runtime surface, and provenance boundary in `release/manifest-v1.0.0.json`.
+- [ ] Record the immutable tag commit in GitHub/Zenodo release metadata after `v1.0.0` is created.
+- [ ] After RSH integration is merged and machine-checked, cite exact GLUBALL `v1.0.0` and its commit from the RSH release/Zenodo metadata.
+- [x] Keep GLUBALL and RSH as separately versioned projects with explicit provenance links rather than collapsing their histories.

@@ -6,7 +6,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const VERSION = "1.0.0-alpha.1";
+  const VERSION = "1.0.0";
   const CONTRACT = "GLUBALL-KNOT-V1";
   const TAU = Math.PI * 2;
   const P = 2;
