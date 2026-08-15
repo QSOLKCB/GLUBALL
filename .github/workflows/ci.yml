@@ -22,5 +22,7 @@ jobs:
         run: node --version
       - name: Geometry contract smoke suite
         run: node tests/smoke.mjs
+      - name: Phase 2 deterministic/evidence suite
+        run: node tests/phase2.mjs
       - name: AI agent contract validation
         run: node tests/agent-contract.mjs
