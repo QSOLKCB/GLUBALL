@@ -25,25 +25,26 @@
       <button id="step" type="button">Step +1</button>
       <button id="step60" type="button">Step +60</button>
       <button id="reset" type="button">Reset</button>
-      <button id="export" type="button">Export JSON</button>
+      <button id="export" type="button">Export Evidence JSON</button>
       <label><input id="wire" type="checkbox" checked> mesh</label>
     </section>
 
     <section class="telemetry">
-      <div><span>contract</span><strong>GLUBALL-KNOT-V1</strong></div>
+      <div><span>geometry</span><strong>GLUBALL-KNOT-V1</strong></div>
+      <div><span>sampling</span><strong>GLUBALL-SAMPLING-V1</strong></div>
+      <div><span>evidence</span><strong>GLUBALL-EVIDENCE-V1</strong></div>
       <div><span>topology</span><strong>(2,3) torus knot</strong></div>
-      <div><span>old centre-transfer rule</span><strong>REMOVED</strong></div>
       <div><span>animation tick</span><strong id="tick">0</strong></div>
       <div><span>display fps</span><strong id="fps">—</strong></div>
-      <div><span>frame policy</span><strong>fixed 60 Hz integer ticks</strong></div>
     </section>
 
     <footer>
-      <p>The moving renderer is a projection of the same canonical parametric geometry documented in <code>docs/GLUBALL_KNOT.md</code>. Rendering is not a physical claim and tube embeddedness is not yet a machine-checked theorem.</p>
-      <p class="punchline">No mouths. No anus. No problem.</p>
+      <p>The moving renderer is a projection of the canonical geometry documented in <code>docs/GLUBALL_KNOT.md</code>. Phase 2 sampling/evidence is a separate deterministic layer. Rendering and receipts are not physical claims, and tube embeddedness is not yet a machine-checked theorem.</p>
+      <p class="punchline">No mouths. No anus. Now with SHA-256 receipts.</p>
     </footer>
   </main>
   <script src="gluball-core.js"></script>
+  <script src="phase2-core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
