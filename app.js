@@ -95,7 +95,11 @@
         quads.push({
           points: [a, b, c, d],
           z: (a.z + b.z + c.z + d.z) / 4,
-          u: (a.u + b.u + c.u + d.u) / 4
+          // Use the periodic cell midpoint rather than averaging wrapped
+          // vertex coordinates. On the final cell the next ring is u=0;
+          // averaging would incorrectly place the colour coordinate near 0.5
+          // and create a visible seam stripe.
+          u: (i + 0.5) / uCount
         });
       }
     }
@@ -127,18 +131,30 @@
   function frame(now) {
     const delta = Math.min(250, Math.max(0, now - lastTime));
     lastTime = now;
+    let advanced = false;
+
     if (running) {
       accumulator += delta;
       while (accumulator >= fixedStepMs) {
         tick += 1;
         accumulator -= fixedStepMs;
+        advanced = true;
       }
     }
 
-    render();
-    fpsFrames += 1;
+    // The rendered image is a pure function of the integer tick and current
+    // UI/canvas state. Do not rebuild/sort/repaint the mesh when playback is
+    // paused (or when a high-refresh display has not advanced a 60 Hz tick).
+    // Step/reset/wire/resize handlers redraw explicitly when their state changes.
+    if (advanced) {
+      render();
+      fpsFrames += 1;
+    }
+
     if (now - fpsWindowStart >= 1000) {
-      fpsReadout.textContent = String(Math.round(fpsFrames * 1000 / (now - fpsWindowStart)));
+      fpsReadout.textContent = running
+        ? String(Math.round(fpsFrames * 1000 / (now - fpsWindowStart)))
+        : "0";
       fpsFrames = 0;
       fpsWindowStart = now;
     }
@@ -149,17 +165,22 @@
     running = !running;
     playButton.textContent = running ? "Pause" : "Play";
     accumulator = 0;
+    fpsFrames = 0;
+    fpsWindowStart = performance.now();
+    if (!running) fpsReadout.textContent = "0";
   });
   stepButton.addEventListener("click", () => {
     running = false;
     playButton.textContent = "Play";
     tick += 1;
+    fpsReadout.textContent = "0";
     render();
   });
   minuteButton.addEventListener("click", () => {
     running = false;
     playButton.textContent = "Play";
     tick += 60;
+    fpsReadout.textContent = "0";
     render();
   });
   resetButton.addEventListener("click", () => {
@@ -167,6 +188,7 @@
     playButton.textContent = "Play";
     tick = 0;
     accumulator = 0;
+    fpsReadout.textContent = "0";
     render();
   });
   wireToggle.addEventListener("change", render);
