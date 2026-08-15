@@ -1,0 +1,59 @@
+{
+  "schema": "gluball-phase2-vectors/1",
+  "contracts": {
+    "geometry": "GLUBALL-KNOT-V1",
+    "sampling": "GLUBALL-SAMPLING-V1",
+    "evidence": "GLUBALL-EVIDENCE-V1",
+    "sonification": "GLUBALL-SONIFICATION-V1"
+  },
+  "sampling_vectors": {
+    "uniform_2p24_to_96": {
+      "config": {"logicalCount":"16777216","renderedCount":96,"policy":"uniform-floor"},
+      "samples": [
+        {"renderedIndex":0,"logicalIndex":"0"},
+        {"renderedIndex":1,"logicalIndex":"174762"},
+        {"renderedIndex":2,"logicalIndex":"349525"},
+        {"renderedIndex":31,"logicalIndex":"5417642"},
+        {"renderedIndex":32,"logicalIndex":"5592405"},
+        {"renderedIndex":47,"logicalIndex":"8213845"},
+        {"renderedIndex":48,"logicalIndex":"8388608"},
+        {"renderedIndex":63,"logicalIndex":"11010048"},
+        {"renderedIndex":94,"logicalIndex":"16427690"},
+        {"renderedIndex":95,"logicalIndex":"16602453"}
+      ]
+    },
+    "phi_2p24_to_96": {
+      "config": {"logicalCount":"16777216","renderedCount":96,"policy":"phi-weyl-64"},
+      "samples": [
+        {"renderedIndex":0,"logicalIndex":"0"},
+        {"renderedIndex":1,"logicalIndex":"10368889"},
+        {"renderedIndex":2,"logicalIndex":"3960563"},
+        {"renderedIndex":31,"logicalIndex":"2668477"},
+        {"renderedIndex":32,"logicalIndex":"13037367"},
+        {"renderedIndex":47,"logicalIndex":"798553"},
+        {"renderedIndex":48,"logicalIndex":"11167442"},
+        {"renderedIndex":63,"logicalIndex":"15705844"},
+        {"renderedIndex":94,"logicalIndex":"1597106"},
+        {"renderedIndex":95,"logicalIndex":"11965995"}
+      ]
+    },
+    "uniform_2p32_to_4096": {
+      "config": {"logicalCount":"4294967296","renderedCount":4096,"policy":"uniform-floor"},
+      "samples": [
+        {"renderedIndex":0,"logicalIndex":"0"},
+        {"renderedIndex":1,"logicalIndex":"1048576"},
+        {"renderedIndex":2047,"logicalIndex":"2146435072"},
+        {"renderedIndex":2048,"logicalIndex":"2147483648"},
+        {"renderedIndex":4095,"logicalIndex":"4293918720"}
+      ]
+    }
+  },
+  "receipt_vector": {
+    "tick": 12345,
+    "runtime": {"name":"sealed-test-runtime","version":"1"},
+    "implementation": {"name":"gluball-js","version":"phase2-vector-1"},
+    "sha256": "9d62bc513908b63c816e229dac48819ab84658cf145e6b4110ca4eec071fe49f",
+    "payloadBytes": 633,
+    "hashedBytes": 653
+  }
+}
