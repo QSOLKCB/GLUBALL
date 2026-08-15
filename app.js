@@ -3,7 +3,9 @@
   "use strict";
 
   const core = window.GluballCore;
+  const phase2 = window.GluballPhase2;
   if (!core) throw new Error("GluballCore failed to load");
+  if (!phase2) throw new Error("GluballPhase2 failed to load");
 
   const canvas = document.getElementById("gluball-canvas");
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -17,6 +19,11 @@
   const fpsReadout = document.getElementById("fps");
 
   const mesh = core.buildMesh();
+  const samplingConfig = Object.freeze({
+    logicalCount: "16777216",
+    renderedCount: mesh.config.uSegments,
+    policy: phase2.UNIFORM_FLOOR
+  });
   const fixedStepMs = 1000 / 60;
   let running = true;
   let tick = 0;
@@ -95,7 +102,8 @@
         quads.push({
           points: [a, b, c, d],
           z: (a.z + b.z + c.z + d.z) / 4,
-          u: (a.u + b.u + c.u + d.u) / 4
+          // Periodic cell midpoint avoids the wrapped-seam colour discontinuity.
+          u: (i + 0.5) / uCount
         });
       }
     }
@@ -127,18 +135,27 @@
   function frame(now) {
     const delta = Math.min(250, Math.max(0, now - lastTime));
     lastTime = now;
+    let advanced = false;
+
     if (running) {
       accumulator += delta;
       while (accumulator >= fixedStepMs) {
         tick += 1;
         accumulator -= fixedStepMs;
+        advanced = true;
       }
     }
 
-    render();
-    fpsFrames += 1;
+    // No redraw while paused, and no duplicate redraw on >60 Hz displays.
+    if (advanced) {
+      render();
+      fpsFrames += 1;
+    }
+
     if (now - fpsWindowStart >= 1000) {
-      fpsReadout.textContent = String(Math.round(fpsFrames * 1000 / (now - fpsWindowStart)));
+      fpsReadout.textContent = running
+        ? String(Math.round(fpsFrames * 1000 / (now - fpsWindowStart)))
+        : "0";
       fpsFrames = 0;
       fpsWindowStart = now;
     }
@@ -149,17 +166,22 @@
     running = !running;
     playButton.textContent = running ? "Pause" : "Play";
     accumulator = 0;
+    fpsFrames = 0;
+    fpsWindowStart = performance.now();
+    if (!running) fpsReadout.textContent = "0";
   });
   stepButton.addEventListener("click", () => {
     running = false;
     playButton.textContent = "Play";
     tick += 1;
+    fpsReadout.textContent = "0";
     render();
   });
   minuteButton.addEventListener("click", () => {
     running = false;
     playButton.textContent = "Play";
     tick += 60;
+    fpsReadout.textContent = "0";
     render();
   });
   resetButton.addEventListener("click", () => {
@@ -167,24 +189,65 @@
     playButton.textContent = "Play";
     tick = 0;
     accumulator = 0;
+    fpsReadout.textContent = "0";
     render();
   });
   wireToggle.addEventListener("change", render);
-  exportButton.addEventListener("click", () => {
-    const payload = {
-      ...core.canonicalSnapshot(),
-      tick,
-      pose: core.tickPose(tick)
-    };
-    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `gluball-knot-v1-tick-${tick}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+
+  exportButton.addEventListener("click", async () => {
+    const previousLabel = exportButton.textContent;
+    exportButton.disabled = true;
+    exportButton.textContent = "Sealing…";
+    try {
+      const geometrySnapshot = core.canonicalSnapshot();
+      const envelope = phase2.makeEvidenceEnvelope({
+        geometrySnapshot,
+        sampling: samplingConfig,
+        tick,
+        implementation: { name: "gluball-browser", version: phase2.VERSION },
+        runtime: {
+          name: "browser-webcrypto",
+          userAgent: navigator.userAgent,
+          platform: navigator.platform || "unknown"
+        }
+      });
+      const receipt = await phase2.evidenceReceipt(envelope);
+      const capture = phase2.captureManifest({
+        profile: "json-canonical-v1",
+        tick,
+        presentation: {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+          wireframe: wireToggle.checked
+        }
+      });
+      const previewIndices = [0, 1, Math.floor(mesh.config.uSegments / 2), mesh.config.uSegments - 1];
+      const payload = {
+        geometry: geometrySnapshot,
+        tick,
+        pose: core.tickPose(tick),
+        sampling: phase2.serializableSamplingConfig(samplingConfig),
+        samplePreview: phase2.sampleVector(samplingConfig, previewIndices),
+        sonificationPreview: phase2.sonificationStream(samplingConfig, { count: 6, startTick: tick, ticksPerEvent: 120 }),
+        capture,
+        evidence: { envelope, receipt }
+      };
+      const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `gluball-evidence-v1-tick-${tick}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      window.alert(`GLUBALL evidence export failed: ${error.message}`);
+    } finally {
+      exportButton.disabled = false;
+      exportButton.textContent = previousLabel;
+    }
   });
 
   window.addEventListener("resize", render);
