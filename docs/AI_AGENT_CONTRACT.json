@@ -4,15 +4,20 @@
     "name": "GLUBALL",
     "repository": "QSOLKCB/GLUBALL",
     "canonical_geometry_contract": "GLUBALL-KNOT-V1",
-    "status": "bootstrap-and-optimization",
+    "status": "phase2-implemented-unfrozen",
     "license": "MPL-2.0"
   },
   "authority_order": [
     "docs/AI_AGENT_CONTRACT.json",
     "docs/GLUBALL_KNOT.md",
     "docs/PROVENANCE_BOUNDARY.md",
+    "docs/SAMPLING.md",
+    "docs/EVIDENCE.md",
+    "docs/PORTABLE_REFERENCE.md",
     "ROADMAP.md",
     "gluball-core.js",
+    "phase2-core.js",
+    "test-vectors",
     "tests"
   ],
   "canonical_geometry": {
@@ -66,40 +71,106 @@
     "retired_terms_policy": {
       "canonical_geometry": "forbidden",
       "canonical_state_or_equations": "forbidden",
+      "phase2_execution_core": "forbidden-as-geometry-semantics",
       "provenance_docs": "allowed",
       "non_authoritative_ui_satire": "allowed"
     }
   },
   "phase_2": {
-    "goal": "adapt useful deterministic and evidence engineering without restoring retired geometry",
-    "planned_contracts": [
+    "goal": "reimplement useful deterministic and evidence engineering without restoring retired geometry",
+    "implemented_contracts": [
       "GLUBALL-SAMPLING-V1",
-      "GLUBALL-EVIDENCE-V1"
+      "GLUBALL-EVIDENCE-V1",
+      "GLUBALL-SONIFICATION-V1",
+      "GLUBALL-CAPTURE-PROFILES-V1"
     ],
-    "sampling_requirements": [
-      "exact integer logical-to-rendered index mapping",
-      "bounded allocation",
-      "deterministic ordered coverage",
-      "reject overlap gaps overflow and order drift",
-      "seal golden index vectors"
-    ],
-    "evidence_requirements": [
-      "canonical serialization before hashing",
-      "domain-separated SHA-256 receipts",
-      "bind geometry contract",
-      "bind sampling contract",
-      "bind parameter set",
-      "bind logical and rendered counts",
-      "bind animation tick when applicable",
-      "bind implementation and runtime identity",
-      "receipts are identity evidence not physical truth"
-    ],
-    "optional_layers": {
-      "ternary_triality": "metadata-execution-sonification-only",
-      "fibonacci_phi_sampling": "separate-explicit-sampling-policy",
-      "sonification": "deterministic-event-stream",
-      "capture": "reproducible-json-png-webm",
-      "accelerators": "residual-sidecar-only"
+    "sampling": {
+      "contract": "GLUBALL-SAMPLING-V1",
+      "reference_implementation": "phase2-core.js",
+      "canonical_policy": "uniform-floor",
+      "uniform_formula": "logical(i)=floor(i*L/R)",
+      "integer_arithmetic": "JavaScript-BigInt",
+      "domain": "L>0 and 1<=R<=L and 0<=i<R",
+      "required_properties": [
+        "bounded allocation",
+        "exact integer logical-to-rendered index mapping",
+        "strictly ordered canonical mapping when R<=L",
+        "deterministic ordered coverage",
+        "reject overlap gaps invalid bounds and order drift",
+        "seal golden index vectors"
+      ],
+      "optional_policy": {
+        "name": "phi-weyl-64",
+        "increment_hex": "0x9e3779b97f4a7c15",
+        "formula": "word=(i*increment) mod 2^64; logical=floor(word*L/2^64)",
+        "must_be_explicit": true,
+        "may_replace_canonical_silently": false
+      },
+      "sealed_vectors": "test-vectors/phase2-v1.json"
+    },
+    "partitioning": {
+      "policy": "contiguous-quotient-remainder",
+      "ranges": "half-open [start,end)",
+      "effective_workers": "min(renderedCount, requestedWorkers)",
+      "required_properties": [
+        "first start is zero",
+        "last end is renderedCount",
+        "adjacent ranges touch exactly",
+        "sum lengths equals renderedCount",
+        "no overlap",
+        "no gaps"
+      ]
+    },
+    "evidence": {
+      "contract": "GLUBALL-EVIDENCE-V1",
+      "reference_implementation": "phase2-core.js",
+      "canonicalization": "recursive lexicographic object-key sort; array order preserved; BigInt decimal strings; reject non-finite unsupported and cyclic values",
+      "encoding": "compact UTF-8 JSON",
+      "hash": "SHA-256",
+      "domain": "GLUBALL-EVIDENCE-V1\\0",
+      "must_bind": [
+        "geometry contract",
+        "geometry parameter set",
+        "sampling contract",
+        "sampling policy",
+        "logical count",
+        "rendered count",
+        "animation tick",
+        "implementation identity",
+        "runtime identity"
+      ],
+      "claim_boundary": "deterministic-identity-evidence-only",
+      "sealed_receipt_vectors": "test-vectors/phase2-v1.json"
+    },
+    "metadata": {
+      "triality_lane_formula": "renderedIndex mod 3",
+      "ternary_address": "exact base-3 logical-index serialization",
+      "topology_status": "non-topological-metadata-only"
+    },
+    "sonification": {
+      "contract": "GLUBALL-SONIFICATION-V1",
+      "representation": "deterministic integer event stream",
+      "topology_status": "non-topological-metadata-only"
+    },
+    "capture": {
+      "contract": "GLUBALL-CAPTURE-PROFILES-V1",
+      "profiles": [
+        "json-canonical-v1",
+        "png-canvas-v1",
+        "webm-mediarecorder-v1"
+      ],
+      "json_binary_cross_runtime_canonical": true,
+      "png_binary_cross_runtime_canonical": false,
+      "webm_binary_cross_runtime_canonical": false,
+      "presentation_state_is_geometry": false
+    },
+    "portable_reference": {
+      "implementation": "phase2-core.js",
+      "stress_profiles": ["baseline", "dense", "large", "phiDense"],
+      "logical_allocation_policy": "never allocate proportional to logical cardinality",
+      "accelerator_authority": "residual-sidecar-only",
+      "wasm_status": "deferred",
+      "gpu_status": "deferred"
     }
   },
   "rsh_handoff": {
@@ -120,6 +191,11 @@
       "ternary-triality remains explicitly non-topological",
       "no new physical empirical biological or consciousness claims"
     ],
+    "current_gate_status": {
+      "implementation_tests": "green-required-before-merge",
+      "tagged_contract_freeze": "not-yet-satisfied",
+      "rsh_integration_allowed": false
+    },
     "software_rules": [
       "preserve existing RSH geometry contract unless explicitly version-bumped for an independent reason",
       "import stable GLUBALL mathematical contract and sealed vectors rather than browser renderer authority",
@@ -149,7 +225,7 @@
       "surface_periodicity_v",
       "tube_radius_invariance",
       "deterministic_mesh_index_wrap",
-      "exact_logical_to_rendered_index_properties"
+      "exact_logical_to_rendered_uniform_floor_properties"
     ],
     "rsh_audit_requirements": [
       "import new GLUBALL theorem surface without weakening RSH-FORMAL-V1",
@@ -173,6 +249,8 @@
     "on_contract_conflict": "stop-and-request-human-review",
     "on_unknown_provenance": "fail-closed",
     "on_geometry_contract_change": "update docs machine contract tests and version metadata together",
+    "on_sampling_vector_failure": "do-not-regenerate-goldens-without-contract-review",
+    "on_receipt_vector_failure": "do-not-regenerate-hash-without-contract-review",
     "on_rsh_handoff_before_entry_gates": "refuse-implementation-and-report-unsatisfied-gates",
     "on_renderer_change": "do-not-change-canonical-geometry-implicitly",
     "on_accelerator_result": "report-residual-only"
@@ -180,6 +258,7 @@
   "validation": {
     "commands": [
       "node tests/smoke.mjs",
+      "node tests/phase2.mjs",
       "node tests/agent-contract.mjs"
     ]
   }
