@@ -10,6 +10,8 @@ assert.equal(phase2.SAMPLING_CONTRACT, "GLUBALL-SAMPLING-V1");
 assert.equal(phase2.EVIDENCE_CONTRACT, "GLUBALL-EVIDENCE-V1");
 assert.equal(phase2.SONIFICATION_CONTRACT, "GLUBALL-SONIFICATION-V1");
 assert.equal(phase2.CAPTURE_CONTRACT, "GLUBALL-CAPTURE-PROFILES-V1");
+assert.equal(phase2.RECEIPT_DOMAIN, "GLUBALL-EVIDENCE-V1\0");
+assert.equal(phase2.RECEIPT_DOMAIN.charCodeAt(phase2.RECEIPT_DOMAIN.length - 1), 0);
 
 for (const fixture of Object.values(vectors.sampling_vectors)) {
   const indices = fixture.samples.map((sample) => sample.renderedIndex);
@@ -61,7 +63,23 @@ assert.ok(events.every((event) => event.metadataOnly === true));
 const canonicalA = phase2.canonicalJSONStringify({ z: 1, a: { y: 2, x: 3 } });
 const canonicalB = phase2.canonicalJSONStringify({ a: { x: 3, y: 2 }, z: 1 });
 assert.equal(canonicalA, canonicalB, "canonical JSON must ignore object insertion order");
+assert.equal(
+  phase2.canonicalJSONStringify(JSON.parse('{"2":"two","10":"ten"}')),
+  '{"10":"ten","2":"two"}',
+  "integer-like keys must still use lexicographic order"
+);
+const protoPayload = JSON.parse('{"__proto__":{"kept":true},"a":1}');
+assert.equal(
+  phase2.canonicalJSONStringify(protoPayload),
+  '{"__proto__":{"kept":true},"a":1}',
+  "__proto__ must remain an own canonical JSON data key"
+);
+assert.ok(Object.prototype.hasOwnProperty.call(phase2.canonicalize(protoPayload), "__proto__"));
 assert.throws(() => phase2.canonicalJSONStringify({ nope: Number.NaN }), /non-finite/);
+const arrayCycle = [];
+arrayCycle.push(arrayCycle);
+assert.throws(() => phase2.canonicalJSONStringify(arrayCycle), /contains a cycle/);
+assert.throws(() => phase2.canonicalize(arrayCycle), /contains a cycle/);
 
 const geometrySnapshot = {
   contract: "GLUBALL-KNOT-V1",
@@ -80,10 +98,16 @@ const envelope = phase2.makeEvidenceEnvelope({
 assert.equal(envelope.geometry.contract, "GLUBALL-KNOT-V1");
 assert.equal(envelope.sampling.contract, "GLUBALL-SAMPLING-V1");
 assert.equal(envelope.claimBoundary, "deterministic-identity-evidence-only");
+assert.deepEqual(phase2.validateEvidenceEnvelope(envelope), phase2.canonicalize(envelope));
 const receipt = await phase2.evidenceReceipt(envelope);
 assert.equal(receipt.sha256, vectors.receipt_vector.sha256);
 assert.equal(receipt.payloadBytes, vectors.receipt_vector.payloadBytes);
 assert.equal(receipt.hashedBytes, vectors.receipt_vector.hashedBytes);
+await assert.rejects(
+  phase2.evidenceReceipt({ evidenceContract: "GLUBALL-EVIDENCE-V1" }),
+  /geometry is required/,
+  "receipt boundary must reject incomplete V1 envelopes"
+);
 
 const changedTick = phase2.makeEvidenceEnvelope({
   geometrySnapshot,
@@ -99,6 +123,8 @@ assert.equal(png.profile.authority, "presentation-sidecar");
 assert.equal(png.profile.binaryCrossRuntimeCanonical, false);
 const json = phase2.captureManifest({ profile: "json-canonical-v1", tick: 5 });
 assert.equal(json.profile.binaryCrossRuntimeCanonical, true);
+assert.equal(json.profile.authority, "canonical-evidence-bundle");
+assert.equal(json.profile.receiptScope, "embedded-evidence-envelope");
 
 for (const profile of Object.values(phase2.STRESS_PROFILES)) {
   const config = phase2.normalizeSamplingConfig(profile);
@@ -113,6 +139,10 @@ assert.ok(html.indexOf('src="gluball-core.js"') < html.indexOf('src="phase2-core
 assert.ok(html.indexOf('src="phase2-core.js"') < html.indexOf('src="app.js"'));
 assert.match(appSource, /u: \(i \+ 0\.5\) \/ uCount/, "wrapped seam midpoint fix must remain present");
 assert.match(appSource, /if \(advanced\) \{\s*render\(\)/, "paused/high-refresh redraw guard must remain present");
+assert.match(appSource, /const exportTick = tick/);
+assert.match(appSource, /tick: exportTick/);
+assert.match(appSource, /canonicalJSONStringify\(payload\)/);
+assert.match(appSource, /gluball-evidence-v1-tick-\$\{exportTick\}/);
 assert.match(appSource, /makeEvidenceEnvelope/);
 assert.match(appSource, /evidenceReceipt/);
 
