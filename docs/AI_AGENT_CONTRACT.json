@@ -124,10 +124,11 @@
     "evidence": {
       "contract": "GLUBALL-EVIDENCE-V1",
       "reference_implementation": "phase2-core.js",
-      "canonicalization": "recursive lexicographic object-key sort; array order preserved; BigInt decimal strings; reject non-finite unsupported and cyclic values",
+      "canonicalization": "direct recursive lexicographic object-key emission; array order preserved; BigInt decimal strings; preserve all own JSON keys including __proto__; reject non-finite unsupported and cyclic values",
       "encoding": "compact UTF-8 JSON",
       "hash": "SHA-256",
-      "domain": "GLUBALL-EVIDENCE-V1\\0",
+      "domain": "GLUBALL-EVIDENCE-V1\u0000",
+      "schema_validation": "receipt boundary rejects envelopes missing geometry contract/parameters, sampling contract/policy/counts, tick, implementation name/version, runtime name/version, or claim boundary",
       "must_bind": [
         "geometry contract",
         "geometry parameter set",
@@ -160,6 +161,8 @@
         "webm-mediarecorder-v1"
       ],
       "json_binary_cross_runtime_canonical": true,
+      "json_profile_authority": "canonical-evidence-bundle",
+      "json_receipt_scope": "embedded-evidence-envelope",
       "png_binary_cross_runtime_canonical": false,
       "webm_binary_cross_runtime_canonical": false,
       "presentation_state_is_geometry": false
