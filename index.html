@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d0f">
+  <title>GLUBALL · deterministic knot laboratory</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">GLUBALL-KNOT-V1 · QSOL-IMC</p>
+      <h1>THE GLUBALL HAS ENTERED THE CHAT.</h1>
+      <p class="lede">An independently specified deterministic (2,3) torus-knot tube. No transfer portal required.</p>
+    </header>
+
+    <section class="stage" aria-label="Animated GLUBALL geometry">
+      <canvas id="gluball-canvas" width="1200" height="760"></canvas>
+      <div class="stamp">MOUTH / ANUS SUBSYSTEM: <strong>NOT FOUND</strong></div>
+    </section>
+
+    <section class="controls" aria-label="Animation controls">
+      <button id="play" type="button">Pause</button>
+      <button id="step" type="button">Step +1</button>
+      <button id="step60" type="button">Step +60</button>
+      <button id="reset" type="button">Reset</button>
+      <button id="export" type="button">Export JSON</button>
+      <label><input id="wire" type="checkbox" checked> mesh</label>
+    </section>
+
+    <section class="telemetry">
+      <div><span>contract</span><strong>GLUBALL-KNOT-V1</strong></div>
+      <div><span>topology</span><strong>(2,3) torus knot</strong></div>
+      <div><span>old centre-transfer rule</span><strong>REMOVED</strong></div>
+      <div><span>animation tick</span><strong id="tick">0</strong></div>
+      <div><span>display fps</span><strong id="fps">—</strong></div>
+      <div><span>frame policy</span><strong>fixed 60 Hz integer ticks</strong></div>
+    </section>
+
+    <footer>
+      <p>The moving renderer is a projection of the same canonical parametric geometry documented in <code>docs/GLUBALL_KNOT.md</code>. Rendering is not a physical claim and tube embeddedness is not yet a machine-checked theorem.</p>
+      <p class="punchline">No mouths. No anus. No problem.</p>
+    </footer>
+  </main>
+  <script src="gluball-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

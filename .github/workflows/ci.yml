@@ -1,0 +1,24 @@
+name: GLUBALL deterministic checks
+
+on:
+  push:
+    branches:
+      - main
+      - agent/operation-replace-dave-with-gluball
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Runtime
+        run: node --version
+      - name: Contract smoke suite
+        run: node tests/smoke.mjs
