@@ -4,17 +4,34 @@
     "name": "GLUBALL",
     "repository": "QSOLKCB/GLUBALL",
     "canonical_geometry_contract": "GLUBALL-KNOT-V1",
-    "status": "phase2-implemented-unfrozen",
+    "status": "v1.0.0-release-candidate",
     "license": "MPL-2.0"
+  },
+  "release_candidate": {
+    "version": "1.0.0",
+    "tag": "v1.0.0",
+    "manifest": "release/manifest-v1.0.0.json",
+    "freeze_base_commit": "3326feaa3040ac2e6e19cc8de524c97a56b7f010",
+    "implementation_versions": {
+      "gluball-core.js": "1.0.0",
+      "phase2-core.js": "1.0.0"
+    },
+    "tag_verification_rule": "before RSH import, verify v1.0.0 resolves to the merge commit containing this release manifest with release-preflight green",
+    "included_runtime_surface": "portable-javascript-reference",
+    "excluded_runtime_surfaces": ["cpu-wasm", "gpu"],
+    "release_status_before_tag": "candidate-not-yet-a-release"
   },
   "authority_order": [
     "docs/AI_AGENT_CONTRACT.json",
+    "release/manifest-v1.0.0.json",
     "docs/GLUBALL_KNOT.md",
     "docs/PROVENANCE_BOUNDARY.md",
     "docs/SAMPLING.md",
     "docs/EVIDENCE.md",
     "docs/PORTABLE_REFERENCE.md",
     "ROADMAP.md",
+    "CHANGELOG.md",
+    "RELEASE_NOTES_v1.0.0.md",
     "gluball-core.js",
     "phase2-core.js",
     "test-vectors",
@@ -78,6 +95,7 @@
   },
   "phase_2": {
     "goal": "reimplement useful deterministic and evidence engineering without restoring retired geometry",
+    "status": "implemented-and-selected-contracts-frozen-by-v1.0.0-candidate",
     "implemented_contracts": [
       "GLUBALL-SAMPLING-V1",
       "GLUBALL-EVIDENCE-V1",
@@ -172,8 +190,8 @@
       "stress_profiles": ["baseline", "dense", "large", "phiDense"],
       "logical_allocation_policy": "never allocate proportional to logical cardinality",
       "accelerator_authority": "residual-sidecar-only",
-      "wasm_status": "deferred",
-      "gpu_status": "deferred"
+      "wasm_status": "deferred-not-in-v1.0.0",
+      "gpu_status": "deferred-not-in-v1.0.0"
     }
   },
   "rsh_handoff": {
@@ -195,14 +213,15 @@
       "no new physical empirical biological or consciousness claims"
     ],
     "current_gate_status": {
-      "implementation_tests": "green-required-before-merge",
-      "tagged_contract_freeze": "not-yet-satisfied",
-      "rsh_integration_allowed": false
+      "implementation_tests": "green-required-on-freeze-pr",
+      "release_candidate_manifest": "prepared-v1.0.0",
+      "tagged_contract_freeze": "requires-v1.0.0-tag-on-freeze-pr-merge-commit",
+      "rsh_integration_allowed": "conditional-on-v1.0.0-tag-verification"
     },
     "software_rules": [
       "preserve existing RSH geometry contract unless explicitly version-bumped for an independent reason",
       "import stable GLUBALL mathematical contract and sealed vectors rather than browser renderer authority",
-      "record exact GLUBALL release and source commit",
+      "verify v1.0.0 tag and record its exact source commit before RSH integration",
       "keep presentation state outside theorem-facing core",
       "update RSH release metadata only after runtime and proof checks pass"
     ],
@@ -254,15 +273,17 @@
     "on_geometry_contract_change": "update docs machine contract tests and version metadata together",
     "on_sampling_vector_failure": "do-not-regenerate-goldens-without-contract-review",
     "on_receipt_vector_failure": "do-not-regenerate-hash-without-contract-review",
-    "on_rsh_handoff_before_entry_gates": "refuse-implementation-and-report-unsatisfied-gates",
+    "on_rsh_handoff_before_entry_gates": "verify-v1.0.0-tag-then-refuse-if-any-gate-remains-unsatisfied",
     "on_renderer_change": "do-not-change-canonical-geometry-implicitly",
-    "on_accelerator_result": "report-residual-only"
+    "on_accelerator_result": "report-residual-only",
+    "on_release_candidate_change": "run-release-preflight-and-require-human-review"
   },
   "validation": {
     "commands": [
       "node tests/smoke.mjs",
       "node tests/phase2.mjs",
-      "node tests/agent-contract.mjs"
+      "node tests/agent-contract.mjs",
+      "node tests/release-preflight.mjs"
     ]
   }
 }
