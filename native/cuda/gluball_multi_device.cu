@@ -31,6 +31,7 @@ constexpr const char* kSchema = "GLUBALL-MULTI-DEVICE-CUDA-SIDECAR-V1";
 constexpr const char* kContract = "GLUBALL-MULTI-DEVICE-CUDA-V1";
 constexpr const char* kGeometryContract = "GLUBALL-KNOT-V1";
 constexpr const char* kHostRuntimeContract = "GLUBALL-RUST-RUNTIME-V1";
+constexpr const char* kFloatingPointAdapterProfile = "gluball-cuda-f32-v1";
 constexpr std::uint32_t kDefaultU = 4096;
 constexpr std::uint32_t kDefaultV = 64;
 constexpr std::uint32_t kDefaultRepeats = 1;
@@ -508,7 +509,9 @@ int main(int argc, char** argv) {
         options.mode == "evidence" && readback_points == total_points;
     const bool local_invariant_acceptance =
         complete_output_readback && pass_finite && max_radius_error <= kRadiusGate;
-    const bool actual_multi_device_execution = devices.size() >= 2;
+    const bool multi_device_launch_observed = devices.size() >= 2;
+    const bool actual_multi_device_execution =
+        multi_device_launch_observed && local_invariant_acceptance;
 
     std::uint64_t aggregate_digest = 0;
     for (const DeviceContext& device : devices) {
@@ -521,12 +524,17 @@ int main(int argc, char** argv) {
         << "  \"contract\": \"" << kContract << "\",\n"
         << "  \"geometry_contract\": \"" << kGeometryContract << "\",\n"
         << "  \"host_runtime_contract\": \"" << kHostRuntimeContract << "\",\n"
+        << "  \"floating_point_adapter_profile\": \""
+        << kFloatingPointAdapterProfile << "\",\n"
+        << "  \"floating_point_precision\": \"f32\",\n"
         << "  \"status\": \""
         << (options.mode == "evidence" && !local_invariant_acceptance ? "FAIL" : "OBSERVED")
         << "\",\n"
         << "  \"mode\": \"" << options.mode << "\",\n"
         << "  \"repeat_run\": " << options.repeat_run << ",\n"
         << "  \"actual_cuda_execution\": true,\n"
+        << "  \"multi_device_launch_observed\": "
+        << (multi_device_launch_observed ? "true" : "false") << ",\n"
         << "  \"actual_multi_device_execution\": "
         << (actual_multi_device_execution ? "true" : "false") << ",\n"
         << "  \"single_host_execution\": true,\n"
