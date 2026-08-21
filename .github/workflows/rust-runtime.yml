@@ -1,0 +1,38 @@
+name: GLUBALL Rust runtime checks
+
+on:
+  push:
+    branches:
+      - main
+      - "agent/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  rust-runtime:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Toolchain
+        run: |
+          rustc --version
+          cargo --version
+      - name: Rust tests
+        run: cargo test --all-targets
+      - name: Release build
+        run: cargo build --release
+      - name: Sealed sampling self-test
+        run: cargo run --release -- self-test
+      - name: Deterministic CPU smoke simulation
+        run: cargo run --release -- simulate --u 192 --v 24 --repeats 2 --workers 4 --device-slots 2
+      - name: Existing frozen JavaScript checks
+        run: |
+          node tests/smoke.mjs
+          node tests/phase2.mjs
+          node tests/agent-contract.mjs
+          node tests/release-preflight.mjs
