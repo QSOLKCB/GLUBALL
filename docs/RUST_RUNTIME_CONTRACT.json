@@ -23,6 +23,7 @@
     "angles_derived_from_integer_indices": true
   },
   "execution": {
+    "simulation_config_construction": "validated-private-fields-only",
     "cpu_threads": "deterministic-contiguous-shards",
     "worker_join_order": "ascending-worker-id",
     "logical_device_slots": "round-robin-label-only-v0.1.0",
@@ -33,8 +34,16 @@
     "geometry_receipt_authority": false
   },
   "repeatability": {
-    "diagnostic_hash": "fnv1a64-over-runtime-ieee754-output-bits",
+    "diagnostic_hash": "xor-fold-of-position-bound-fnv1a64-record-hashes-over-runtime-ieee754-output-bits",
+    "record_binding": [
+      "linear-point-index",
+      "x-f64-bits",
+      "y-f64-bits",
+      "z-f64-bits"
+    ],
+    "worker_sharding_independent": true,
     "scope": "same-runtime-repeatability-diagnostic",
+    "cryptographic_receipt": false,
     "cross_runtime_canonical": false,
     "reason": "transcendental-library and architecture low-bit differences are not assumed away"
   },
