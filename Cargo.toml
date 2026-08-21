@@ -7,7 +7,7 @@ repository = "https://github.com/QSOLKCB/GLUBALL"
 description = "Bounded deterministic Rust runtime for GLUBALL-KNOT-V1"
 
 [lib]
-path = "runtime/rust/lib.rs"
+path = "runtime/rust/lib_v2.rs"
 
 [[bin]]
 name = "gluball-runtime"
