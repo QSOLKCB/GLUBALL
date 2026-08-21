@@ -1,0 +1,64 @@
+name: GLUBALL CUDA boundary checks
+
+on:
+  push:
+    branches:
+      - main
+      - "agent/**"
+    paths:
+      - "native/cuda/**"
+      - "scripts/cuda_preflight.sh"
+      - "research/multi-device-cuda/**"
+      - "docs/RUST_RUNTIME_CONTRACT.json"
+      - "docs/RSH_RUNTIME_HANDOFF.md"
+      - ".github/workflows/cuda-boundary.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "native/cuda/**"
+      - "scripts/cuda_preflight.sh"
+      - "research/multi-device-cuda/**"
+      - "docs/RUST_RUNTIME_CONTRACT.json"
+      - "docs/RSH_RUNTIME_HANDOFF.md"
+      - ".github/workflows/cuda-boundary.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source-boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate machine-readable contracts
+        run: |
+          python3 -m json.tool docs/RUST_RUNTIME_CONTRACT.json >/dev/null
+          python3 -m json.tool runtime/vast/market-2026-08-21.json >/dev/null
+          python3 -m json.tool research/glueball/sources.json >/dev/null
+      - name: CUDA adapter source boundary
+        run: |
+          test -s native/cuda/CMakeLists.txt
+          test -s native/cuda/gluball_multi_device.cu
+          grep -q 'GLUBALL-MULTI-DEVICE-CUDA-V1' native/cuda/gluball_multi_device.cu
+          grep -q 'cudaGetDeviceCount' native/cuda/gluball_multi_device.cu
+          grep -q 'cudaStreamCreateWithFlags' native/cuda/gluball_multi_device.cu
+          grep -q 'cudaStreamSynchronize' native/cuda/gluball_multi_device.cu
+          grep -q 'actual_multi_device_execution' native/cuda/gluball_multi_device.cu
+          grep -q 'reference_residual_checked' native/cuda/gluball_multi_device.cu
+          grep -q 'geometry_receipt_authority' native/cuda/gluball_multi_device.cu
+          grep -q 'raw_device_uuid_published' native/cuda/gluball_multi_device.cu
+          ! grep -q '"device_uuid"' native/cuda/gluball_multi_device.cu
+          grep -q 'actual_cuda_execution: false' research/multi-device-cuda/SPEC.md
+          grep -q 'geometry_receipt_authority: false' research/multi-device-cuda/SPEC.md
+      - name: Host preflight syntax
+        run: sh -n scripts/cuda_preflight.sh
+      - name: Frozen runtime remains green
+        run: |
+          cargo test --all-targets
+          cargo run --release -- self-test
+          node tests/smoke.mjs
+          node tests/phase2.mjs
+          node tests/agent-contract.mjs
+          node tests/release-preflight.mjs
