@@ -1,0 +1,19 @@
+[package]
+name = "gluball-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+repository = "https://github.com/QSOLKCB/GLUBALL"
+description = "Bounded deterministic Rust runtime for GLUBALL-KNOT-V1"
+
+[lib]
+path = "runtime/rust/lib.rs"
+
+[[bin]]
+name = "gluball-runtime"
+path = "runtime/rust/main.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
