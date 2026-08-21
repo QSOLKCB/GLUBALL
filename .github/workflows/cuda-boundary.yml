@@ -8,6 +8,8 @@ on:
     paths:
       - "native/cuda/**"
       - "scripts/cuda_preflight.sh"
+      - "runtime/vast/**"
+      - "research/glueball/**"
       - "research/multi-device-cuda/**"
       - "docs/RUST_RUNTIME_CONTRACT.json"
       - "docs/RSH_RUNTIME_HANDOFF.md"
@@ -18,6 +20,8 @@ on:
     paths:
       - "native/cuda/**"
       - "scripts/cuda_preflight.sh"
+      - "runtime/vast/**"
+      - "research/glueball/**"
       - "research/multi-device-cuda/**"
       - "docs/RUST_RUNTIME_CONTRACT.json"
       - "docs/RSH_RUNTIME_HANDOFF.md"
@@ -46,6 +50,7 @@ jobs:
           grep -q 'cudaStreamCreateWithFlags' native/cuda/gluball_multi_device.cu
           grep -q 'cudaStreamSynchronize' native/cuda/gluball_multi_device.cu
           grep -q 'actual_multi_device_execution' native/cuda/gluball_multi_device.cu
+          grep -q 'floating_point_adapter_profile' native/cuda/gluball_multi_device.cu
           grep -q 'reference_residual_checked' native/cuda/gluball_multi_device.cu
           grep -q 'geometry_receipt_authority' native/cuda/gluball_multi_device.cu
           grep -q 'raw_device_uuid_published' native/cuda/gluball_multi_device.cu
