@@ -1,0 +1,59 @@
+{
+  "schema": "gluball-glueball-research-sources/1",
+  "status": "non-authoritative-research-context",
+  "scientific_boundary": "These sources concern QCD glueballs and related topological ideas. They do not establish that GLUBALL-KNOT-V1 is a glueball model, a QCD solution, or a physical particle description.",
+  "sources": [
+    {
+      "id": "forkel-2004-qcd-vacuum-topology-glueballs",
+      "kind": "theory-background",
+      "title": "QCD Vacuum Topology and Glueballs",
+      "author": "Hilmar Forkel",
+      "year": 2004,
+      "arxiv": "hep-ph/0407270",
+      "url": "https://arxiv.org/abs/hep-ph/0407270",
+      "doi": "10.1063/1.1843614",
+      "relevance": [
+        "spin-0 glueball properties",
+        "QCD vacuum topology",
+        "instantons and topological charge screening",
+        "discussion of vortex and knot solutions of Faddeev-Niemi type as possible infrared degrees of freedom"
+      ],
+      "allowed_use": "hypothesis-generation and topology-aware benchmark inspiration only"
+    },
+    {
+      "id": "besiii-2024-x2370-spin-parity",
+      "kind": "experimental-candidate",
+      "title": "Determination of Spin-Parity Quantum Numbers of X(2370) as 0^-+ from J/psi -> gamma K_S^0 K_S^0 eta'",
+      "author": "BESIII Collaboration",
+      "year": 2024,
+      "journal": "Physical Review Letters 132, 181901",
+      "doi": "10.1103/PhysRevLett.132.181901",
+      "url": "https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.132.181901",
+      "relevance": [
+        "X(2370) spin-parity measured as 0^-+",
+        "mass and quantum numbers consistent with a light pseudoscalar glueball candidate"
+      ],
+      "claim_boundary": "candidate-consistency-not-definitive-pure-glueball-identification"
+    },
+    {
+      "id": "siegel-2024-bigthink-glueball",
+      "kind": "secondary-explainer",
+      "title": "New particle at last! Physicists detect the first glueball",
+      "author": "Ethan Siegel",
+      "year": 2024,
+      "url": "https://bigthink.com/starts-with-a-bang/new-particle-first-glueball/",
+      "relevance": [
+        "accessible explanation of glueballs",
+        "context for the X(2370) result"
+      ],
+      "claim_boundary": "secondary source; use primary BESIII paper for scientific assertions"
+    }
+  ],
+  "forbidden_inferences": [
+    "GLUBALL-KNOT-V1 is a QCD glueball",
+    "the (2,3) torus-knot geometry follows from QCD",
+    "a visual knot resemblance is physical evidence",
+    "X(2370) validates GLUBALL geometry",
+    "deterministic runtime receipts imply particle-physics truth"
+  ]
+}
