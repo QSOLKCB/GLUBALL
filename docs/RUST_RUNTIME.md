@@ -1,8 +1,8 @@
 # GLUBALL Rust runtime
 
-`GLUBALL-RUST-RUNTIME-V1` is an additive execution layer for the frozen `GLUBALL-KNOT-V1` geometry. It exists to move large deterministic simulations out of the browser/JavaScript performance envelope while preserving the geometry and sampling contracts as the authority boundary.
+`GLUBALL-RUST-RUNTIME-V1` is an additive execution layer for the frozen `GLUBALL-KNOT-V1` geometry contract. It exists to move large deterministic simulations out of the browser/JavaScript performance envelope while preserving the geometry and sampling contracts as the authority boundary.
 
-The v1.0.0 JavaScript release remains frozen. The Rust runtime does not silently revise `GLUBALL-KNOT-V1`, `GLUBALL-SAMPLING-V1`, or the v1.0.0 release manifest.
+Repository release metadata still labels `v1.0.0` as a **release candidate**. This PR does not promote that state or treat an unverified release candidate as an immutable dependency. The Rust runtime does not silently revise `GLUBALL-KNOT-V1`, `GLUBALL-SAMPLING-V1`, or the v1.0.0 release manifest; release/handoff consumers must continue to follow the tag-target and release-preflight verification rules in `AGENTS.md` and `docs/AI_AGENT_CONTRACT.json`.
 
 ## Numeric policy
 
@@ -88,11 +88,13 @@ cargo run --release -- simulate \
   --device-slots 8
 ```
 
-The simulation partitions the complete linear point domain into deterministic contiguous ranges. Worker results are joined in worker order, so the runtime does not rely on nondeterministic floating-point reduction order.
+The simulation partitions the complete linear point domain into deterministic contiguous ranges. Worker results are joined in worker order, so the runtime does not rely on nondeterministic floating-point reduction order. `SimulationConfig` fields are private and can only be created through the validated constructor, preventing library callers from bypassing count and overflow bounds.
 
 ## Diagnostic hash boundary
 
-The CPU runtime emits an FNV-1a diagnostic hash over the exact IEEE-754 output bits produced by that runtime execution. This is useful for same-runtime repeatability checks.
+The CPU runtime emits a same-runtime diagnostic formed by XOR-folding position-bound FNV-1a-64 hashes of each output record. Each record hash binds the linear point index and the exact IEEE-754 bits of `x`, `y`, and `z`.
+
+Because the global fold contains output records rather than worker IDs or shard boundaries, changing only `--workers` or logical device-slot scheduling does not change the aggregate diagnostic. The fold is deliberately a lightweight repeatability diagnostic, not a cryptographic receipt.
 
 It is deliberately **not** called a `GLUBALL-EVIDENCE-V1` receipt because transcendental-library and architecture differences can change low floating-point bits across runtimes. A future cross-runtime residual layer must compare the Rust output against the frozen reference under an explicit tolerance contract rather than pretending bitwise `sin`/`cos` identity is universal.
 
@@ -165,4 +167,4 @@ node tests/agent-contract.mjs
 node tests/release-preflight.mjs
 ```
 
-The Rust tests reproduce all three sealed sampling-vector families, validate bounded numeric inputs, check deterministic partitions, exercise geometry invariants, and confirm same-runtime simulation repeatability.
+The Rust tests reproduce all three sealed sampling-vector families, validate bounded numeric inputs, check deterministic partitions, exercise geometry invariants, confirm same-runtime simulation repeatability, and verify that the aggregate output diagnostic is independent of worker sharding.
