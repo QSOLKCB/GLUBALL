@@ -1,0 +1,57 @@
+{
+  "schema": "gluball-rust-runtime-contract/1",
+  "contract": "GLUBALL-RUST-RUNTIME-V1",
+  "version": "0.1.0",
+  "status": "experimental-native-runtime",
+  "authority": {
+    "geometry": "GLUBALL-KNOT-V1",
+    "sampling": "GLUBALL-SAMPLING-V1",
+    "runtime_may_redefine_geometry": false,
+    "runtime_may_redefine_sampling": false,
+    "accelerator_authority": "residual-sidecar-only"
+  },
+  "numeric_policy": {
+    "discrete_state": "integer",
+    "logical_count": "u64",
+    "sampling_intermediate": "u128",
+    "mesh_indices": "u32",
+    "worker_ranges": "u64-half-open",
+    "canonical_geometry_parameters": "signed-fixed-point-6-decimal-places",
+    "transcendental_boundary": "bounded-f64",
+    "reject_nan": true,
+    "reject_infinity": true,
+    "angles_derived_from_integer_indices": true
+  },
+  "execution": {
+    "cpu_threads": "deterministic-contiguous-shards",
+    "worker_join_order": "ascending-worker-id",
+    "logical_device_slots": "round-robin-label-only-v0.1.0",
+    "actual_cuda_execution": false,
+    "actual_multi_device_execution": false,
+    "distributed_execution": false,
+    "universal_speedup_claim": false,
+    "geometry_receipt_authority": false
+  },
+  "repeatability": {
+    "diagnostic_hash": "fnv1a64-over-runtime-ieee754-output-bits",
+    "scope": "same-runtime-repeatability-diagnostic",
+    "cross_runtime_canonical": false,
+    "reason": "transcendental-library and architecture low-bit differences are not assumed away"
+  },
+  "hardware_campaign": {
+    "market_snapshot": "runtime/vast/market-2026-08-21.json",
+    "market_data_authority": "planning-input-only",
+    "next_adapter": "rust-host-plus-cuda-residual-sidecar",
+    "required_cuda_claim_split": [
+      "cuda-source-exists",
+      "cuda-compiled",
+      "cuda-executed-and-read-back",
+      "residual-gates-pass"
+    ]
+  },
+  "physics_research": {
+    "source_registry": "research/glueball/sources.json",
+    "boundary_doc": "docs/GLUEBALL_RESEARCH_BOUNDARY.md",
+    "qcd_glueball_equivalence_claim": false
+  }
+}
