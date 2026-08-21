@@ -77,7 +77,10 @@ fi
 
 (
   cd "$ARTIFACT_DIR"
-  find . -maxdepth 1 -type f -print | LC_ALL=C sort | xargs sha256sum > SHA256SUMS.txt
+  find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print \
+    | LC_ALL=C sort \
+    | xargs sha256sum \
+    > SHA256SUMS.txt
 )
 
 printf '\nCampaign artifacts: %s\n' "$ARTIFACT_DIR"
