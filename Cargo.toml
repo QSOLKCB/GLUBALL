@@ -13,6 +13,10 @@ path = "runtime/rust/lib_v2.rs"
 name = "gluball-runtime"
 path = "runtime/rust/main.rs"
 
+[[bin]]
+name = "gluball-cuda-accept"
+path = "runtime/rust/cuda_accept.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
