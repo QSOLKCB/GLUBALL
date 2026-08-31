@@ -50,7 +50,34 @@ Raw GPU UUIDs are not queried or published.
 
 After the campaign attempt, an `if: always()` step writes `8gpu/SANITIZER_STATUS.txt` and re-finalizes the inner `8gpu/SHA256SUMS.txt` so that status record is covered by the campaign manifest.
 
-If `compute-sanitizer` is unavailable, the status file records explicit unavailability. If it is available, a green completion requires non-empty `memcheck.txt` and `racecheck.txt`; otherwise the status records `available-but-results-not-archived` and the workflow fails. The root bundle manifest is finalized afterward, binding the same status and campaign files again at the bundle level.
+Compute Sanitizer versions and container environments may place the sanitizer banner and summary on different output streams. The campaign runner currently archives both streams:
+
+```text
+memcheck.txt
+memcheck-run.json
+racecheck.txt
+racecheck-run.json
+```
+
+Despite the historical `*-run.json` suffix, a Compute Sanitizer wrapper may make those files transcript-shaped rather than strict JSON by surrounding the GLUBALL sidecar with sanitizer banner/summary text.
+
+When `compute-sanitizer` is available, the workflow does not treat mere file non-emptiness as success. It searches the archived memcheck candidates for the exact clean summary:
+
+```text
+ERROR SUMMARY: 0 errors
+```
+
+and the racecheck candidates for:
+
+```text
+RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
+```
+
+A green completion requires both clean summaries to be present in either the dedicated `*.txt` stream capture or the corresponding `*-run.json` transcript. `SANITIZER_STATUS.txt` records which files supplied the accepted summaries. If either clean summary cannot be verified, the status records `available-but-clean-results-not-verified` and the workflow fails closed.
+
+If `compute-sanitizer` is unavailable, the status file records explicit unavailability instead. The root bundle manifest is finalized afterward, binding the same status and campaign files again at the bundle level.
+
+This behavior is based on physical run `33384613127`, where Compute Sanitizer 2025.1 emitted clean memcheck and racecheck summaries to stdout, leaving `memcheck.txt` and `racecheck.txt` empty while the complete sanitizer transcripts were archived in `memcheck-run.json` and `racecheck-run.json`.
 
 ## Ephemeral runner registration
 
@@ -132,11 +159,13 @@ physical-evidence/
     cuda-output-3.f32le
     cuda-acceptance-3.json
     memcheck.txt
+    memcheck-run.json
     racecheck.txt
+    racecheck-run.json
     ...
 ```
 
-When Compute Sanitizer is unavailable, `SANITIZER_STATUS.txt` is retained while `memcheck.txt` and `racecheck.txt` are absent by design.
+When Compute Sanitizer is unavailable, `SANITIZER_STATUS.txt` is retained while sanitizer result files may be absent by design.
 
 `BUNDLE_SHA256SUMS.txt` is finalized under `if: always()` and binds the source/provenance files to all available campaign evidence. The campaign's own `SHA256SUMS.txt` remains the inner evidence manifest.
 
