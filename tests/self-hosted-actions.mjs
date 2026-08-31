@@ -9,12 +9,19 @@ const eightWorkflow = await readFile(
   new URL("../.github/workflows/physical-cuda-8gpu.yml", import.meta.url),
   "utf8"
 );
+const gb10Workflow = await readFile(
+  new URL("../.github/workflows/physical-cuda-gb10.yml", import.meta.url),
+  "utf8"
+);
+const vastCampaign = await readFile(
+  new URL("../scripts/run_vast_campaign.sh", import.meta.url),
+  "utf8"
+);
 
-function assertManualSelfHostedBoundary(text, label) {
+function explicitTriggers(text, label) {
   const triggerMatch = text.match(/\non:\n([\s\S]*?)\npermissions:/);
   assert.ok(triggerMatch, `${label} must have an explicit trigger block`);
   const triggers = triggerMatch[1];
-
   assert.match(triggers, /^\s{2}workflow_dispatch:/m);
   for (const forbidden of ["push", "pull_request", "pull_request_target", "schedule", "workflow_run"]) {
     assert.doesNotMatch(
@@ -23,7 +30,11 @@ function assertManualSelfHostedBoundary(text, label) {
       `${label} must not enable ${forbidden}`
     );
   }
+  return triggers;
+}
 
+function assertManualSelfHostedBoundary(text, label) {
+  explicitTriggers(text, label);
   assert.match(
     text,
     /runs-on:\s*\[self-hosted, linux, x64, gluball-vast-8gpu\]/,
@@ -92,5 +103,77 @@ assert.match(eightWorkflow, /unavailable: compute-sanitizer not found on PATH/);
 assert.match(eightWorkflow, /find \. -maxdepth 1 -type f ! -name SHA256SUMS\.txt/);
 assert.match(eightWorkflow, /> SHA256SUMS\.txt/);
 assert.match(eightWorkflow, /gluball-physical-cuda-8gpu-/);
+
+explicitTriggers(gb10Workflow, "GB10 physical validation workflow");
+assert.match(
+  gb10Workflow,
+  /runs-on:\s*\[self-hosted, linux, ARM64, gluball-vast-gb10\]/,
+  "GB10 validation must require the dedicated ARM64 Vast runner label"
+);
+assert.doesNotMatch(gb10Workflow, /\bmatrix\s*:/);
+assert.match(gb10Workflow, /permissions:\n\s{2}contents:\s*read/);
+assert.match(gb10Workflow, /- name: Validate dispatch inputs/);
+assert.match(gb10Workflow, /V1_RUNS.*3, 100/);
+assert.match(gb10Workflow, /integer\("V2_ITERATIONS", 2, 10_000\)/);
+assert.match(gb10Workflow, /v1_points = v1_u \* v1_v/);
+assert.match(gb10Workflow, /v1_full_readback_cap = 16_777_216/);
+assert.match(gb10Workflow, /V1_U \* V1_V = \{v1_points\} exceeds the V1 full-readback cap/);
+assert.match(gb10Workflow, /\/usr\/local\/cuda-13\.2\/bin/);
+assert.match(gb10Workflow, /test "\$\(uname -m\)" = aarch64/);
+assert.match(gb10Workflow, /test "\$model" = 'NVIDIA GB10'/);
+assert.match(gb10Workflow, /test "\$capability" = '12\.1'/);
+assert.match(gb10Workflow, /compute_121/);
+assert.match(gb10Workflow, /sm_121/);
+assert.doesNotMatch(gb10Workflow, /nvidia-smi\s+-L/);
+assert.doesNotMatch(gb10Workflow, /query-gpu=[^\n]*uuid/i);
+assert.match(gb10Workflow, /- name: GB10 bounded V1 full-readback acceptance/);
+assert.match(gb10Workflow, /MODE:\s*evidence/);
+assert.match(gb10Workflow, /GLUBALL_CUDA_ARCHITECTURES:\s*native/);
+assert.match(gb10Workflow, /ARTIFACT_DIR:.*physical-evidence\/gb10\/v1-acceptance/);
+assert.match(gb10Workflow, /reference_residual_checked/);
+assert.match(gb10Workflow, /conformance_acceptance/);
+assert.match(gb10Workflow, /V1_SANITIZER_STATUS\.txt/);
+assert.match(gb10Workflow, /ERROR SUMMARY: 0 errors/);
+const cleanRacecheck = /RACECHECK SUMMARY: 0 hazards displayed \(0 errors, 0 warnings\)/g;
+assert.ok(
+  (gb10Workflow.match(cleanRacecheck) ?? []).length >= 2,
+  "GB10 workflow must require the complete clean racecheck summary for both V1 and V2 sanitizer gates"
+);
+assert.doesNotMatch(
+  gb10Workflow,
+  /grep -Fq '0 hazards'/,
+  "GB10 sanitizer verification must not accept suffix substrings from nonzero racecheck counts"
+);
+assert.match(gb10Workflow, /"\$campaign\/memcheck\.txt" "\$campaign\/memcheck-run\.json"/);
+assert.match(gb10Workflow, /"\$campaign\/racecheck\.txt" "\$campaign\/racecheck-run\.json"/);
+const offStep = gb10Workflow.indexOf("- name: Runtime V2 graphs OFF");
+const onStep = gb10Workflow.indexOf("- name: Runtime V2 graphs ON");
+assert.ok(offStep >= 0 && onStep > offStep, "GB10 V2 workflow must run graphs OFF before graphs ON");
+assert.match(gb10Workflow, /CUDA_GRAPHS:\s*off/);
+assert.match(gb10Workflow, /CUDA_GRAPHS:\s*on/);
+assert.match(gb10Workflow, /repeatable_compact_metrics/);
+assert.match(gb10Workflow, /compact_metrics_clean/);
+assert.match(gb10Workflow, /compiled_cuda_arch_code.*1210/);
+assert.match(gb10Workflow, /aggregate_diagnostic_xor64/);
+assert.match(gb10Workflow, /observed_graph_wall_speedup/);
+assert.match(gb10Workflow, /- name: Compute Sanitizer Runtime V2 compact kernel/);
+assert.match(gb10Workflow, /--error-exitcode 86/);
+assert.match(gb10Workflow, /--error-exitcode 87/);
+assert.match(gb10Workflow, /- name: Finalize GB10 validation manifests/);
+assert.match(gb10Workflow, /VALIDATION_STATUS\.json/);
+assert.match(gb10Workflow, /SHA256SUMS\.txt/);
+assert.match(gb10Workflow, /BUNDLE_SHA256SUMS\.txt/);
+assert.match(gb10Workflow, /gluball-physical-gb10-/);
+assert.match(gb10Workflow, /uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
+assert.match(gb10Workflow, /V1 is correctness evidence/);
+assert.match(gb10Workflow, /Runtime V2 is performance observation only/);
+assert.match(gb10Workflow, /GPU output is not geometry authority/);
+
+assert.match(vastCampaign, /compute-sanitizer --tool memcheck --error-exitcode 86/);
+assert.match(vastCampaign, /compute-sanitizer --tool racecheck --error-exitcode 87/);
+assert.match(vastCampaign, /> "\$ARTIFACT_DIR\/memcheck-run\.json"/);
+assert.match(vastCampaign, /2> "\$ARTIFACT_DIR\/memcheck\.txt"/);
+assert.match(vastCampaign, /> "\$ARTIFACT_DIR\/racecheck-run\.json"/);
+assert.match(vastCampaign, /2> "\$ARTIFACT_DIR\/racecheck\.txt"/);
 
 console.log("GLUBALL self-hosted Actions boundary: PASS");

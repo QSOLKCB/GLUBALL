@@ -156,7 +156,7 @@ done
 
 if command -v compute-sanitizer >/dev/null 2>&1; then
   printf '%s\n' '== Compute Sanitizer memcheck =='
-  compute-sanitizer --tool memcheck \
+  compute-sanitizer --tool memcheck --error-exitcode 86 \
     "$BUILD_DIR/gluball-multi-cuda" \
     --mode evidence --u "$U" --v "$V" --repeats 1 \
     --devices "$DEVICES" --repeat-run 999 \
@@ -164,7 +164,7 @@ if command -v compute-sanitizer >/dev/null 2>&1; then
     2> "$ARTIFACT_DIR/memcheck.txt"
 
   printf '%s\n' '== Compute Sanitizer racecheck =='
-  compute-sanitizer --tool racecheck \
+  compute-sanitizer --tool racecheck --error-exitcode 87 \
     "$BUILD_DIR/gluball-multi-cuda" \
     --mode evidence --u "$U" --v "$V" --repeats 1 \
     --devices "$DEVICES" --repeat-run 1000 \
