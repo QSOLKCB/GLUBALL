@@ -39,6 +39,8 @@ assert.equal(contract.optimization_invariants.conditional_nonfinite_global_atomi
 assert.equal(contract.optimization_invariants.conditional_nonfinite_global_atomic.clean_case_global_nonfinite_atomics, 0);
 assert.equal(contract.optimization_invariants.symmetry_orbit_compression.enabled, false);
 assert.equal(contract.optimization_invariants.symmetry_orbit_compression.candidate_only, true);
+assert.equal(contract.v2_equivalence_gate.minimum_measured_iterations, 2);
+assert.equal(contract.v2_equivalence_gate.repeatability_must_be_nonvacuous, true);
 assert.equal(contract.v2_equivalence_gate.selected_devices_must_be_homogeneous, true);
 assert.equal(contract.v2_equivalence_gate.heterogeneous_exact_equivalence_forbidden, true);
 assert.deepEqual(contract.v2_equivalence_gate.homogeneous_signature_fields, ["name", "compute_capability", "compiled_cuda_arch_code"]);
@@ -118,6 +120,8 @@ assert.match(runScript, /--mode throughput/);
 assert.match(runScript, /python3 -m json\.tool/);
 assert.match(compareScript, /GLUBALL-CUDA-RUNTIME-V2/);
 assert.match(compareScript, /GLUBALL-CUDA-RUNTIME-V3/);
+assert.match(compareScript, /ITERATIONS must be an integer in \[2,10000\]/);
+assert.match(compareScript, /measured_iterations must be >= 2/);
 assert.match(compareScript, /aggregate_diagnostic_xor64/);
 assert.match(compareScript, /observed_max_tube_radius_error/);
 assert.match(compareScript, /exact_observation_equivalence/);
