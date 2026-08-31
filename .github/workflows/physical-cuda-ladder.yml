@@ -51,13 +51,14 @@ jobs:
           printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
 
-      - name: Record exact source and host
+      - name: Record exact source and redacted host inventory
         run: |
           set -eu
           mkdir -p physical-evidence
           git rev-parse HEAD | tee physical-evidence/SOURCE_COMMIT.txt
           uname -a | tee physical-evidence/HOST_UNAME.txt
-          nvidia-smi -L | tee physical-evidence/NVIDIA_DEVICES.txt
+          nvidia-smi --query-gpu=index,name --format=csv,noheader \
+            | tee physical-evidence/NVIDIA_DEVICES.txt
           nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv \
             | tee physical-evidence/NVIDIA_INVENTORY.csv
           test "$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)" -ge 4
@@ -116,7 +117,6 @@ jobs:
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import glob
           import json
-          import os
 
           print("## GLUBALL physical CUDA evidence ladder")
           print()
