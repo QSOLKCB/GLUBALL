@@ -32,8 +32,7 @@ function assertManualSelfHostedBoundary(text, label) {
   assert.doesNotMatch(text, /\bmatrix\s*:/, `${label} must not use matrix execution on the rented host`);
   assert.match(text, /permissions:\n\s{2}contents:\s*read/);
   assert.match(text, /- name: Validate dispatch inputs/);
-  assert.match(text, /positive_integer accepted_runs "\$ACCEPTED_RUNS_INPUT"/);
-  assert.match(text, /if \[ "\$value" -le 0 \]; then/);
+  assert.match(text, /(?:positive_integer|bounded_positive_integer) accepted_runs "\$ACCEPTED_RUNS_INPUT"/);
   assert.doesNotMatch(text, /nvidia-smi\s+-L/, `${label} logs must not publish raw CUDA UUIDs`);
   assert.doesNotMatch(text, /query-gpu=[^\n]*uuid/i, `${label} inventory must not query raw CUDA UUIDs`);
   assert.match(text, /- name: Finalize bundle integrity manifest/);
@@ -61,6 +60,10 @@ assert.match(workflow, /requires GPUs 0-3 to have one identical model/);
 assert.match(workflow, /SELECTED_GPU_MODEL\.txt/);
 
 assertManualSelfHostedBoundary(eightWorkflow, "8-GPU physical CUDA workflow");
+assert.match(eightWorkflow, /bounded_positive_integer accepted_runs "\$ACCEPTED_RUNS_INPUT" 100/);
+assert.match(eightWorkflow, /bounded_positive_integer u_segments "\$U_INPUT" 1000000/);
+assert.match(eightWorkflow, /bounded_positive_integer v_segments "\$V_INPUT" 65536/);
+assert.match(eightWorkflow, /bounded_positive_integer repeats "\$REPEATS_INPUT" 1024/);
 assert.match(eightWorkflow, /gpu_count.*nvidia-smi/);
 assert.match(eightWorkflow, /if \[ "\$gpu_count" -lt 8 \]; then/);
 assert.match(eightWorkflow, /first_eight_models/);
@@ -71,6 +74,12 @@ assert.match(eightWorkflow, /SELECTED_DEVICES\.txt/);
 assert.match(eightWorkflow, /DEVICES:\s*"0,1,2,3,4,5,6,7"/);
 assert.match(eightWorkflow, /LOGICAL_DEVICE_SLOTS:\s*"8"/);
 assert.match(eightWorkflow, /ARTIFACT_DIR:.*physical-evidence\/8gpu/);
+assert.match(eightWorkflow, /- name: Record sanitizer availability in campaign evidence/);
+assert.match(eightWorkflow, /SANITIZER_STATUS\.txt/);
+assert.match(eightWorkflow, /unavailable: compute-sanitizer not found on PATH/);
+assert.match(eightWorkflow, /- name: Verify sanitizer archival boundary/);
+assert.match(eightWorkflow, /memcheck\.txt/);
+assert.match(eightWorkflow, /racecheck\.txt/);
 assert.match(eightWorkflow, /gluball-physical-cuda-8gpu-/);
 
 console.log("GLUBALL self-hosted Actions boundary: PASS");
