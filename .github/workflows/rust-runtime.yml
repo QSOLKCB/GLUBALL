@@ -27,9 +27,11 @@ jobs:
       - name: Release build
         run: cargo build --release
       - name: Sealed sampling self-test
-        run: cargo run --release -- self-test
+        run: cargo run --release --bin gluball-runtime -- self-test
       - name: Deterministic CPU smoke simulation
-        run: cargo run --release -- simulate --u 192 --v 24 --repeats 2 --workers 4 --device-slots 2
+        run: cargo run --release --bin gluball-runtime -- simulate --u 192 --v 24 --repeats 2 --workers 4 --device-slots 2
+      - name: Current post-v1 state
+        run: node tests/current-state.mjs
       - name: Existing frozen JavaScript checks
         run: |
           node tests/smoke.mjs
