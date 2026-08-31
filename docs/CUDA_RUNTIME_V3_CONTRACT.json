@@ -1,0 +1,153 @@
+{
+  "schema": "gluball-cuda-runtime-v3-contract/1",
+  "contract": "GLUBALL-CUDA-RUNTIME-V3",
+  "status": "post-v1-runtime-research",
+  "geometry_contract": "GLUBALL-KNOT-V1",
+  "host_reference_contract": "GLUBALL-RUST-RUNTIME-V1",
+  "legacy_cuda_contract": "GLUBALL-MULTI-DEVICE-CUDA-V1",
+  "acceptance_contract": "GLUBALL-CUDA-ACCEPTANCE-V1",
+  "v2_reference_contract": "GLUBALL-CUDA-RUNTIME-V2",
+  "v2_reference_source_blob_sha": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+  "executable": "gluball-cuda-runtime-v3",
+  "mode": "throughput-only",
+  "purpose": "efficiency optimization under exact compact-observation equivalence to the frozen Runtime V2 baseline",
+  "compatibility": {
+    "v1_full_readback_evidence_path_unchanged": true,
+    "v1_acceptance_thresholds_unchanged": true,
+    "v1_geometry_authority_unchanged": true,
+    "v2_source_unchanged": true,
+    "may_replace_v1_acceptance_evidence": false,
+    "may_promote_performance_observation_to_geometry_authority": false
+  },
+  "torus_signature_orbit": {
+    "enabled": true,
+    "canonical_ordered_signature": [2, 3],
+    "coordinate_swap": "tau(a,b)=(b,a)",
+    "swapped_ordered_signature": [3, 2],
+    "swap_involutive": true,
+    "swap_twice_returns_canonical_signature": true,
+    "ordered_pair_equality_claim": false,
+    "runtime_geometry_uses_canonical_signature_only": true,
+    "swapped_embedding_enabled": false,
+    "knot_type_equivalence_used_for_acceptance": false,
+    "proof_pattern_donor": "QSOLKCB/SAW-1 SAW1/PairSwap.lean",
+    "boundary": "the signature orbit is runtime metadata and algebraic structure only; it does not alter GLUBALL-KNOT-V1 point generation or authorize collapsing distinct ordered signatures"
+  },
+  "optimization_invariants": {
+    "precomputed_u_frames": {
+      "enabled": true,
+      "scope": "per runtime setup per selected device",
+      "fields": ["centre", "normal", "binormal"],
+      "immutability_after_setup": true,
+      "reason": "all v points in a fixed u ring consume the same deterministic frame"
+    },
+    "precomputed_v_angles": {
+      "enabled": true,
+      "scope": "per runtime setup per selected device",
+      "fields": ["cos_angle", "sin_angle"],
+      "immutability_after_setup": true,
+      "reason": "angle lookup depends only on v and V"
+    },
+    "warp_per_u_ring_topology": {
+      "enabled": true,
+      "policy": "one warp owns one complete u ring; lanes stride across v",
+      "per_point_uv_divmod_eliminated": true,
+      "complete_ring_partition_required": true
+    },
+    "warp_shuffle_compact_reduction": {
+      "enabled": true,
+      "warp_size": 32,
+      "digest": "xor",
+      "radius": "max unsigned bits for non-negative finite float",
+      "nonfinite": "sum"
+    },
+    "conditional_nonfinite_global_atomic": {
+      "enabled": true,
+      "policy": "atomicAdd only when block-local nonfinite count is nonzero",
+      "clean_case_global_nonfinite_atomics": 0
+    },
+    "symmetry_orbit_compression": {
+      "enabled": false,
+      "candidate_only": true,
+      "proof_pattern_donor": "QSOLKCB/SAW-1 SAW1/PairSwap.lean",
+      "rule": "same orbit is not equality; no point may be removed or reconstructed from symmetry until a GLUBALL-specific transform and reconstruction equivalence are separately proven"
+    }
+  },
+  "v2_equivalence_gate": {
+    "external_harness": "scripts/compare_cuda_runtime_v2_v3.sh",
+    "must_match_exactly": [
+      "total_points_per_iteration",
+      "used_device_count",
+      "aggregate_diagnostic_xor64",
+      "observed_max_tube_radius_error",
+      "observed_nonfinite_records_max",
+      "resolved_compiled_architectures"
+    ],
+    "minimum_measured_iterations": 2,
+    "repeatability_must_be_nonvacuous": true,
+    "selected_devices_must_be_homogeneous": true,
+    "homogeneous_signature_fields": ["name", "compute_capability", "compiled_cuda_arch_code"],
+    "heterogeneous_exact_equivalence_forbidden": true,
+    "reason": "V2 point-level and V3 complete-ring quotient/remainder shards can assign different logical points to devices when selected architectures differ",
+    "both_runtimes_must_report_clean_repeatable_compact_metrics": true,
+    "equivalence_is_conformance_acceptance": false,
+    "equivalence_is_geometry_receipt": false
+  },
+  "bounded_tuning": {
+    "script": "scripts/tune_cuda_runtime_v3.sh",
+    "search_class": "bounded-exhaustive-combinatorial-performance-observation",
+    "default_block_sizes": [32, 64, 128, 256, 512, 1024],
+    "default_cuda_graph_modes": ["off", "on"],
+    "default_trials_per_candidate": 3,
+    "minimum_measured_iterations": 2,
+    "repeatability_must_be_nonvacuous": true,
+    "selected_devices_must_be_homogeneous_for_v2_equivalence": true,
+    "candidate_enumeration_deterministic": true,
+    "selection_tiebreak": ["lower observed wall median", "smaller block size", "graphs off before on"],
+    "best_observed_candidate_within_declared_set_only": true,
+    "rigorous_global_optimum_claim": false,
+    "unbounded_configuration_space_global_optimum_claim": false,
+    "reason_global_claim_is_forbidden": "wall-clock GPU performance is a noisy black-box observation without rigorous region bounds"
+  },
+  "method_selection": {
+    "used_now": [
+      "algebraic redundancy elimination",
+      "deterministic precomputation",
+      "combinatorial exhaustive candidate enumeration",
+      "zero-order timing observations"
+    ],
+    "not_used_for_v3_parameter_tuning": [
+      "Newton method",
+      "sequential quadratic programming",
+      "interior point Hessian methods",
+      "gradient descent",
+      "quasi-Newton methods",
+      "SPSA",
+      "quantum optimization"
+    ],
+    "not_used_reason": "the initial tunables are a small discrete finite set and the measured timing objective is non-differentiable/noisy at the interface",
+    "future_candidate": {
+      "flow_or_linear_programming": "may become appropriate for heterogeneous device shard scheduling after per-device service costs and constraints are measured; not enabled in Runtime V3"
+    }
+  },
+  "observation_semantics": {
+    "performance_observation_only": true,
+    "reference_residual_checked": false,
+    "conformance_acceptance": false,
+    "complete_output_readback": false,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "distributed_execution": false,
+    "raw_device_uuid_published": false
+  },
+  "hardware_policy": {
+    "maximum_selected_devices": 16,
+    "minimum_warp_size": 32,
+    "required_warp_size": 32,
+    "compile_architecture_must_be_recorded": true,
+    "resolved_compile_architecture_must_be_recorded": true,
+    "raw_cuda_uuid_must_not_be_published": true,
+    "weak_gpu_research_targets": ["sm_61", "sm_75"],
+    "weak_gpu_role": "performance microscope for redundancy, synchronization, indexing, and reduction overhead"
+  }
+}

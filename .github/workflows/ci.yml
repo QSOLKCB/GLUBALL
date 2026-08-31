@@ -30,5 +30,7 @@ jobs:
         run: |
           node tests/self-hosted-actions.mjs
           node tests/phase5c-multigpu-actions.mjs
+          node tests/cuda-runtime-v3.mjs
+          node tests/cuda-runtime-v3-workflow.mjs
       - name: v1.0.0 release preflight
         run: node tests/release-preflight.mjs

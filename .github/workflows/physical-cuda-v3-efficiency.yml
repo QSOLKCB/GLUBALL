@@ -1,0 +1,285 @@
+name: GLUBALL Runtime V3 weak-GPU efficiency
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_model_fragment:
+        description: "Expected GPU model substring, e.g. GTX 1080 Ti or GTX 1660 Ti"
+        required: true
+        default: "GTX 1080 Ti"
+        type: string
+      u_segments:
+        description: "V2/V3 comparison and tuning U segments"
+        required: true
+        default: "16384"
+        type: string
+      v_segments:
+        description: "V2/V3 comparison and tuning V segments"
+        required: true
+        default: "128"
+        type: string
+      warmup_iterations:
+        description: "Warmup iterations per process"
+        required: true
+        default: "20"
+        type: string
+      measured_iterations:
+        description: "Measured iterations per process"
+        required: true
+        default: "1000"
+        type: string
+      trials:
+        description: "Independent process trials per tuner candidate"
+        required: true
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gluball-runtime-v3-efficiency
+  cancel-in-progress: false
+
+jobs:
+  physical-efficiency:
+    runs-on: [self-hosted, linux, x64, gluball-vast-v3-efficiency]
+    timeout-minutes: 120
+    env:
+      EVIDENCE_ROOT: physical-evidence/runtime-v3-efficiency
+
+    steps:
+      - name: Checkout exact workflow ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Expose rented-host toolchains
+        run: |
+          set -eu
+          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
+
+      - name: Validate dispatch inputs
+        env:
+          MODEL_FRAGMENT: ${{ inputs.expected_model_fragment }}
+          U_INPUT: ${{ inputs.u_segments }}
+          V_INPUT: ${{ inputs.v_segments }}
+          WARMUP_INPUT: ${{ inputs.warmup_iterations }}
+          ITERATIONS_INPUT: ${{ inputs.measured_iterations }}
+          TRIALS_INPUT: ${{ inputs.trials }}
+        run: |
+          python3 - <<'PY'
+          import os
+          def integer(name, lo, hi):
+              raw = os.environ[name]
+              if not raw.isdecimal(): raise SystemExit(f"{name} must be decimal")
+              value = int(raw)
+              if not lo <= value <= hi: raise SystemExit(f"{name} must be in [{lo},{hi}]")
+          if not os.environ["MODEL_FRAGMENT"].strip(): raise SystemExit("expected_model_fragment must not be empty")
+          integer("U_INPUT", 12, 1_000_000)
+          integer("V_INPUT", 6, 65_536)
+          integer("WARMUP_INPUT", 0, 1_000)
+          integer("ITERATIONS_INPUT", 2, 10_000)
+          integer("TRIALS_INPUT", 1, 20)
+          PY
+
+      - name: Record and validate physical host provenance
+        env:
+          MODEL_FRAGMENT: ${{ inputs.expected_model_fragment }}
+        run: |
+          set -eu
+          root="$EVIDENCE_ROOT"
+          mkdir -p "$root"
+          git rev-parse HEAD | tee "$root/SOURCE_COMMIT.txt"
+          uname -a | tee "$root/HOST_UNAME.txt"
+          uname -m | tee "$root/HOST_ARCH.txt"
+          cat /etc/os-release > "$root/OS_RELEASE.txt"
+          test "$(uname -m)" = x86_64
+          nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv | tee "$root/NVIDIA_INVENTORY.csv"
+          model=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1p')
+          capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed -n '1p')
+          case "$model" in *"$MODEL_FRAGMENT"*) ;; *) printf 'unexpected GPU model: %s\n' "$model" >&2; exit 2 ;; esac
+          arch_digits=$(printf '%s' "$capability" | tr -d '.')
+          expected_compute="compute_${arch_digits}"
+          expected_sm="sm_${arch_digits}"
+          printf '%s\n' "$model" > "$root/SELECTED_GPU_MODEL.txt"
+          printf '%s\n' "$capability" > "$root/EXPECTED_COMPUTE_CAPABILITY.txt"
+          printf '%s\n' "$expected_sm" > "$root/EXPECTED_SM.txt"
+          printf '0\n' > "$root/SELECTED_DEVICES.txt"
+          nvcc --version | tee "$root/NVCC.txt"
+          nvcc --list-gpu-arch | tee "$root/NVCC_GPU_ARCHS.txt"
+          nvcc --list-gpu-code | tee "$root/NVCC_GPU_CODE.txt"
+          grep -Fxq "$expected_compute" "$root/NVCC_GPU_ARCHS.txt"
+          grep -Fxq "$expected_sm" "$root/NVCC_GPU_CODE.txt"
+          rustc --version | tee "$root/RUSTC.txt"
+          cargo --version | tee "$root/CARGO.txt"
+          cmake --version | tee "$root/CMAKE.txt"
+          compute-sanitizer --version | tee "$root/COMPUTE_SANITIZER.txt"
+          touch "$root/HOST_VALIDATION.ok"
+
+      - name: V1 bounded correctness anchor
+        env:
+          MODE: evidence
+          U: "512"
+          V: "32"
+          REPEATS: "1"
+          RUNS: "3"
+          DEVICES: "0"
+          RUST_WORKERS: "8"
+          LOGICAL_DEVICE_SLOTS: "1"
+          GLUBALL_CUDA_ARCHITECTURES: native
+          CAMPAIGN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}-runtime-v3-v1
+          ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/runtime-v3-efficiency/v1-acceptance
+        run: sh scripts/run_vast_campaign.sh
+
+      - name: Verify V1 correctness and sanitizer archive
+        run: |
+          set -eu
+          campaign="$EVIDENCE_ROOT/v1-acceptance"
+          python3 - "$campaign" <<'PY'
+          import json, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          records = sorted(root.glob("acceptance-run-*.json"))
+          if len(records) != 3: raise SystemExit(f"expected 3 V1 records, found {len(records)}")
+          for path in records:
+              payload = json.loads(path.read_text())
+              if payload.get("status") != "PASS": raise SystemExit(f"V1 failed: {path}")
+              if payload.get("reference_residual_checked") is not True: raise SystemExit(f"reference residual missing: {path}")
+              if payload.get("conformance_acceptance") is not True: raise SystemExit(f"conformance missing: {path}")
+              if payload.get("geometry_receipt_authority") is not False: raise SystemExit(f"geometry boundary changed: {path}")
+          PY
+          find_clean_summary() {
+            expected=$1; shift
+            for candidate in "$@"; do
+              if [ -s "$candidate" ] && grep -Fq "$expected" "$candidate"; then printf '%s\n' "$candidate"; return 0; fi
+            done
+            return 1
+          }
+          memcheck_source=$(find_clean_summary 'ERROR SUMMARY: 0 errors' "$campaign/memcheck.txt" "$campaign/memcheck-run.json" || true)
+          racecheck_source=$(find_clean_summary 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$campaign/racecheck.txt" "$campaign/racecheck-run.json" || true)
+          test -n "$memcheck_source"
+          test -n "$racecheck_source"
+          (cd "$campaign" && sha256sum -c SHA256SUMS.txt)
+          printf 'memcheck=%s\nracecheck=%s\n' "$memcheck_source" "$racecheck_source" > "$campaign/SANITIZER_STATUS.txt"
+          touch "$EVIDENCE_ROOT/V1_VALIDATION.ok"
+
+      - name: Runtime V2 V3 exact observation comparison
+        env:
+          U: ${{ inputs.u_segments }}
+          V: ${{ inputs.v_segments }}
+          REPEATS: "1"
+          DEVICES: "0"
+          BLOCK_SIZE: "256"
+          WARMUP: ${{ inputs.warmup_iterations }}
+          ITERATIONS: ${{ inputs.measured_iterations }}
+          CUDA_GRAPHS: "off"
+          GLUBALL_CUDA_ARCHITECTURES: native
+          BUILD_DIR: ${{ github.workspace }}/build/cuda-v3-ab
+          OUTPUT_DIR: ${{ github.workspace }}/physical-evidence/runtime-v3-efficiency/v2-v3-ab
+        run: sh scripts/compare_cuda_runtime_v2_v3.sh
+
+      - name: Runtime V3 bounded exhaustive tuner
+        env:
+          U: ${{ inputs.u_segments }}
+          V: ${{ inputs.v_segments }}
+          REPEATS: "1"
+          DEVICES: "0"
+          WARMUP: ${{ inputs.warmup_iterations }}
+          ITERATIONS: ${{ inputs.measured_iterations }}
+          TRIALS: ${{ inputs.trials }}
+          BLOCK_SIZES: "32,64,128,256,512,1024"
+          GRAPH_MODES: "off,on"
+          GLUBALL_CUDA_ARCHITECTURES: native
+          BUILD_DIR: ${{ github.workspace }}/build/cuda-v3-tune
+          OUTPUT_DIR: ${{ github.workspace }}/physical-evidence/runtime-v3-efficiency/tuning
+        run: sh scripts/tune_cuda_runtime_v3.sh
+
+      - name: Compute Sanitizer Runtime V3 bounded kernel
+        run: |
+          set -eu
+          root="$EVIDENCE_ROOT/v3-sanitizer"
+          mkdir -p "$root"
+          binary="$GITHUB_WORKSPACE/build/cuda-v3-tune/gluball-cuda-runtime-v3"
+          test -x "$binary"
+
+          set +e
+          compute-sanitizer --tool memcheck --error-exitcode 86 \
+            "$binary" --mode throughput --u 512 --v 32 --repeats 1 --devices 0 \
+            --block-size 256 --warmup 1 --iterations 2 --cuda-graphs off --repeat-run 0 \
+            > "$root/memcheck.txt" 2>&1
+          memcheck_status=$?
+          compute-sanitizer --tool racecheck --error-exitcode 87 \
+            "$binary" --mode throughput --u 512 --v 32 --repeats 1 --devices 0 \
+            --block-size 256 --warmup 1 --iterations 2 --cuda-graphs off --repeat-run 0 \
+            > "$root/racecheck.txt" 2>&1
+          racecheck_status=$?
+          set -e
+
+          printf 'memcheck_exit_status=%s\nracecheck_exit_status=%s\n' \
+            "$memcheck_status" "$racecheck_status" > "$root/SANITIZER_EXIT_STATUS.txt"
+
+          memcheck_clean=0
+          racecheck_clean=0
+          grep -Fq 'ERROR SUMMARY: 0 errors' "$root/memcheck.txt" || memcheck_clean=$?
+          grep -Fq 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$root/racecheck.txt" || racecheck_clean=$?
+
+          if [ "$memcheck_status" -ne 0 ] || [ "$racecheck_status" -ne 0 ] \
+            || [ "$memcheck_clean" -ne 0 ] || [ "$racecheck_clean" -ne 0 ]; then
+            printf 'Runtime V3 sanitizer failure: memcheck status=%s clean=%s, racecheck status=%s clean=%s\n' \
+              "$memcheck_status" "$memcheck_clean" "$racecheck_status" "$racecheck_clean" >&2
+            exit 88
+          fi
+          touch "$EVIDENCE_ROOT/V3_SANITIZER.ok"
+
+      - name: Finalize Runtime V3 efficiency bundle
+        if: always()
+        run: |
+          set -eu
+          root="$EVIDENCE_ROOT"
+          mkdir -p "$root"
+          python3 - "$root" <<'PY'
+          import json, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          required = {
+              "host_validation": root / "HOST_VALIDATION.ok",
+              "v1_validation": root / "V1_VALIDATION.ok",
+              "v2_v3_equivalence": root / "v2-v3-ab" / "EQUIVALENCE.json",
+              "tuning": root / "tuning" / "TUNING_RESULT.json",
+              "v3_sanitizer": root / "V3_SANITIZER.ok",
+          }
+          status = "PASS" if all(path.exists() for path in required.values()) else "FAIL"
+          payload = {
+              "schema": "gluball-runtime-v3-physical-efficiency-status/1",
+              "status": status,
+              "required_markers": {key: path.exists() for key, path in required.items()},
+              "performance_observation_only": True,
+              "reference_residual_checked": False,
+              "conformance_acceptance": False,
+              "geometry_receipt_authority": False,
+              "universal_speedup_claim": False,
+              "raw_device_uuid_published": False,
+          }
+          (root / "VALIDATION_STATUS.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+          PY
+          (cd "$root" && find . -type f ! -name BUNDLE_SHA256SUMS.txt -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > BUNDLE_SHA256SUMS.txt)
+
+      - name: Upload Runtime V3 efficiency evidence bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gluball-runtime-v3-efficiency-${{ github.run_id }}-${{ github.run_attempt }}
+          path: physical-evidence/runtime-v3-efficiency
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Require final PASS
+        if: always()
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path("physical-evidence/runtime-v3-efficiency/VALIDATION_STATUS.json").read_text())
+          if payload.get("status") != "PASS": raise SystemExit("Runtime V3 physical efficiency campaign did not reach PASS")
+          PY
