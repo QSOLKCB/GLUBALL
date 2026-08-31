@@ -19,7 +19,7 @@ on:
         default: "1"
         type: string
       accepted_runs:
-        description: "Required accepted 8-GPU evidence runs"
+        description: "Required accepted 8-GPU evidence runs (minimum 3)"
         required: true
         default: "3"
         type: string
@@ -90,6 +90,11 @@ jobs:
           bounded_positive_integer v_segments "$V_INPUT" 65536
           bounded_positive_integer repeats "$REPEATS_INPUT" 1024
           bounded_positive_integer accepted_runs "$ACCEPTED_RUNS_INPUT" 100
+          accepted_runs_normalized=$(printf '%s' "$ACCEPTED_RUNS_INPUT" | sed 's/^0*//')
+          if [ "$accepted_runs_normalized" -lt 3 ]; then
+            printf 'accepted_runs must be at least 3 for Phase 5B completion, got: %s\n' "$ACCEPTED_RUNS_INPUT" >&2
+            exit 2
+          fi
           bounded_positive_integer cuda_architecture "$CUDA_ARCH_INPUT" 999
 
       - name: Record exact source and redacted 8-GPU host inventory
