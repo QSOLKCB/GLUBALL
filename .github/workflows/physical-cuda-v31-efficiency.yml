@@ -131,36 +131,229 @@ jobs:
           ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/runtime-v31-efficiency/v1-acceptance
         run: sh scripts/run_vast_campaign.sh
 
-      - name: Verify V1 correctness and sanitizer archive
+      - name: Verify V1 correctness, repeatability, and sanitizer archive
         run: |
           set -eu
           campaign="$EVIDENCE_ROOT/v1-acceptance"
           python3 - "$campaign" <<'PY'
-          import json, sys
+          import hashlib
+          import json
+          import math
+          import re
+          import sys
           from pathlib import Path
+
           root = Path(sys.argv[1])
-          records = sorted(root.glob("acceptance-run-*.json"))
-          if len(records) != 3: raise SystemExit(f"expected 3 V1 records, found {len(records)}")
-          for path in records:
-              payload = json.loads(path.read_text())
-              if payload.get("status") != "PASS": raise SystemExit(f"V1 failed: {path}")
-              if payload.get("reference_residual_checked") is not True: raise SystemExit(f"reference residual missing: {path}")
-              if payload.get("conformance_acceptance") is not True: raise SystemExit(f"conformance missing: {path}")
-              if payload.get("geometry_receipt_authority") is not False: raise SystemExit(f"geometry boundary changed: {path}")
-          PY
-          find_clean_summary() {
-            expected=$1; shift
-            for candidate in "$@"; do
-              if [ -s "$candidate" ] && grep -Fq "$expected" "$candidate"; then printf '%s\n' "$candidate"; return 0; fi
-            done
-            return 1
+          expected_runs = 3
+          expected_ordinals = set(range(1, expected_runs + 1))
+          issues = []
+
+          def numbered(pattern, regex, label):
+              found = {}
+              for path in root.glob(pattern):
+                  match = re.fullmatch(regex, path.name)
+                  if not match:
+                      continue
+                  ordinal = int(match.group(1))
+                  if ordinal in found:
+                      issues.append(
+                          f"duplicate {label} ordinal {ordinal}: {found[ordinal].name}, {path.name}"
+                      )
+                      continue
+                  found[ordinal] = path
+              actual_ordinals = set(found)
+              if actual_ordinals != expected_ordinals:
+                  issues.append(
+                      f"{label} ordinals must equal {sorted(expected_ordinals)}, "
+                      f"found {sorted(actual_ordinals)}"
+                  )
+              return found
+
+          records = numbered(
+              "cuda-acceptance-*.json",
+              r"cuda-acceptance-(\d+)\.json",
+              "V1 acceptance record",
+          )
+          outputs = numbered(
+              "cuda-output-*.f32le",
+              r"cuda-output-(\d+)\.f32le",
+              "V1 output field",
+          )
+          sidecars = numbered(
+              "cuda-run-*.json",
+              r"cuda-run-(\d+)\.json",
+              "V1 CUDA sidecar",
+          )
+
+          if len(records) != expected_runs:
+              issues.append(f"expected {expected_runs} V1 acceptance records, found {len(records)}")
+          if len(outputs) != expected_runs:
+              issues.append(f"expected {expected_runs} V1 output fields, found {len(outputs)}")
+          if len(sidecars) != expected_runs:
+              issues.append(f"expected {expected_runs} V1 CUDA sidecars, found {len(sidecars)}")
+
+          def is_int(value, minimum=None):
+              return (
+                  isinstance(value, int)
+                  and not isinstance(value, bool)
+                  and (minimum is None or value >= minimum)
+              )
+
+          def is_positive_int(value):
+              return is_int(value, 1)
+
+          def is_nonnegative_number(value):
+              return (
+                  isinstance(value, (int, float))
+                  and not isinstance(value, bool)
+                  and math.isfinite(float(value))
+                  and float(value) >= 0.0
+              )
+
+          def is_fnv1a64(value):
+              return isinstance(value, str) and re.fullmatch(r"[0-9a-fA-F]{16}", value) is not None
+
+          stable_field_validators = {
+              "total_points": is_positive_int,
+              "checked_points": is_positive_int,
+              "max_component_residual": is_nonnegative_number,
+              "max_euclidean_residual": is_nonnegative_number,
+              "max_reported_tube_radius_error": is_nonnegative_number,
+              "worst_linear_index": lambda value: is_int(value, 0),
+              "evidence_artifact_fnv1a64": is_fnv1a64,
           }
-          memcheck_source=$(find_clean_summary 'ERROR SUMMARY: 0 errors' "$campaign/memcheck.txt" "$campaign/memcheck-run.json" || true)
-          racecheck_source=$(find_clean_summary 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$campaign/racecheck.txt" "$campaign/racecheck-run.json" || true)
-          test -n "$memcheck_source"
-          test -n "$racecheck_source"
+
+          payloads = {}
+          for ordinal in sorted(expected_ordinals):
+              path = records.get(ordinal)
+              if path is None:
+                  continue
+              try:
+                  payload = json.loads(path.read_text())
+              except Exception as exc:
+                  issues.append(f"cannot parse {path.name}: {exc}")
+                  continue
+              payloads[ordinal] = payload
+
+              for field, validator in stable_field_validators.items():
+                  if field not in payload:
+                      issues.append(f"{path.name}: missing required stable field {field}")
+                  elif not validator(payload[field]):
+                      issues.append(f"{path.name}: invalid type/value for stable field {field}")
+
+              discovered_output = outputs.get(ordinal)
+              discovered_sidecar = sidecars.get(ordinal)
+              evidence_output_path = payload.get("evidence_output_path")
+              cuda_sidecar_path = payload.get("cuda_sidecar_path")
+              checks = {
+                  "status": payload.get("status") == "PASS",
+                  "repeat_run": is_int(payload.get("repeat_run"), 1) and payload.get("repeat_run") == ordinal,
+                  "complete_output_readback": payload.get("complete_output_readback") is True,
+                  "reference_residual_checked": payload.get("reference_residual_checked") is True,
+                  "conformance_acceptance": payload.get("conformance_acceptance") is True,
+                  "geometry_receipt_authority": payload.get("geometry_receipt_authority") is False,
+                  "universal_speedup_claim": payload.get("universal_speedup_claim") is False,
+                  "checked_points_equal_total": (
+                      is_positive_int(payload.get("checked_points"))
+                      and is_positive_int(payload.get("total_points"))
+                      and payload.get("checked_points") == payload.get("total_points")
+                  ),
+                  "nonfinite_records_zero": is_int(payload.get("nonfinite_records"), 0) and payload.get("nonfinite_records") == 0,
+                  "matching_output_path": (
+                      discovered_output is not None
+                      and isinstance(evidence_output_path, str)
+                      and Path(evidence_output_path).name == discovered_output.name
+                  ),
+                  "matching_sidecar_path": (
+                      discovered_sidecar is not None
+                      and isinstance(cuda_sidecar_path, str)
+                      and Path(cuda_sidecar_path).name == discovered_sidecar.name
+                  ),
+              }
+              for name, passed in checks.items():
+                  if not passed:
+                      issues.append(f"{path.name}: failed {name}")
+
+          stable_values = {}
+          if set(payloads) == expected_ordinals:
+              for field, validator in stable_field_validators.items():
+                  values = [payloads[ordinal].get(field) for ordinal in sorted(expected_ordinals)]
+                  if not all(validator(value) for value in values):
+                      continue
+                  stable_values[field] = values[0]
+                  if any(value != values[0] for value in values[1:]):
+                      issues.append(f"V1 acceptance field not repeatable: {field}")
+
+          output_sha256_by_run = {
+              str(ordinal): hashlib.sha256(outputs[ordinal].read_bytes()).hexdigest()
+              for ordinal in sorted(expected_ordinals)
+              if ordinal in outputs
+          }
+          output_sha256 = [
+              output_sha256_by_run[str(ordinal)]
+              for ordinal in sorted(expected_ordinals)
+              if str(ordinal) in output_sha256_by_run
+          ]
+          output_repeatable = (
+              set(outputs) == expected_ordinals
+              and len(output_sha256) == expected_runs
+              and len(set(output_sha256)) == 1
+          )
+          if set(outputs) == expected_ordinals and not output_repeatable:
+              issues.append("V1 complete output fields are not byte-identical across repeats")
+
+          def find_clean_summary(expected, candidates):
+              for path in candidates:
+                  if path.is_file() and path.stat().st_size > 0 and expected in path.read_text(errors="replace"):
+                      return path
+              return None
+
+          memcheck_source = find_clean_summary(
+              "ERROR SUMMARY: 0 errors",
+              [root / "memcheck.txt", root / "memcheck-run.json"],
+          )
+          racecheck_source = find_clean_summary(
+              "RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)",
+              [root / "racecheck.txt", root / "racecheck-run.json"],
+          )
+          if memcheck_source is None:
+              issues.append("clean V1 memcheck summary not found in either archival location")
+          if racecheck_source is None:
+              issues.append("clean V1 racecheck summary not found in either archival location")
+
+          summary = {
+              "schema": "gluball-runtime-v31-v1-validation/1",
+              "status": "PASS" if not issues else "FAIL",
+              "expected_runs": expected_runs,
+              "expected_ordinals": sorted(expected_ordinals),
+              "acceptance_record_ordinals": sorted(records),
+              "cuda_sidecar_ordinals": sorted(sidecars),
+              "output_ordinals": sorted(outputs),
+              "acceptance_record_files": [records[ordinal].name for ordinal in sorted(records)],
+              "cuda_sidecar_files": [sidecars[ordinal].name for ordinal in sorted(sidecars)],
+              "output_files": [outputs[ordinal].name for ordinal in sorted(outputs)],
+              "acceptance_record_count": len(records),
+              "cuda_sidecar_count": len(sidecars),
+              "output_file_count": len(outputs),
+              "output_sha256": output_sha256,
+              "output_sha256_by_run": output_sha256_by_run,
+              "output_repeatable_byte_identical": output_repeatable,
+              "stable_acceptance_fields": stable_values,
+              "memcheck_clean_summary_source": memcheck_source.name if memcheck_source else None,
+              "racecheck_clean_summary_source": racecheck_source.name if racecheck_source else None,
+              "dual_location_sanitizer_archive_observed": bool(
+                  memcheck_source and racecheck_source
+                  and (memcheck_source.name.endswith("-run.json") or racecheck_source.name.endswith("-run.json"))
+              ),
+              "geometry_receipt_authority": False,
+              "universal_speedup_claim": False,
+              "issues": issues,
+          }
+          (root / "V1_VALIDATION.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+          if issues:
+              raise SystemExit("; ".join(issues))
+          PY
           (cd "$campaign" && sha256sum -c SHA256SUMS.txt)
-          printf 'memcheck=%s\nracecheck=%s\n' "$memcheck_source" "$racecheck_source" > "$campaign/SANITIZER_STATUS.txt"
           touch "$EVIDENCE_ROOT/V1_VALIDATION.ok"
 
       - name: V2 V3 V3.1 exact comparison atomic
@@ -274,19 +467,48 @@ jobs:
           import json, sys
           from pathlib import Path
           root = Path(sys.argv[1])
-          required = {
-              "host_validation": root / "HOST_VALIDATION.ok",
-              "v1_validation": root / "V1_VALIDATION.ok",
-              "atomic_equivalence": root / "ab-atomic" / "EQUIVALENCE.json",
-              "two_stage_equivalence": root / "ab-two-stage" / "EQUIVALENCE.json",
-              "tuning": root / "tuning" / "TUNING_RESULT.json",
-              "v31_sanitizer": root / "V31_SANITIZER.ok",
-          }
-          status = "PASS" if all(path.exists() for path in required.values()) else "FAIL"
+          ordered_required = [
+              ("host_validation", root / "HOST_VALIDATION.ok"),
+              ("v1_validation", root / "V1_VALIDATION.ok"),
+              ("atomic_equivalence", root / "ab-atomic" / "EQUIVALENCE.json"),
+              ("two_stage_equivalence", root / "ab-two-stage" / "EQUIVALENCE.json"),
+              ("tuning", root / "tuning" / "TUNING_RESULT.json"),
+              ("v31_sanitizer", root / "V31_SANITIZER.ok"),
+          ]
+          observed = {key: path.exists() for key, path in ordered_required}
+          status = "PASS" if all(observed.values()) else "FAIL"
+          completed = [key for key, present in observed.items() if present]
+          first_incomplete = next((key for key, present in observed.items() if not present), None)
+
+          v1_summary_path = root / "v1-acceptance" / "V1_VALIDATION.json"
+          v1_summary = None
+          if v1_summary_path.exists():
+              try:
+                  v1_summary = json.loads(v1_summary_path.read_text())
+              except Exception:
+                  v1_summary = {"status": "UNREADABLE"}
+
+          excluded_finalizer_files = {"VALIDATION_STATUS.json", "BUNDLE_SHA256SUMS.txt"}
+          retained_evidence_files = sorted(
+              str(path.relative_to(root))
+              for path in root.rglob("*")
+              if path.is_file() and path.name not in excluded_finalizer_files
+          )
+          evidence_retained = bool(retained_evidence_files)
+
           payload = {
               "schema": "gluball-runtime-v31-physical-efficiency-status/1",
               "status": status,
-              "required_markers": {key: path.exists() for key, path in required.items()},
+              "required_markers": observed,
+              "completed_required_stages": completed,
+              "first_incomplete_required_stage": first_incomplete,
+              "evidence_retained": evidence_retained,
+              "partial_evidence_retained": status != "PASS" and evidence_retained,
+              "retained_evidence_file_count": len(retained_evidence_files),
+              "v1_validation_summary_present": v1_summary_path.exists(),
+              "v1_validation_summary_status": v1_summary.get("status") if isinstance(v1_summary, dict) else None,
+              "v1_output_repeatable_byte_identical": v1_summary.get("output_repeatable_byte_identical") if isinstance(v1_summary, dict) else None,
+              "v1_acceptance_record_count": v1_summary.get("acceptance_record_count") if isinstance(v1_summary, dict) else None,
               "performance_observation_only": True,
               "reference_residual_checked": False,
               "conformance_acceptance": False,
