@@ -110,6 +110,10 @@ assert.doesNotMatch(gb10Workflow, /\bmatrix\s*:/);
 assert.match(gb10Workflow, /permissions:\n\s{2}contents:\s*read/);
 assert.match(gb10Workflow, /- name: Validate dispatch inputs/);
 assert.match(gb10Workflow, /V1_RUNS.*3, 100/);
+assert.match(gb10Workflow, /integer\("V2_ITERATIONS", 2, 10_000\)/);
+assert.match(gb10Workflow, /v1_points = v1_u \* v1_v/);
+assert.match(gb10Workflow, /v1_full_readback_cap = 16_777_216/);
+assert.match(gb10Workflow, /V1_U \* V1_V = \{v1_points\} exceeds the V1 full-readback cap/);
 assert.match(gb10Workflow, /\/usr\/local\/cuda-13\.2\/bin/);
 assert.match(gb10Workflow, /test "\$\(uname -m\)" = aarch64/);
 assert.match(gb10Workflow, /test "\$model" = 'NVIDIA GB10'/);
@@ -126,7 +130,16 @@ assert.match(gb10Workflow, /reference_residual_checked/);
 assert.match(gb10Workflow, /conformance_acceptance/);
 assert.match(gb10Workflow, /V1_SANITIZER_STATUS\.txt/);
 assert.match(gb10Workflow, /ERROR SUMMARY: 0 errors/);
-assert.match(gb10Workflow, /RACECHECK SUMMARY:/);
+const cleanRacecheck = /RACECHECK SUMMARY: 0 hazards displayed \(0 errors, 0 warnings\)/g;
+assert.ok(
+  (gb10Workflow.match(cleanRacecheck) ?? []).length >= 2,
+  "GB10 workflow must require the complete clean racecheck summary for both V1 and V2 sanitizer gates"
+);
+assert.doesNotMatch(
+  gb10Workflow,
+  /grep -Fq '0 hazards'/,
+  "GB10 sanitizer verification must not accept suffix substrings from nonzero racecheck counts"
+);
 const offStep = gb10Workflow.indexOf("- name: Runtime V2 graphs OFF");
 const onStep = gb10Workflow.indexOf("- name: Runtime V2 graphs ON");
 assert.ok(offStep >= 0 && onStep > offStep, "GB10 V2 workflow must run graphs OFF before graphs ON");
