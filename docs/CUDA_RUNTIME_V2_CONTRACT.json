@@ -22,6 +22,18 @@
       "legacy_shape": "one global atomic XOR per evaluated point",
       "v2_shape": "one global atomic XOR per CUDA block after exact block-local XOR reduction"
     },
+    "hierarchical_radius_reduction": {
+      "enabled": true,
+      "policy": "block-max-then-one-global-atomic-per-block-v1",
+      "legacy_shape": "one global atomic maximum update per finite evaluated point",
+      "v2_shape": "one global atomic maximum update per CUDA block after block-local maximum reduction"
+    },
+    "hierarchical_nonfinite_reduction": {
+      "enabled": true,
+      "policy": "block-sum-then-one-global-atomic-per-block-v1",
+      "legacy_shape": "one global atomic increment per non-finite evaluated point",
+      "v2_shape": "one global atomic add per CUDA block after block-local non-finite count reduction"
+    },
     "compact_resident_metrics": {
       "enabled": true,
       "per_device_fields": [
@@ -36,6 +48,7 @@
     "persistent_metric_buffers": true,
     "in_process_warmup_and_iterations": true,
     "cuda_graph_replay_optional": true,
+    "kernel_event_timing_excludes_metric_resets": true,
     "timing_decomposition": [
       "runtime_setup_milliseconds",
       "iteration_wall_milliseconds_median",
@@ -43,7 +56,12 @@
       "iteration_wall_milliseconds_max",
       "compact_readback_milliseconds_median",
       "per_device_kernel_milliseconds_median"
-    ]
+    ],
+    "timing_semantics": {
+      "iteration_wall": "metric resets plus evaluation kernel plus stream synchronization; excludes compact host readback",
+      "per_device_kernel": "CUDA event interval around evaluation kernel only; excludes metric resets in ordinary and CUDA Graph modes",
+      "compact_readback": "host-side compact metric transfer after measured kernel work"
+    }
   },
   "observation_semantics": {
     "performance_observation_only": true,
@@ -63,7 +81,10 @@
   "hardware_policy": {
     "maximum_selected_devices": 16,
     "compile_architecture_must_be_recorded": true,
+    "resolved_compile_architecture_must_be_recorded": true,
+    "compile_architecture_policy_and_resolved_target_are_distinct": true,
     "device_model_and_compute_capability_must_be_recorded": true,
+    "validate_grid_against_device_max_grid_size_x": true,
     "raw_cuda_uuid_must_not_be_published": true,
     "gb10_first_compile_architecture": "native",
     "gb10_role": "portability specimen after source-level and existing Phase 5B correctness gates are green"
