@@ -45,13 +45,14 @@ See `docs/EVIDENCE.md`.
 
 - [x] Add a portable JavaScript reference boundary before accelerator work.
 - [ ] Add CPU/WASM conformance in a later release where it materially improves portability.
-- [ ] Add GPU residual comparison only after a stable CPU/WASM reference exists.
+- [x] Add a stable native Rust CPU/reference runtime before physical GPU acceptance.
+- [x] Add GPU residual comparison only after that stable native CPU/reference surface exists.
 - [x] Treat accelerator output as a residual sidecar, never geometry authority.
 - [x] Add bounded stress profiles derived from the useful large-logical-field engineering pattern without importing retired geometry.
 
-CPU/WASM and GPU surfaces are deliberately **not selected for GLUBALL v1.0.0**. Their absence therefore does not block the v1.0.0 contract freeze; if a later release includes either surface, the relevant conformance gate becomes mandatory for that release.
+CPU/WASM and GPU surfaces were deliberately **not selected for GLUBALL v1.0.0**. The later Rust/CUDA work is additive post-release runtime research and does not retroactively change the v1.0.0 release surface.
 
-See `docs/PORTABLE_REFERENCE.md`.
+See `docs/PORTABLE_REFERENCE.md`, `docs/RUST_RUNTIME.md`, and `docs/CUDA_ACCEPTANCE.md`.
 
 ### 2E — GLUBALL v1.0.0 contract freeze
 
@@ -62,11 +63,11 @@ See `docs/PORTABLE_REFERENCE.md`.
 - [x] Add `CHANGELOG.md` and `RELEASE_NOTES_v1.0.0.md`.
 - [x] Add `tests/release-preflight.mjs` and run it in CI.
 - [x] Record that CPU/WASM and GPU are outside the v1.0.0 release surface.
-- [ ] Merge the v1.0.0 freeze PR with all four validation suites green.
-- [ ] Tag the exact freeze merge commit as `v1.0.0`.
-- [ ] Publish the GitHub release using `RELEASE_NOTES_v1.0.0.md`.
+- [x] Merge the v1.0.0 freeze PR with all four validation suites green.
+- [x] Tag the exact freeze merge commit as `v1.0.0`.
+- [x] Publish the GitHub release using `RELEASE_NOTES_v1.0.0.md`.
 
-The freeze PR is a release candidate, not the release itself. The tagged commit is the immutable dependency RSH must cite.
+The current verified `v1.0.0` tag target is recorded in `docs/CURRENT_STATE.json`. Historical release-candidate metadata remains reference material for the state that existed before tagging.
 
 ## Phase 3 — RSH integration
 
@@ -76,9 +77,9 @@ GLUBALL enters RSH only after the GLUBALL contracts are **released and frozen**,
 
 All of the following must be true before opening the RSH integration PR:
 
-- [ ] `GLUBALL-KNOT-V1` is frozen in tagged release `v1.0.0`.
-- [ ] `GLUBALL-SAMPLING-V1` is frozen in `v1.0.0`, with sealed index/golden vectors.
-- [ ] `GLUBALL-EVIDENCE-V1` is frozen in `v1.0.0`, with canonical receipt vectors.
+- [x] `GLUBALL-KNOT-V1` is frozen in tagged release `v1.0.0`.
+- [x] `GLUBALL-SAMPLING-V1` is frozen in `v1.0.0`, with sealed index/golden vectors.
+- [x] `GLUBALL-EVIDENCE-V1` is frozen in `v1.0.0`, with canonical receipt vectors.
 - [x] Reference geometry and deterministic sampling tests are green on the release candidate branch.
 - [x] CPU/WASM is not part of the v1.0.0 release surface, so no CPU/WASM conformance claim is being imported into RSH.
 - [x] The provenance/semantic quarantine test is green on the release candidate branch.
@@ -145,8 +146,51 @@ If global embeddedness is later claimed, it requires its own theorem and an expl
 
 ## Phase 4 — archival release and publication
 
-- [ ] Publish GLUBALL `v1.0.0` only after the freeze PR is merged and the release candidate checks are green.
+- [x] Publish GLUBALL `v1.0.0` after the freeze PR was merged and the release candidate checks were green.
 - [x] Record contract identifiers, test-vector path, canonical receipt hash, selected runtime surface, and provenance boundary in `release/manifest-v1.0.0.json`.
-- [ ] Record the immutable tag commit in GitHub/Zenodo release metadata after `v1.0.0` is created.
+- [x] Record the currently verified tag target in `docs/CURRENT_STATE.json` after `v1.0.0` was created.
+- [ ] Record archival/Zenodo metadata for the exact `v1.0.0` tag target if/when a separate archive record is published.
 - [ ] After RSH integration is merged and machine-checked, cite exact GLUBALL `v1.0.0` and its commit from the RSH release/Zenodo metadata.
 - [x] Keep GLUBALL and RSH as separately versioned projects with explicit provenance links rather than collapsing their histories.
+
+## Phase 5 — physical CUDA acceptance and scaling
+
+This phase is post-v1.0.0 runtime research. Faster hardware cannot revise the frozen geometry or sampling contracts.
+
+### 5A — acceptance software
+
+- [x] Define `GLUBALL-RUST-RUNTIME-V1` as the bounded native CPU/reference surface.
+- [x] Define `GLUBALL-MULTI-DEVICE-CUDA-V1` as the optional physical accelerator sidecar.
+- [x] Define `GLUBALL-CUDA-ACCEPTANCE-V1` as the independent Rust residual acceptance surface.
+- [x] Add evidence-only CUDA execution with complete ordered readback.
+- [x] Serialize `GLUBALL-CUDA-F32LE-XYZR-V1` records independently of device shard boundaries.
+- [x] Recompute every CUDA evidence point through the Rust `f64` reference.
+- [x] Fail closed on count, sidecar-domain, non-finite, component, Euclidean, and tube-radius gates.
+- [x] Keep `reference_residual_checked` and `conformance_acceptance` false in the CUDA producer itself.
+- [x] Retain rejected completed campaign artifacts and finalize `SHA256SUMS.txt` on runner exit.
+- [x] Keep geometry-receipt authority, physical-model validation, and universal-speedup claims false.
+
+### 5B — first physical evidence ladder
+
+No item below may be checked merely because matching hardware was detected or rented. It requires archived campaign artifacts from actual execution.
+
+- [ ] Run 1-GPU evidence mode for three accepted repeats.
+- [ ] Run 2-GPU evidence mode for three accepted repeats.
+- [ ] Run 4-GPU evidence mode for three accepted repeats.
+- [ ] Run 8-GPU evidence mode for three accepted repeats.
+- [ ] Confirm complete coverage and independent Rust residual acceptance at every device count.
+- [ ] Run Compute Sanitizer memcheck/racecheck where supported and archive the result or explicit unavailability.
+- [ ] Record exact host, driver, runtime, compile architecture, selected-device, and redacted-device provenance.
+
+### 5C — "go brrrr" scaling campaign
+
+Only after 5B has an accepted baseline:
+
+- [ ] Run same-host strong scaling with identical `U`, `V`, and `REPEATS` at 1/2/4/8 GPUs.
+- [ ] Compute observed speedup `T1/Tn` and parallel efficiency `(T1/Tn)/n` outside the correctness claim surface.
+- [ ] Run a weak-scaling observation with workload proportional to device count.
+- [ ] Identify whether kernel work, PCIe readback, synchronization, digest contention, CPU orchestration, or storage becomes the first practical bottleneck.
+- [ ] Repeat an accepted profile on a second NVIDIA architecture before making portability claims.
+- [ ] Treat any RTX 5090 campaign as a maximum-throughput follow-up, not as the first correctness baseline.
+
+See `docs/CUDA_ACCEPTANCE.md`, `docs/CUDA_ACCEPTANCE_CONTRACT.json`, and `research/multi-device-cuda/SPEC.md`.

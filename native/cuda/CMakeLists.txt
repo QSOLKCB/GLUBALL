@@ -20,22 +20,26 @@ endif()
 
 message(STATUS "GLUBALL CUDA architectures: ${GLUBALL_CUDA_ARCHITECTURES_LABEL}")
 
-add_executable(gluball-multi-cuda gluball_multi_device.cu)
-target_compile_features(gluball-multi-cuda PRIVATE cxx_std_17)
-target_compile_definitions(
-  gluball-multi-cuda
-  PRIVATE GLUBALL_CUDA_ARCHITECTURES="${GLUBALL_CUDA_ARCHITECTURES_LABEL}"
-)
-set_target_properties(
-  gluball-multi-cuda
-  PROPERTIES
-    CUDA_STANDARD 17
-    CUDA_STANDARD_REQUIRED YES
-)
-
-if(CMAKE_CUDA_ARCHITECTURES)
-  set_property(
-    TARGET gluball-multi-cuda
-    PROPERTY CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
+function(gluball_cuda_target target source)
+  add_executable(${target} ${source})
+  target_compile_features(${target} PRIVATE cxx_std_17)
+  target_compile_definitions(
+    ${target}
+    PRIVATE GLUBALL_CUDA_ARCHITECTURES="${GLUBALL_CUDA_ARCHITECTURES_LABEL}"
   )
-endif()
+  set_target_properties(
+    ${target}
+    PROPERTIES
+      CUDA_STANDARD 17
+      CUDA_STANDARD_REQUIRED YES
+  )
+  if(CMAKE_CUDA_ARCHITECTURES)
+    set_property(
+      TARGET ${target}
+      PROPERTY CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
+    )
+  endif()
+endfunction()
+
+gluball_cuda_target(gluball-multi-cuda gluball_multi_device.cu)
+gluball_cuda_target(gluball-cuda-evidence gluball_evidence.cu)

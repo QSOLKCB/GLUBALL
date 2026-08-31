@@ -5,6 +5,7 @@ edition = "2021"
 license = "MPL-2.0"
 repository = "https://github.com/QSOLKCB/GLUBALL"
 description = "Bounded deterministic Rust runtime for GLUBALL-KNOT-V1"
+default-run = "gluball-runtime"
 
 [lib]
 path = "runtime/rust/lib_v2.rs"
@@ -12,6 +13,10 @@ path = "runtime/rust/lib_v2.rs"
 [[bin]]
 name = "gluball-runtime"
 path = "runtime/rust/main.rs"
+
+[[bin]]
+name = "gluball-cuda-accept"
+path = "runtime/rust/cuda_accept.rs"
 
 [profile.release]
 lto = "thin"

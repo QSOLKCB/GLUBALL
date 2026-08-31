@@ -1,0 +1,29 @@
+{
+  "schema": "gluball-current-state/1",
+  "project": "GLUBALL",
+  "as_of": "2026-08-31",
+  "released_contract_freeze": {
+    "version": "1.0.0",
+    "tag": "v1.0.0",
+    "verified_tag_target": "80941183d14531093117e122da0fc32c13d2464b",
+    "geometry_contract": "GLUBALL-KNOT-V1",
+    "sampling_contract": "GLUBALL-SAMPLING-V1",
+    "evidence_contract": "GLUBALL-EVIDENCE-V1",
+    "gpu_in_release_surface": false,
+    "cpu_wasm_in_release_surface": false,
+    "historical_release_candidate_metadata_remains_reference_material": true
+  },
+  "post_release_runtime": {
+    "rust_runtime_contract": "GLUBALL-RUST-RUNTIME-V1",
+    "cuda_runtime_contract": "GLUBALL-MULTI-DEVICE-CUDA-V1",
+    "cuda_acceptance_contract": "GLUBALL-CUDA-ACCEPTANCE-V1",
+    "cuda_acceptance_profile": "gluball-rust-vs-cuda-f32-full-v1",
+    "geometry_authority_changed": false
+  },
+  "physical_campaign_state": {
+    "physical_cuda_evidence_archived": false,
+    "physical_multi_gpu_evidence_archived": false,
+    "reason": "software acceptance path is prepared by PR #6; physical host execution remains a future campaign event",
+    "planned_device_count_ladder": [1, 2, 4, 8]
+  }
+}
