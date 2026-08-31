@@ -73,13 +73,13 @@ done
 IFS=$old_ifs
 
 python3 - "$OUTPUT_DIR" "$BLOCK_SIZES" "$GRAPH_MODES" "$REDUCTION_MODES" "$TRIALS" <<'PY'
-import json, math, statistics, sys
+import json, math, re, statistics, sys
 from pathlib import Path
 root=Path(sys.argv[1]); blocks=[int(x) for x in sys.argv[2].split(',')]; graphs=sys.argv[3].split(','); reductions=sys.argv[4].split(','); trials=int(sys.argv[5])
 load=lambda p: json.loads(p.read_text())
 v2runs=[load(root/'baseline-v2'/f'trial-{i}.json') for i in range(1,trials+1)]
 ref=v2runs[0]
-keys=('total_points_per_iteration','used_device_count','aggregate_diagnostic_xor64','observed_max_tube_radius_error','observed_nonfinite_records_max')
+shared_keys=('total_points_per_iteration','used_device_count','observed_max_tube_radius_error','observed_nonfinite_records_max')
 false_keys=('reference_residual_checked','conformance_acceptance','geometry_receipt_authority','universal_speedup_claim','complete_output_readback','raw_device_uuid_published')
 def check_common(payload,label,contract):
     if payload.get('contract')!=contract: raise SystemExit(f'{label} contract mismatch')
@@ -88,37 +88,47 @@ def check_common(payload,label,contract):
     for k in false_keys:
         if payload.get(k) is not False: raise SystemExit(f'{label} claim boundary changed: {k}')
     if payload.get('repeatable_compact_metrics') is not True or payload.get('compact_metrics_clean') is not True: raise SystemExit(f'{label} compact metrics not clean/repeatable')
+    digest=payload.get('aggregate_diagnostic_xor64')
+    if not isinstance(digest,str) or re.fullmatch(r'[0-9a-fA-F]{16}',digest) is None:
+        raise SystemExit(f'{label} diagnostic digest missing or malformed')
 def sig(payload,label):
     ds=payload.get('devices',[]); ss={(d.get('name'),d.get('compute_capability'),d.get('compiled_cuda_arch_code')) for d in ds}
     if len(ss)!=1: raise SystemExit(f'{label} exact comparison requires homogeneous devices: {sorted(ss)!r}')
     return next(iter(ss))
-def require_exact(payload,label,reference_sig):
+def require_shared(payload,label,reference_sig):
     if sig(payload,label)!=reference_sig: raise SystemExit(f'{label} device signature mismatch')
-    for k in keys:
-        if payload.get(k)!=ref.get(k): raise SystemExit(f'{label} exact observation mismatch for {k}')
+    for k in shared_keys:
+        if payload.get(k)!=ref.get(k): raise SystemExit(f'{label} shared observation mismatch for {k}')
     if payload.get('resolved_compiled_architectures')!=ref.get('resolved_compiled_architectures'):
         raise SystemExit(f'{label} compiled architecture mismatch')
 for i,p in enumerate(v2runs,1): check_common(p,f'V2 trial {i}','GLUBALL-CUDA-RUNTIME-V2')
 reference_sig=sig(ref,'V2 reference')
-for p in v2runs: require_exact(p,'V2 baseline',reference_sig)
+v2_digest=ref['aggregate_diagnostic_xor64']
+for p in v2runs:
+    require_shared(p,'V2 baseline',reference_sig)
+    if p.get('aggregate_diagnostic_xor64')!=v2_digest: raise SystemExit('V2 baseline diagnostic digest not repeatable')
 v2wall=statistics.median(float(p['iteration_wall_milliseconds_median']) for p in v2runs)
 
 matched_v3={}
 matched_v3_records=[]
+v3_reference_digest=None
 for block in blocks:
   for graph in graphs:
     runs=[]
     for trial in range(1,trials+1):
       p=load(root/'baseline-v3-matched'/f'block-{block}-graphs-{graph}-trial-{trial}.json')
       check_common(p,f'V3 {block}/{graph}/{trial}','GLUBALL-CUDA-RUNTIME-V3')
-      require_exact(p,f'V3 {block}/{graph}/{trial}',reference_sig)
+      require_shared(p,f'V3 {block}/{graph}/{trial}',reference_sig)
       if p.get('block_size')!=block or bool(p.get('cuda_graphs_enabled'))!=(graph=='on'):
         raise SystemExit('matched V3 launch-shape metadata mismatch')
+      digest=p['aggregate_diagnostic_xor64']
+      if v3_reference_digest is None: v3_reference_digest=digest
+      elif digest!=v3_reference_digest: raise SystemExit('V3 diagnostic digest changed across launch shapes or trials')
       runs.append(p)
     wall=statistics.median(float(p['iteration_wall_milliseconds_median']) for p in runs)
     setup=statistics.median(float(p['runtime_setup_milliseconds']) for p in runs)
     kernel=statistics.median(max(float(d['kernel_milliseconds_median']) for d in p.get('devices',[])) for p in runs)
-    matched_v3[(block,graph)]={'wall':wall,'setup':setup,'kernel':kernel}
+    matched_v3[(block,graph)]={'wall':wall,'setup':setup,'kernel':kernel,'digest':v3_reference_digest}
     matched_v3_records.append({
       'block_size':block,
       'cuda_graphs':graph,
@@ -126,7 +136,9 @@ for block in blocks:
       'observed_wall_milliseconds_median_of_trials':wall,
       'observed_max_device_kernel_milliseconds_median_of_trials':kernel,
       'observed_setup_milliseconds_median_of_trials':setup,
-      'exact_v2_compact_observation_equivalence':True,
+      'shared_v2_observation_equivalence':True,
+      'v3_digest':v3_reference_digest,
+      'v2_v3_digest_match':v2_digest==v3_reference_digest,
     })
 
 candidates=[]
@@ -138,7 +150,9 @@ for block in blocks:
       for trial in range(1,trials+1):
         p=load(root/'candidates'/f'block-{block}-graphs-{graph}-reduction-{reduction}-trial-{trial}.json')
         check_common(p,f'V3.1 {block}/{graph}/{reduction}/{trial}','GLUBALL-CUDA-RUNTIME-V3.1')
-        require_exact(p,f'V3.1 {block}/{graph}/{reduction}/{trial}',reference_sig)
+        require_shared(p,f'V3.1 {block}/{graph}/{reduction}/{trial}',reference_sig)
+        if p.get('aggregate_diagnostic_xor64')!=v3base['digest']:
+          raise SystemExit(f'V3.1 diagnostic digest mismatch vs matched V3 for {block}/{graph}/{reduction}/{trial}')
         if p.get('block_size')!=block or bool(p.get('cuda_graphs_enabled'))!=(graph=='on'):
           raise SystemExit('V3.1 launch-shape metadata mismatch')
         if p.get('reduction_mode')!=reduction: raise SystemExit('V3.1 reduction mode mismatch')
@@ -165,12 +179,14 @@ for block in blocks:
         'observed_v31_minus_matched_v3_setup_milliseconds':setup_delta,
         'observed_matched_v3_minus_v31_wall_milliseconds_per_iteration':gain,
         'observed_v31_break_even_iterations_vs_matched_v3':break_even,
-        'exact_v2_compact_observation_equivalence':True,
+        'shared_v2_observation_equivalence':True,
+        'exact_matched_v3_v31_digest_equivalence':True,
+        'v2_v31_digest_match':v2_digest==v3base['digest'],
       })
 if not candidates: raise SystemExit('candidate set empty')
 best=min(candidates,key=lambda x:(x['observed_wall_milliseconds_median_of_trials'],x['block_size'],0 if x['cuda_graphs']=='off' else 1,0 if x['reduction_mode']=='atomic' else 1))
 result={
- 'schema':'gluball-cuda-runtime-v31-bounded-tuning/1','status':'PASS',
+ 'schema':'gluball-cuda-runtime-v31-bounded-tuning/2','status':'PASS',
  'search_class':'bounded-exhaustive-combinatorial-performance-observation',
  'candidate_enumeration_deterministic':True,'declared_candidate_set_complete':True,
  'candidate_count':len(candidates),'trial_count_per_candidate':trials,
@@ -178,6 +194,13 @@ result={
  'dimensions':{'block_sizes':blocks,'cuda_graph_modes':graphs,'reduction_modes':reductions},
  'objective':'minimize median of per-process iteration_wall_milliseconds_median observations',
  'v2_baseline_wall_milliseconds_median_of_trials':v2wall,
+ 'v2_diagnostic_digest':v2_digest,
+ 'v3_diagnostic_digest':v3_reference_digest,
+ 'v2_v3_digest_match':v2_digest==v3_reference_digest,
+ 'v2_v3_digest_equality_required':False,
+ 'v3_v31_digest_equality_required':True,
+ 'shared_v2_observation_equivalence_required':True,
+ 'raw_float_bit_digest_is_geometry_authority':False,
  'matched_v3_baselines':matched_v3_records,
  'candidate_break_even_baseline_policy':'same block_size and cuda_graphs as V3.1 candidate',
  'candidates':candidates,'best_observed_candidate_within_declared_set':best,
