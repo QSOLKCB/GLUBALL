@@ -192,11 +192,28 @@ The accepted 8-GPU completion evidence is GitHub Actions run `33388107831` on so
 
 Only after 5B has an accepted baseline:
 
-- [ ] Run same-host strong scaling with identical `U`, `V`, and `REPEATS` at 1/2/4/8 GPUs.
+#### Runtime V2 readiness gate
+
+- [x] Define `GLUBALL-CUDA-RUNTIME-V2` as a separate throughput-only observation contract.
+- [x] Add block-local XOR reduction with one global digest atomic per CUDA block instead of per evaluated point.
+- [x] Add persistent per-device streams, CUDA events, digest storage, maximum-radius storage, and non-finite counters.
+- [x] Add repeated in-process warmup/measured iterations without recreating device contexts.
+- [x] Add compact metric readback without allocating the full `float4` output field.
+- [x] Add setup, iteration wall, compact-readback, and per-device kernel timing decomposition.
+- [x] Add optional CUDA Graph capture/replay for fixed-workload observations.
+- [x] Keep full-readback evidence, Rust residual acceptance, geometry authority, and universal-speedup claims outside Runtime V2.
+- [x] Add source-contract CI and machine-readable runtime state.
+- [ ] Physically build and validate Runtime V2 on an NVIDIA host.
+- [ ] Confirm compact Runtime V2 metrics are repeatable and compare its aggregate diagnostic digest with the established V1 token algebra for the same workload.
+
+After the Runtime V2 physical gate is satisfied:
+
+- [ ] Run a bounded V1 evidence acceptance plus Runtime V2 observation on GB10 as the next portability specimen.
+- [ ] Run same-host strong scaling with identical `U`, `V`, `REPEATS`, block size, warmup count, measured iterations, and graph policy at 1/2/4/8 GPUs.
 - [ ] Compute observed speedup `T1/Tn` and parallel efficiency `(T1/Tn)/n` outside the correctness claim surface.
 - [ ] Run a weak-scaling observation with workload proportional to device count.
-- [ ] Identify whether kernel work, PCIe readback, synchronization, digest contention, CPU orchestration, or storage becomes the first practical bottleneck.
-- [ ] Repeat an accepted profile on a second NVIDIA architecture before making portability claims.
+- [ ] Identify whether kernel work, PCIe/fabric transfer, synchronization, digest contention, CPU orchestration, or storage becomes the first practical bottleneck.
+- [ ] Repeat an accepted V1 evidence profile on a second NVIDIA architecture before making portability claims.
 - [ ] Treat any RTX 5090 campaign as a maximum-throughput follow-up, not as the first correctness baseline.
 
-See `docs/CUDA_ACCEPTANCE.md`, `docs/CUDA_ACCEPTANCE_CONTRACT.json`, and `research/multi-device-cuda/SPEC.md`.
+See `docs/CUDA_ACCEPTANCE.md`, `docs/CUDA_ACCEPTANCE_CONTRACT.json`, `docs/CUDA_RUNTIME_V2.md`, `docs/CUDA_RUNTIME_V2_CONTRACT.json`, `docs/PHASE5C_HARDWARE_SEQUENCE.md`, and `research/multi-device-cuda/SPEC.md`.
