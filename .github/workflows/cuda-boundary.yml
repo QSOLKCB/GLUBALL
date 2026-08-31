@@ -12,8 +12,11 @@ on:
       - "scripts/run_vast_campaign.sh"
       - "scripts/run_cuda_runtime_v2.sh"
       - "scripts/run_cuda_runtime_v3.sh"
+      - "scripts/run_cuda_runtime_v31.sh"
       - "scripts/compare_cuda_runtime_v2_v3.sh"
+      - "scripts/compare_cuda_runtime_v2_v3_v31.sh"
       - "scripts/tune_cuda_runtime_v3.sh"
+      - "scripts/tune_cuda_runtime_v31.sh"
       - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
@@ -25,11 +28,16 @@ on:
       - "docs/CUDA_RUNTIME_V2_CONTRACT.json"
       - "docs/CUDA_RUNTIME_V3.md"
       - "docs/CUDA_RUNTIME_V3_CONTRACT.json"
+      - "docs/CUDA_RUNTIME_V31.md"
+      - "docs/CUDA_RUNTIME_V31_CONTRACT.json"
       - "docs/CURRENT_STATE.json"
       - "tests/current-state.mjs"
       - "tests/cuda-runtime-v2.mjs"
       - "tests/cuda-runtime-v3.mjs"
+      - "tests/cuda-runtime-v31.mjs"
+      - "tests/cuda-runtime-v31-workflow.mjs"
       - "tests/phase5c-multigpu-actions.mjs"
+      - ".github/workflows/physical-cuda-v31-efficiency.yml"
       - "docs/RSH_RUNTIME_HANDOFF.md"
       - ".github/workflows/cuda-boundary.yml"
   pull_request:
@@ -42,8 +50,11 @@ on:
       - "scripts/run_vast_campaign.sh"
       - "scripts/run_cuda_runtime_v2.sh"
       - "scripts/run_cuda_runtime_v3.sh"
+      - "scripts/run_cuda_runtime_v31.sh"
       - "scripts/compare_cuda_runtime_v2_v3.sh"
+      - "scripts/compare_cuda_runtime_v2_v3_v31.sh"
       - "scripts/tune_cuda_runtime_v3.sh"
+      - "scripts/tune_cuda_runtime_v31.sh"
       - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
@@ -55,11 +66,16 @@ on:
       - "docs/CUDA_RUNTIME_V2_CONTRACT.json"
       - "docs/CUDA_RUNTIME_V3.md"
       - "docs/CUDA_RUNTIME_V3_CONTRACT.json"
+      - "docs/CUDA_RUNTIME_V31.md"
+      - "docs/CUDA_RUNTIME_V31_CONTRACT.json"
       - "docs/CURRENT_STATE.json"
       - "tests/current-state.mjs"
       - "tests/cuda-runtime-v2.mjs"
       - "tests/cuda-runtime-v3.mjs"
+      - "tests/cuda-runtime-v31.mjs"
+      - "tests/cuda-runtime-v31-workflow.mjs"
       - "tests/phase5c-multigpu-actions.mjs"
+      - ".github/workflows/physical-cuda-v31-efficiency.yml"
       - "docs/RSH_RUNTIME_HANDOFF.md"
       - ".github/workflows/cuda-boundary.yml"
 
@@ -78,6 +94,7 @@ jobs:
           python3 -m json.tool docs/CUDA_ACCEPTANCE_CONTRACT.json >/dev/null
           python3 -m json.tool docs/CUDA_RUNTIME_V2_CONTRACT.json >/dev/null
           python3 -m json.tool docs/CUDA_RUNTIME_V3_CONTRACT.json >/dev/null
+          python3 -m json.tool docs/CUDA_RUNTIME_V31_CONTRACT.json >/dev/null
           python3 -m json.tool docs/CURRENT_STATE.json >/dev/null
           python3 -m json.tool runtime/vast/market-2026-08-21.json >/dev/null
           python3 -m json.tool research/glueball/sources.json >/dev/null
@@ -88,6 +105,7 @@ jobs:
           test -s native/cuda/gluball_evidence.cu
           test -s native/cuda/gluball_runtime_v2.cu
           test -s native/cuda/gluball_runtime_v3.cu
+          test -s native/cuda/gluball_runtime_v31.cu
           grep -q 'GLUBALL-MULTI-DEVICE-CUDA-V1' native/cuda/gluball_multi_device.cu
           grep -q 'cudaGetDeviceCount' native/cuda/gluball_multi_device.cu
           grep -q 'cudaStreamCreateWithFlags' native/cuda/gluball_multi_device.cu
@@ -109,6 +127,8 @@ jobs:
           grep -q 'geometry_receipt_authority: false' research/multi-device-cuda/SPEC.md
           node tests/cuda-runtime-v2.mjs
           node tests/cuda-runtime-v3.mjs
+          node tests/cuda-runtime-v31.mjs
+          node tests/cuda-runtime-v31-workflow.mjs
           node tests/phase5c-multigpu-actions.mjs
       - name: Host script syntax
         run: |
@@ -116,8 +136,11 @@ jobs:
           sh -n scripts/run_vast_campaign.sh
           sh -n scripts/run_cuda_runtime_v2.sh
           sh -n scripts/run_cuda_runtime_v3.sh
+          sh -n scripts/run_cuda_runtime_v31.sh
           sh -n scripts/compare_cuda_runtime_v2_v3.sh
+          sh -n scripts/compare_cuda_runtime_v2_v3_v31.sh
           sh -n scripts/tune_cuda_runtime_v3.sh
+          sh -n scripts/tune_cuda_runtime_v31.sh
           sh -n scripts/run_phase5c_multigpu_scaling.sh
       - name: Frozen and post-v1 runtime checks
         run: |
