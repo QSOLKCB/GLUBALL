@@ -7,11 +7,17 @@ on:
       - "agent/**"
     paths:
       - "native/cuda/**"
+      - "runtime/rust/cuda_accept.rs"
       - "scripts/cuda_preflight.sh"
+      - "scripts/run_vast_campaign.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
       - "research/multi-device-cuda/**"
       - "docs/RUST_RUNTIME_CONTRACT.json"
+      - "docs/CUDA_ACCEPTANCE.md"
+      - "docs/CUDA_ACCEPTANCE_CONTRACT.json"
+      - "docs/CURRENT_STATE.json"
+      - "tests/current-state.mjs"
       - "docs/RSH_RUNTIME_HANDOFF.md"
       - ".github/workflows/cuda-boundary.yml"
   pull_request:
@@ -19,11 +25,17 @@ on:
       - main
     paths:
       - "native/cuda/**"
+      - "runtime/rust/cuda_accept.rs"
       - "scripts/cuda_preflight.sh"
+      - "scripts/run_vast_campaign.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
       - "research/multi-device-cuda/**"
       - "docs/RUST_RUNTIME_CONTRACT.json"
+      - "docs/CUDA_ACCEPTANCE.md"
+      - "docs/CUDA_ACCEPTANCE_CONTRACT.json"
+      - "docs/CURRENT_STATE.json"
+      - "tests/current-state.mjs"
       - "docs/RSH_RUNTIME_HANDOFF.md"
       - ".github/workflows/cuda-boundary.yml"
 
@@ -39,12 +51,15 @@ jobs:
       - name: Validate machine-readable contracts
         run: |
           python3 -m json.tool docs/RUST_RUNTIME_CONTRACT.json >/dev/null
+          python3 -m json.tool docs/CUDA_ACCEPTANCE_CONTRACT.json >/dev/null
+          python3 -m json.tool docs/CURRENT_STATE.json >/dev/null
           python3 -m json.tool runtime/vast/market-2026-08-21.json >/dev/null
           python3 -m json.tool research/glueball/sources.json >/dev/null
       - name: CUDA adapter source boundary
         run: |
           test -s native/cuda/CMakeLists.txt
           test -s native/cuda/gluball_multi_device.cu
+          test -s native/cuda/gluball_evidence.cu
           grep -q 'GLUBALL-MULTI-DEVICE-CUDA-V1' native/cuda/gluball_multi_device.cu
           grep -q 'cudaGetDeviceCount' native/cuda/gluball_multi_device.cu
           grep -q 'cudaStreamCreateWithFlags' native/cuda/gluball_multi_device.cu
@@ -55,14 +70,24 @@ jobs:
           grep -q 'geometry_receipt_authority' native/cuda/gluball_multi_device.cu
           grep -q 'raw_device_uuid_published' native/cuda/gluball_multi_device.cu
           ! grep -q '"device_uuid"' native/cuda/gluball_multi_device.cu
+          grep -q 'GLUBALL-CUDA-F32LE-XYZR-V1' native/cuda/gluball_evidence.cu
+          grep -q 'gluball-cuda-evidence' native/cuda/CMakeLists.txt
+          grep -q 'reference_residual_checked\\\": false' native/cuda/gluball_evidence.cu
+          grep -q 'conformance_acceptance\\\": false' native/cuda/gluball_evidence.cu
+          grep -q 'GLUBALL-CUDA-ACCEPTANCE-V1' runtime/rust/cuda_accept.rs
+          grep -q 'reference_residual_checked\\\": true' runtime/rust/cuda_accept.rs
+          grep -q 'geometry_receipt_authority\\\": false' runtime/rust/cuda_accept.rs
           grep -q 'actual_cuda_execution: false' research/multi-device-cuda/SPEC.md
           grep -q 'geometry_receipt_authority: false' research/multi-device-cuda/SPEC.md
-      - name: Host preflight syntax
-        run: sh -n scripts/cuda_preflight.sh
-      - name: Frozen runtime remains green
+      - name: Host script syntax
+        run: |
+          sh -n scripts/cuda_preflight.sh
+          sh -n scripts/run_vast_campaign.sh
+      - name: Frozen and post-v1 runtime checks
         run: |
           cargo test --all-targets
-          cargo run --release -- self-test
+          cargo run --release --bin gluball-runtime -- self-test
+          node tests/current-state.mjs
           node tests/smoke.mjs
           node tests/phase2.mjs
           node tests/agent-contract.mjs
