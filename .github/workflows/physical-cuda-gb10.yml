@@ -1,0 +1,561 @@
+name: GLUBALL GB10 physical validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      v1_u_segments:
+        description: "V1 bounded acceptance U segments"
+        required: true
+        default: "512"
+        type: string
+      v1_v_segments:
+        description: "V1 bounded acceptance V segments"
+        required: true
+        default: "32"
+        type: string
+      v1_accepted_runs:
+        description: "Required accepted V1 repeats (minimum 3)"
+        required: true
+        default: "3"
+        type: string
+      v2_u_segments:
+        description: "Runtime V2 U segments"
+        required: true
+        default: "16384"
+        type: string
+      v2_v_segments:
+        description: "Runtime V2 V segments"
+        required: true
+        default: "128"
+        type: string
+      v2_warmup:
+        description: "Runtime V2 warmup iterations"
+        required: true
+        default: "20"
+        type: string
+      v2_iterations:
+        description: "Runtime V2 measured iterations"
+        required: true
+        default: "1000"
+        type: string
+      block_size:
+        description: "Runtime V2 CUDA block size"
+        required: true
+        default: "256"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gluball-gb10-physical-validation
+  cancel-in-progress: false
+
+jobs:
+  gb10-physical-validation:
+    name: GB10 ARM64 portability and Runtime V2 validation
+    runs-on: [self-hosted, linux, ARM64, gluball-vast-gb10]
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout exact workflow ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Expose GB10 toolchains
+        run: |
+          set -eu
+          test -x /usr/local/cuda-13.2/bin/nvcc
+          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          printf '%s\n' '/usr/local/cuda-13.2/bin' >> "$GITHUB_PATH"
+          printf '%s\n' 'CUDA_HOME=/usr/local/cuda-13.2' >> "$GITHUB_ENV"
+          printf 'LD_LIBRARY_PATH=/usr/local/cuda-13.2/lib64:%s\n' "${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+
+      - name: Validate dispatch inputs
+        env:
+          V1_U: ${{ inputs.v1_u_segments }}
+          V1_V: ${{ inputs.v1_v_segments }}
+          V1_RUNS: ${{ inputs.v1_accepted_runs }}
+          V2_U: ${{ inputs.v2_u_segments }}
+          V2_V: ${{ inputs.v2_v_segments }}
+          V2_WARMUP: ${{ inputs.v2_warmup }}
+          V2_ITERATIONS: ${{ inputs.v2_iterations }}
+          BLOCK_SIZE: ${{ inputs.block_size }}
+        run: |
+          python3 - <<'PY'
+          import os
+
+          def integer(name, minimum, maximum):
+              raw = os.environ[name]
+              if not raw.isdecimal():
+                  raise SystemExit(f"{name} must be a decimal integer, got {raw!r}")
+              value = int(raw, 10)
+              if not minimum <= value <= maximum:
+                  raise SystemExit(f"{name} must be in [{minimum}, {maximum}], got {value}")
+              return value
+
+          integer("V1_U", 12, 1_000_000)
+          integer("V1_V", 6, 65_536)
+          integer("V1_RUNS", 3, 100)
+          integer("V2_U", 12, 1_000_000)
+          integer("V2_V", 6, 65_536)
+          integer("V2_WARMUP", 0, 1_000)
+          integer("V2_ITERATIONS", 1, 10_000)
+          block = integer("BLOCK_SIZE", 32, 1_024)
+          if block & (block - 1):
+              raise SystemExit("BLOCK_SIZE must be a power of two")
+          PY
+
+      - name: Record and validate GB10 host provenance
+        run: |
+          set -eu
+          root=physical-evidence/gb10
+          mkdir -p "$root"
+
+          git rev-parse HEAD | tee "$root/SOURCE_COMMIT.txt"
+          uname -a | tee "$root/HOST_UNAME.txt"
+          uname -m | tee "$root/HOST_ARCH.txt"
+          cat /etc/os-release > "$root/OS_RELEASE.txt"
+
+          nvidia-smi --query-gpu=index,name --format=csv,noheader \
+            | tee "$root/NVIDIA_DEVICES.txt"
+          nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv \
+            | tee "$root/NVIDIA_INVENTORY.csv"
+
+          test "$(uname -m)" = aarch64
+          gpu_count=$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)
+          test "$gpu_count" -ge 1
+          model=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1p')
+          capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed -n '1p')
+          test "$model" = 'NVIDIA GB10'
+          test "$capability" = '12.1'
+          printf '%s\n' "$model" > "$root/SELECTED_GPU_MODEL.txt"
+          printf '%s\n' '0' > "$root/SELECTED_DEVICES.txt"
+
+          nvcc --version | tee "$root/NVCC_13_2.txt"
+          nvcc --version | grep -Fq 'release 13.2'
+          nvcc --list-gpu-arch | tee "$root/NVCC_GPU_ARCHS.txt"
+          nvcc --list-gpu-code | tee "$root/NVCC_GPU_CODE.txt"
+          grep -Fxq 'compute_121' "$root/NVCC_GPU_ARCHS.txt"
+          grep -Fxq 'sm_121' "$root/NVCC_GPU_CODE.txt"
+
+          rustc --version | tee "$root/RUSTC.txt"
+          cargo --version | tee "$root/CARGO.txt"
+          cmake --version | tee "$root/CMAKE.txt"
+          compute-sanitizer --version | tee "$root/COMPUTE_SANITIZER.txt"
+
+          if [ -x /usr/local/cuda-12.8/bin/nvcc ]; then
+            /usr/local/cuda-12.8/bin/nvcc --version > "$root/NVCC_12_8.txt" 2>&1
+            /usr/local/cuda-12.8/bin/nvcc --list-gpu-arch > "$root/NVCC_12_8_GPU_ARCHS.txt" 2>&1
+            if grep -Fxq 'compute_121' "$root/NVCC_12_8_GPU_ARCHS.txt"; then
+              printf '%s\n' 'CUDA 12.8 lists compute_121 on this host.' > "$root/CUDA_12_8_TOOLCHAIN_OBSERVATION.txt"
+            else
+              printf '%s\n' 'CUDA 12.8 does not list compute_121; CUDA 13.2 is required for the native sm_121 validation in this workflow.' > "$root/CUDA_12_8_TOOLCHAIN_OBSERVATION.txt"
+            fi
+          else
+            printf '%s\n' 'CUDA 12.8 toolkit not present during workflow execution.' > "$root/CUDA_12_8_TOOLCHAIN_OBSERVATION.txt"
+          fi
+
+          touch "$root/HOST_VALIDATION.ok"
+
+      - name: GB10 bounded V1 full-readback acceptance
+        env:
+          MODE: evidence
+          U: ${{ inputs.v1_u_segments }}
+          V: ${{ inputs.v1_v_segments }}
+          REPEATS: "1"
+          RUNS: ${{ inputs.v1_accepted_runs }}
+          DEVICES: "0"
+          RUST_WORKERS: "8"
+          LOGICAL_DEVICE_SLOTS: "1"
+          GLUBALL_CUDA_ARCHITECTURES: native
+          CAMPAIGN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}-gb10-v1
+          ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/gb10/v1-acceptance
+        run: sh scripts/run_vast_campaign.sh
+
+      - name: Verify V1 acceptance and sanitizer evidence
+        env:
+          EXPECTED_RUNS: ${{ inputs.v1_accepted_runs }}
+          EXPECTED_U: ${{ inputs.v1_u_segments }}
+          EXPECTED_V: ${{ inputs.v1_v_segments }}
+        run: |
+          set -eu
+          root=physical-evidence/gb10
+          campaign="$root/v1-acceptance"
+
+          python3 - <<'PY'
+          import glob
+          import json
+          import os
+
+          expected_runs = int(os.environ["EXPECTED_RUNS"])
+          expected_u = int(os.environ["EXPECTED_U"])
+          expected_v = int(os.environ["EXPECTED_V"])
+          expected_points = expected_u * expected_v
+          paths = sorted(glob.glob("physical-evidence/gb10/v1-acceptance/cuda-acceptance-*.json"))
+          if len(paths) != expected_runs:
+              raise SystemExit(f"expected {expected_runs} V1 acceptance records, found {len(paths)}")
+
+          summaries = []
+          for path in paths:
+              with open(path, "r", encoding="utf-8") as handle:
+                  record = json.load(handle)
+              required = {
+                  "status": "PASS",
+                  "u_segments": expected_u,
+                  "v_segments": expected_v,
+                  "repeats": 1,
+                  "total_points": expected_points,
+                  "checked_points": expected_points,
+                  "complete_output_readback": True,
+                  "sidecar_claims_checked": True,
+                  "reference_residual_checked": True,
+                  "nonfinite_records": 0,
+                  "conformance_acceptance": True,
+                  "geometry_receipt_authority": False,
+                  "universal_speedup_claim": False,
+              }
+              for key, expected in required.items():
+                  if record.get(key) != expected:
+                      raise SystemExit(f"{path}: {key}={record.get(key)!r}, expected {expected!r}")
+              summaries.append({
+                  "repeat_run": record["repeat_run"],
+                  "checked_points": record["checked_points"],
+                  "max_component_residual": record["max_component_residual"],
+                  "max_euclidean_residual": record["max_euclidean_residual"],
+                  "max_reported_tube_radius_error": record["max_reported_tube_radius_error"],
+                  "evidence_artifact_fnv1a64": record["evidence_artifact_fnv1a64"],
+              })
+
+          summary = {
+              "schema": "gluball-gb10-v1-validation/1",
+              "accepted_runs": expected_runs,
+              "points_checked_per_run": expected_points,
+              "total_points_checked": expected_runs * expected_points,
+              "all_acceptance_records_passed": True,
+              "complete_output_readback": True,
+              "independent_rust_residual_acceptance": True,
+              "geometry_receipt_authority": False,
+              "universal_speedup_claim": False,
+              "runs": summaries,
+          }
+          with open("physical-evidence/gb10/V1_VALIDATION.json", "w", encoding="utf-8") as handle:
+              json.dump(summary, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+
+          find_memcheck() {
+            for file in "$campaign/memcheck.txt" "$campaign/memcheck-run.json"; do
+              if [ -s "$file" ] && grep -Fq 'ERROR SUMMARY: 0 errors' "$file"; then
+                printf '%s\n' "$file"
+                return 0
+              fi
+            done
+            return 1
+          }
+          find_racecheck() {
+            for file in "$campaign/racecheck.txt" "$campaign/racecheck-run.json"; do
+              if [ -s "$file" ] \
+                && grep -Fq 'RACECHECK SUMMARY:' "$file" \
+                && grep -Fq '0 hazards' "$file" \
+                && grep -Fq '0 errors' "$file" \
+                && grep -Fq '0 warnings' "$file"; then
+                printf '%s\n' "$file"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          memcheck_file=$(find_memcheck)
+          racecheck_file=$(find_racecheck)
+          printf 'V1 memcheck clean transcript: %s\nV1 racecheck clean transcript: %s\n' \
+            "$memcheck_file" "$racecheck_file" > "$root/V1_SANITIZER_STATUS.txt"
+
+          (
+            cd "$campaign"
+            sha256sum -c SHA256SUMS.txt
+          )
+          touch "$root/V1_VALIDATION.ok"
+
+      - name: Runtime V2 graphs OFF
+        env:
+          GLUBALL_CUDA_ARCHITECTURES: native
+          DEVICES: "0"
+          U: ${{ inputs.v2_u_segments }}
+          V: ${{ inputs.v2_v_segments }}
+          REPEATS: "1"
+          BLOCK_SIZE: ${{ inputs.block_size }}
+          WARMUP: ${{ inputs.v2_warmup }}
+          ITERATIONS: ${{ inputs.v2_iterations }}
+          CUDA_GRAPHS: off
+          REPEAT_RUN: "1"
+          BUILD_DIR: build/cuda-v2
+          OUTPUT: ${{ github.workspace }}/physical-evidence/gb10/runtime-v2/graphs-off.json
+        run: |
+          set -eu
+          mkdir -p physical-evidence/gb10/runtime-v2
+          rm -rf build/cuda-v2
+          sh scripts/run_cuda_runtime_v2.sh
+
+      - name: Runtime V2 graphs ON
+        env:
+          GLUBALL_CUDA_ARCHITECTURES: native
+          DEVICES: "0"
+          U: ${{ inputs.v2_u_segments }}
+          V: ${{ inputs.v2_v_segments }}
+          REPEATS: "1"
+          BLOCK_SIZE: ${{ inputs.block_size }}
+          WARMUP: ${{ inputs.v2_warmup }}
+          ITERATIONS: ${{ inputs.v2_iterations }}
+          CUDA_GRAPHS: on
+          REPEAT_RUN: "2"
+          BUILD_DIR: build/cuda-v2
+          OUTPUT: ${{ github.workspace }}/physical-evidence/gb10/runtime-v2/graphs-on.json
+        run: sh scripts/run_cuda_runtime_v2.sh
+
+      - name: Verify Runtime V2 portability pair
+        env:
+          EXPECTED_U: ${{ inputs.v2_u_segments }}
+          EXPECTED_V: ${{ inputs.v2_v_segments }}
+          EXPECTED_WARMUP: ${{ inputs.v2_warmup }}
+          EXPECTED_ITERATIONS: ${{ inputs.v2_iterations }}
+          EXPECTED_BLOCK_SIZE: ${{ inputs.block_size }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          def load(path):
+              with open(path, "r", encoding="utf-8") as handle:
+                  return json.load(handle)
+
+          off = load("physical-evidence/gb10/runtime-v2/graphs-off.json")
+          on = load("physical-evidence/gb10/runtime-v2/graphs-on.json")
+          expected_u = int(os.environ["EXPECTED_U"])
+          expected_v = int(os.environ["EXPECTED_V"])
+          expected_warmup = int(os.environ["EXPECTED_WARMUP"])
+          expected_iterations = int(os.environ["EXPECTED_ITERATIONS"])
+          expected_block = int(os.environ["EXPECTED_BLOCK_SIZE"])
+          expected_points = expected_u * expected_v
+
+          for label, record, graphs in (("graphs-off", off, False), ("graphs-on", on, True)):
+              required = {
+                  "contract": "GLUBALL-CUDA-RUNTIME-V2",
+                  "status": "OBSERVED",
+                  "mode": "throughput",
+                  "actual_cuda_execution": True,
+                  "performance_observation_only": True,
+                  "reference_residual_checked": False,
+                  "conformance_acceptance": False,
+                  "geometry_receipt_authority": False,
+                  "universal_speedup_claim": False,
+                  "raw_device_uuid_published": False,
+                  "complete_output_readback": False,
+                  "cuda_graphs_enabled": graphs,
+                  "kernel_timing_excludes_metric_resets": True,
+                  "repeatable_compact_metrics": True,
+                  "compact_metrics_clean": True,
+                  "u_segments": expected_u,
+                  "v_segments": expected_v,
+                  "repeats": 1,
+                  "total_points_per_iteration": expected_points,
+                  "warmup_iterations": expected_warmup,
+                  "measured_iterations": expected_iterations,
+                  "block_size": expected_block,
+                  "used_device_count": 1,
+                  "observed_nonfinite_records_max": 0,
+                  "compiled_architecture_policy": "native",
+                  "resolved_compiled_architectures": ["sm_121"],
+              }
+              for key, expected in required.items():
+                  if record.get(key) != expected:
+                      raise SystemExit(f"{label}: {key}={record.get(key)!r}, expected {expected!r}")
+              if record["observed_max_tube_radius_error"] > record["tube_radius_observation_gate"]:
+                  raise SystemExit(f"{label}: tube-radius observation exceeds gate")
+              if record["iteration_wall_milliseconds_median"] <= 0:
+                  raise SystemExit(f"{label}: non-positive wall timing")
+              if record["model_points_per_second_median"] <= 0:
+                  raise SystemExit(f"{label}: non-positive throughput")
+              devices = record.get("devices") or []
+              if len(devices) != 1:
+                  raise SystemExit(f"{label}: expected exactly one selected device")
+              device = devices[0]
+              if device.get("name") != "NVIDIA GB10":
+                  raise SystemExit(f"{label}: unexpected GPU model")
+              if device.get("compute_capability") != "12.1":
+                  raise SystemExit(f"{label}: unexpected compute capability")
+              if device.get("compiled_cuda_arch_code") != 1210:
+                  raise SystemExit(f"{label}: expected __CUDA_ARCH__ 1210")
+              if device.get("resolved_compiled_architecture") != "sm_121":
+                  raise SystemExit(f"{label}: expected resolved sm_121")
+
+          if off["aggregate_diagnostic_xor64"] != on["aggregate_diagnostic_xor64"]:
+              raise SystemExit("graphs OFF/ON diagnostic digests differ")
+          if off["observed_max_tube_radius_error"] != on["observed_max_tube_radius_error"]:
+              raise SystemExit("graphs OFF/ON tube-radius observations differ")
+
+          off_ms = off["iteration_wall_milliseconds_median"]
+          on_ms = on["iteration_wall_milliseconds_median"]
+          comparison = {
+              "schema": "gluball-gb10-runtime-v2-comparison/1",
+              "workload": {
+                  "u_segments": expected_u,
+                  "v_segments": expected_v,
+                  "repeats": 1,
+                  "points_per_iteration": expected_points,
+                  "block_size": expected_block,
+                  "warmup_iterations": expected_warmup,
+                  "measured_iterations": expected_iterations,
+              },
+              "resolved_compiled_architecture": "sm_121",
+              "graphs_off": {
+                  "iteration_wall_milliseconds_median": off_ms,
+                  "kernel_milliseconds_median": off["devices"][0]["kernel_milliseconds_median"],
+                  "model_points_per_second_median": off["model_points_per_second_median"],
+              },
+              "graphs_on": {
+                  "iteration_wall_milliseconds_median": on_ms,
+                  "kernel_milliseconds_median": on["devices"][0]["kernel_milliseconds_median"],
+                  "model_points_per_second_median": on["model_points_per_second_median"],
+              },
+              "observed_graph_wall_speedup": off_ms / on_ms,
+              "aggregate_diagnostic_xor64": off["aggregate_diagnostic_xor64"],
+              "observed_max_tube_radius_error": off["observed_max_tube_radius_error"],
+              "nonfinite_records": 0,
+              "performance_observation_only": True,
+              "universal_speedup_claim": False,
+              "geometry_receipt_authority": False,
+          }
+          with open("physical-evidence/gb10/RUNTIME_V2_COMPARISON.json", "w", encoding="utf-8") as handle:
+              json.dump(comparison, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+          touch physical-evidence/gb10/V2_VALIDATION.ok
+
+      - name: Compute Sanitizer Runtime V2 compact kernel
+        run: |
+          set -eu
+          root=physical-evidence/gb10
+          mkdir -p "$root/runtime-v2-sanitizer"
+          binary=build/cuda-v2/gluball-cuda-runtime-v2
+          test -x "$binary"
+
+          compute-sanitizer --tool memcheck --error-exitcode 86 \
+            "$binary" --mode throughput --u 512 --v 32 --repeats 1 \
+            --devices 0 --block-size 256 --warmup 0 --iterations 1 \
+            --cuda-graphs off --repeat-run 901 \
+            > "$root/runtime-v2-sanitizer/memcheck.txt" 2>&1
+          grep -Fq 'ERROR SUMMARY: 0 errors' "$root/runtime-v2-sanitizer/memcheck.txt"
+
+          compute-sanitizer --tool racecheck --error-exitcode 87 \
+            "$binary" --mode throughput --u 512 --v 32 --repeats 1 \
+            --devices 0 --block-size 256 --warmup 0 --iterations 1 \
+            --cuda-graphs off --repeat-run 902 \
+            > "$root/runtime-v2-sanitizer/racecheck.txt" 2>&1
+          grep -Fq 'RACECHECK SUMMARY:' "$root/runtime-v2-sanitizer/racecheck.txt"
+          grep -Fq '0 hazards' "$root/runtime-v2-sanitizer/racecheck.txt"
+          grep -Fq '0 errors' "$root/runtime-v2-sanitizer/racecheck.txt"
+          grep -Fq '0 warnings' "$root/runtime-v2-sanitizer/racecheck.txt"
+
+          printf '%s\n' 'Runtime V2 memcheck and racecheck clean on bounded graphs-OFF diagnostic workload.' \
+            > "$root/V2_SANITIZER_STATUS.txt"
+          touch "$root/V2_SANITIZER.ok"
+
+      - name: Finalize GB10 validation manifests
+        if: always()
+        run: |
+          set -eu
+          root=physical-evidence/gb10
+          mkdir -p "$root"
+
+          status=PASS
+          for marker in HOST_VALIDATION.ok V1_VALIDATION.ok V2_VALIDATION.ok V2_SANITIZER.ok; do
+            if [ ! -f "$root/$marker" ]; then
+              status=INCOMPLETE
+            fi
+          done
+
+          python3 - "$status" <<'PY'
+          import json
+          import sys
+
+          status = sys.argv[1]
+          record = {
+              "schema": "gluball-gb10-physical-validation-status/1",
+              "status": status,
+              "v1_correctness_evidence_required": True,
+              "runtime_v2_graphs_off_required": True,
+              "runtime_v2_graphs_on_required": True,
+              "runtime_v2_sanitizer_required": True,
+              "resolved_architecture_required": "sm_121",
+              "geometry_receipt_authority": False,
+              "universal_speedup_claim": False,
+          }
+          with open("physical-evidence/gb10/VALIDATION_STATUS.json", "w", encoding="utf-8") as handle:
+              json.dump(record, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+
+          (
+            cd "$root"
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum \
+              > SHA256SUMS.txt
+          )
+          test -s "$root/SHA256SUMS.txt"
+
+          (
+            cd physical-evidence
+            find . -type f ! -name BUNDLE_SHA256SUMS.txt -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum \
+              > BUNDLE_SHA256SUMS.txt
+          )
+          test -s physical-evidence/BUNDLE_SHA256SUMS.txt
+
+          if [ "$status" != PASS ]; then
+            printf '%s\n' 'GB10 physical validation did not satisfy every required gate.' >&2
+            exit 2
+          fi
+
+      - name: Summarize GB10 validation
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          print("## GLUBALL GB10 physical validation")
+          print()
+          status_path = Path("physical-evidence/gb10/VALIDATION_STATUS.json")
+          if status_path.exists():
+              status = json.loads(status_path.read_text())
+              print(f"**Bundle status:** {status.get('status', '?')}")
+          else:
+              print("**Bundle status:** no final status record")
+          print()
+          comparison_path = Path("physical-evidence/gb10/RUNTIME_V2_COMPARISON.json")
+          if comparison_path.exists():
+              comparison = json.loads(comparison_path.read_text())
+              off = comparison["graphs_off"]
+              on = comparison["graphs_on"]
+              print("| Runtime V2 policy | Median wall ms | Median kernel ms | Model points/s |")
+              print("| --- | ---: | ---: | ---: |")
+              print(f"| graphs OFF | {off['iteration_wall_milliseconds_median']} | {off['kernel_milliseconds_median']} | {off['model_points_per_second_median']} |")
+              print(f"| graphs ON | {on['iteration_wall_milliseconds_median']} | {on['kernel_milliseconds_median']} | {on['model_points_per_second_median']} |")
+              print()
+              print(f"Observed same-run graph wall ratio: `{comparison['observed_graph_wall_speedup']}`")
+          print()
+          print("V1 is correctness evidence. Runtime V2 is performance observation only. GPU output is not geometry authority and no universal speedup claim is made.")
+          PY
+
+      - name: Upload GB10 physical validation bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gluball-physical-gb10-${{ github.run_id }}-${{ github.run_attempt }}
+          path: physical-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
