@@ -61,6 +61,9 @@ assert.match(workflow, /SELECTED_GPU_MODEL\.txt/);
 
 assertManualSelfHostedBoundary(eightWorkflow, "8-GPU physical CUDA workflow");
 assert.match(eightWorkflow, /bounded_positive_integer accepted_runs "\$ACCEPTED_RUNS_INPUT" 100/);
+assert.match(eightWorkflow, /accepted_runs_normalized=/);
+assert.match(eightWorkflow, /if \[ "\$accepted_runs_normalized" -lt 3 \]; then/);
+assert.match(eightWorkflow, /accepted_runs must be at least 3 for Phase 5B completion/);
 assert.match(eightWorkflow, /bounded_positive_integer u_segments "\$U_INPUT" 1000000/);
 assert.match(eightWorkflow, /bounded_positive_integer v_segments "\$V_INPUT" 65536/);
 assert.match(eightWorkflow, /bounded_positive_integer repeats "\$REPEATS_INPUT" 1024/);
