@@ -29,7 +29,60 @@ observed_nonfinite_records_max
 resolved_compiled_architectures
 ```
 
-Both runtimes must also report clean, repeatable compact metrics. This equivalence gate is a performance-runtime regression guard. It is not V1 conformance acceptance and is not a geometry receipt.
+Both runtimes must also report clean, repeatable compact metrics.
+
+### Homogeneous-device requirement
+
+V2 partitions arbitrary point ranges while V3 partitions complete `u` rings. On a heterogeneous multi-GPU selection, quotient/remainder boundaries can therefore move a logical point from one architecture to another even though the aggregate logical domain is unchanged. Since the compact digest contains exact float bits, architecture-dependent transcendental results could make a correct V3 implementation disagree with V2 solely because ownership changed.
+
+The exact V2/V3 equivalence harness and bounded tuner therefore fail closed unless all selected devices share the same:
+
+```text
+name
+compute_capability
+compiled_cuda_arch_code
+```
+
+This restriction applies to the exact V2/V3 observation gate. It does not claim heterogeneous Runtime V3 execution is intrinsically invalid; it means heterogeneous execution requires a different comparison design before exact V2 equivalence can be asserted.
+
+The equivalence gate remains a performance-runtime regression guard. It is not V1 conformance acceptance and is not a geometry receipt.
+
+## Torus signature orbit: `(2,3) <-> (3,2)`
+
+Runtime V3 now carries the SAW-1 pair-swap pattern at the correct abstraction layer: the **ordered torus winding signature**.
+
+The canonical GLUBALL geometry remains:
+
+```text
+T(2,3)
+```
+
+Define the coordinate-swap operator:
+
+```text
+tau(a,b) = (b,a)
+```
+
+Then the runtime signature orbit is:
+
+```text
+(2,3) --tau--> (3,2)
+(3,2) --tau--> (2,3)
+```
+
+so `tau(tau(p)) = p` for the ordered pair. This imports the useful SAW-1 structural pattern without importing SAW-1 ontology.
+
+The boundary is strict:
+
+```text
+canonical runtime geometry signature: (2,3)
+swapped signature metadata:          (3,2)
+swap is involutive:                  true
+(2,3) == (3,2) as ordered pairs:     false
+swapped embedding enabled:           false
+```
+
+Runtime V3 does **not** silently replace the GLUBALL centerline with a `(3,2)` embedding, does not collapse the two ordered signatures, and does not use torus-knot-type equivalence as acceptance evidence. The pair orbit is an explicit algebraic/runtime metadata surface only. A future swapped-embedding experiment would need its own contract and equivalence evidence.
 
 ## V3-A: deterministic geometry precomputation
 
@@ -101,17 +154,21 @@ Default candidates are:
 block size: 32, 64, 128, 256, 512, 1024
 CUDA Graphs: off, on
 trials per candidate: 3
+measured iterations: at least 2
 ```
+
+The script rejects `ITERATIONS=1` because `repeatable_compact_metrics=true` would otherwise be vacuous: there would be no second measured observation to compare.
 
 The script:
 
 1. builds V2 and V3 once;
 2. records repeated V2 baseline observations;
-3. enumerates every declared V3 candidate in deterministic order;
-4. rejects the run if any candidate violates exact V2 compact-observation equivalence;
-5. computes the median of each candidate's per-process wall-time medians;
-6. selects the lowest observed value with deterministic tie-breaking;
-7. writes `TUNING_RESULT.json`.
+3. requires a homogeneous selected-device signature for exact V2/V3 comparison;
+4. enumerates every declared V3 candidate in deterministic order;
+5. rejects the run if any candidate violates exact V2 compact-observation equivalence;
+6. computes the median of each candidate's per-process wall-time medians;
+7. selects the lowest observed value with deterministic tie-breaking;
+8. writes `TUNING_RESULT.json`.
 
 The selection is only the **best observed candidate within the declared finite set**. Runtime V3 makes no rigorous global-optimum claim over all possible kernel implementations or launch configurations. Wall-clock GPU timing is a noisy black-box observation and the runtime does not provide the regional bounds required for a rigorous deterministic-global-optimization theorem.
 
@@ -135,7 +192,12 @@ object equality
 
 and proves the coordinate swap is an involution before using the relation.
 
-Runtime V3 records tube-coordinate symmetry compression as a **candidate only**. It is not enabled in the CUDA kernel. No GLUBALL point may be skipped and reconstructed from an orbit partner until all of the following exist:
+Runtime V3 uses that pattern in two deliberately different ways:
+
+1. the `(2,3) <-> (3,2)` ordered torus signature orbit is explicit runtime metadata;
+2. tube-coordinate sample compression remains a **candidate only** and is not enabled in the CUDA kernel.
+
+No GLUBALL sample point may be skipped and reconstructed from a tube-coordinate orbit partner until all of the following exist:
 
 1. a GLUBALL-specific index transform;
 2. proof of domain closure;
@@ -144,6 +206,10 @@ Runtime V3 records tube-coordinate symmetry compression as a **candidate only**.
 5. exact V2 compact-observation equivalence on physical CUDA hardware.
 
 This prevents the invalid inference that two distinct ordered sample points may be collapsed merely because they lie in the same symmetry orbit.
+
+## Sanitizer failure archival
+
+The weak-GPU physical workflow runs Runtime V3 memcheck and racecheck independently even when one fails. Both transcripts and both process exit statuses are archived before the step fails. This keeps a paid weak-GPU failure diagnostically complete instead of aborting after the first sanitizer tool.
 
 ## Claim boundary
 
