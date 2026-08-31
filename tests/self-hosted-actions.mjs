@@ -39,7 +39,7 @@ assert.ok(
 
 assert.match(workflow, /- name: Validate dispatch inputs/);
 assert.match(workflow, /positive_integer accepted_runs "\$ACCEPTED_RUNS_INPUT"/);
-assert.match(workflow, /accepted_runs must be > 0/);
+assert.match(workflow, /if \[ "\$value" -le 0 \]; then/);
 assert.match(workflow, /query-gpu=name --format=csv,noheader/);
 assert.match(workflow, /distinct_models/);
 assert.match(workflow, /requires GPUs 0-3 to have one identical model/);
