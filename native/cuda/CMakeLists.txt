@@ -43,3 +43,4 @@ endfunction()
 
 gluball_cuda_target(gluball-multi-cuda gluball_multi_device.cu)
 gluball_cuda_target(gluball-cuda-evidence gluball_evidence.cu)
+gluball_cuda_target(gluball-cuda-runtime-v2 gluball_runtime_v2.cu)
