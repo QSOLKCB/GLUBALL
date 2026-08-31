@@ -131,36 +131,136 @@ jobs:
           ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/runtime-v31-efficiency/v1-acceptance
         run: sh scripts/run_vast_campaign.sh
 
-      - name: Verify V1 correctness and sanitizer archive
+      - name: Verify V1 correctness, repeatability, and sanitizer archive
         run: |
           set -eu
           campaign="$EVIDENCE_ROOT/v1-acceptance"
           python3 - "$campaign" <<'PY'
-          import json, sys
+          import hashlib
+          import json
+          import re
+          import sys
           from pathlib import Path
+
           root = Path(sys.argv[1])
-          records = sorted(root.glob("acceptance-run-*.json"))
-          if len(records) != 3: raise SystemExit(f"expected 3 V1 records, found {len(records)}")
-          for path in records:
-              payload = json.loads(path.read_text())
-              if payload.get("status") != "PASS": raise SystemExit(f"V1 failed: {path}")
-              if payload.get("reference_residual_checked") is not True: raise SystemExit(f"reference residual missing: {path}")
-              if payload.get("conformance_acceptance") is not True: raise SystemExit(f"conformance missing: {path}")
-              if payload.get("geometry_receipt_authority") is not False: raise SystemExit(f"geometry boundary changed: {path}")
-          PY
-          find_clean_summary() {
-            expected=$1; shift
-            for candidate in "$@"; do
-              if [ -s "$candidate" ] && grep -Fq "$expected" "$candidate"; then printf '%s\n' "$candidate"; return 0; fi
-            done
-            return 1
+          expected_runs = 3
+          issues = []
+
+          def numbered(pattern, regex):
+              found = []
+              for path in root.glob(pattern):
+                  match = re.fullmatch(regex, path.name)
+                  if match:
+                      found.append((int(match.group(1)), path))
+              return [path for _, path in sorted(found)]
+
+          records = numbered("cuda-acceptance-*.json", r"cuda-acceptance-(\d+)\.json")
+          outputs = numbered("cuda-output-*.f32le", r"cuda-output-(\d+)\.f32le")
+          sidecars = numbered("cuda-run-*.json", r"cuda-run-(\d+)\.json")
+
+          if len(records) != expected_runs:
+              issues.append(f"expected {expected_runs} V1 acceptance records, found {len(records)}")
+          if len(outputs) != expected_runs:
+              issues.append(f"expected {expected_runs} V1 output fields, found {len(outputs)}")
+          if len(sidecars) != expected_runs:
+              issues.append(f"expected {expected_runs} V1 CUDA sidecars, found {len(sidecars)}")
+
+          payloads = []
+          for ordinal, path in enumerate(records, 1):
+              try:
+                  payload = json.loads(path.read_text())
+              except Exception as exc:
+                  issues.append(f"cannot parse {path.name}: {exc}")
+                  continue
+              payloads.append(payload)
+              expected_output = f"cuda-output-{ordinal}.f32le"
+              expected_sidecar = f"cuda-run-{ordinal}.json"
+              checks = {
+                  "status": payload.get("status") == "PASS",
+                  "repeat_run": payload.get("repeat_run") == ordinal,
+                  "complete_output_readback": payload.get("complete_output_readback") is True,
+                  "reference_residual_checked": payload.get("reference_residual_checked") is True,
+                  "conformance_acceptance": payload.get("conformance_acceptance") is True,
+                  "geometry_receipt_authority": payload.get("geometry_receipt_authority") is False,
+                  "universal_speedup_claim": payload.get("universal_speedup_claim") is False,
+                  "checked_points_equal_total": payload.get("checked_points") == payload.get("total_points"),
+                  "nonfinite_records_zero": payload.get("nonfinite_records") == 0,
+                  "matching_output_path": Path(payload.get("evidence_output_path", "")).name == expected_output,
+                  "matching_sidecar_path": Path(payload.get("cuda_sidecar_path", "")).name == expected_sidecar,
+              }
+              for name, passed in checks.items():
+                  if not passed:
+                      issues.append(f"{path.name}: failed {name}")
+
+          stable_fields = [
+              "total_points",
+              "checked_points",
+              "max_component_residual",
+              "max_euclidean_residual",
+              "max_reported_tube_radius_error",
+              "worst_linear_index",
+              "evidence_artifact_fnv1a64",
+          ]
+          stable_values = {}
+          if len(payloads) == expected_runs:
+              for field in stable_fields:
+                  values = [payload.get(field) for payload in payloads]
+                  stable_values[field] = values[0]
+                  if any(value != values[0] for value in values[1:]):
+                      issues.append(f"V1 acceptance field not repeatable: {field}")
+
+          output_sha256 = [hashlib.sha256(path.read_bytes()).hexdigest() for path in outputs]
+          output_repeatable = len(output_sha256) == expected_runs and len(set(output_sha256)) == 1
+          if len(output_sha256) == expected_runs and not output_repeatable:
+              issues.append("V1 complete output fields are not byte-identical across repeats")
+
+          def find_clean_summary(expected, candidates):
+              for path in candidates:
+                  if path.is_file() and path.stat().st_size > 0 and expected in path.read_text(errors="replace"):
+                      return path
+              return None
+
+          memcheck_source = find_clean_summary(
+              "ERROR SUMMARY: 0 errors",
+              [root / "memcheck.txt", root / "memcheck-run.json"],
+          )
+          racecheck_source = find_clean_summary(
+              "RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)",
+              [root / "racecheck.txt", root / "racecheck-run.json"],
+          )
+          if memcheck_source is None:
+              issues.append("clean V1 memcheck summary not found in either archival location")
+          if racecheck_source is None:
+              issues.append("clean V1 racecheck summary not found in either archival location")
+
+          summary = {
+              "schema": "gluball-runtime-v31-v1-validation/1",
+              "status": "PASS" if not issues else "FAIL",
+              "expected_runs": expected_runs,
+              "acceptance_record_files": [path.name for path in records],
+              "cuda_sidecar_files": [path.name for path in sidecars],
+              "output_files": [path.name for path in outputs],
+              "acceptance_record_count": len(records),
+              "cuda_sidecar_count": len(sidecars),
+              "output_file_count": len(outputs),
+              "output_sha256": output_sha256,
+              "output_repeatable_byte_identical": output_repeatable,
+              "stable_acceptance_fields": stable_values,
+              "memcheck_clean_summary_source": memcheck_source.name if memcheck_source else None,
+              "racecheck_clean_summary_source": racecheck_source.name if racecheck_source else None,
+              "dual_location_sanitizer_archive_observed": bool(
+                  memcheck_source and racecheck_source
+                  and (memcheck_source.name.endswith("-run.json") or racecheck_source.name.endswith("-run.json"))
+              ),
+              "geometry_receipt_authority": False,
+              "universal_speedup_claim": False,
+              "issues": issues,
           }
-          memcheck_source=$(find_clean_summary 'ERROR SUMMARY: 0 errors' "$campaign/memcheck.txt" "$campaign/memcheck-run.json" || true)
-          racecheck_source=$(find_clean_summary 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$campaign/racecheck.txt" "$campaign/racecheck-run.json" || true)
-          test -n "$memcheck_source"
-          test -n "$racecheck_source"
+          (root / "V1_VALIDATION.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+          if issues:
+              raise SystemExit("; ".join(issues))
+          PY
           (cd "$campaign" && sha256sum -c SHA256SUMS.txt)
-          printf 'memcheck=%s\nracecheck=%s\n' "$memcheck_source" "$racecheck_source" > "$campaign/SANITIZER_STATUS.txt"
           touch "$EVIDENCE_ROOT/V1_VALIDATION.ok"
 
       - name: V2 V3 V3.1 exact comparison atomic
@@ -274,19 +374,38 @@ jobs:
           import json, sys
           from pathlib import Path
           root = Path(sys.argv[1])
-          required = {
-              "host_validation": root / "HOST_VALIDATION.ok",
-              "v1_validation": root / "V1_VALIDATION.ok",
-              "atomic_equivalence": root / "ab-atomic" / "EQUIVALENCE.json",
-              "two_stage_equivalence": root / "ab-two-stage" / "EQUIVALENCE.json",
-              "tuning": root / "tuning" / "TUNING_RESULT.json",
-              "v31_sanitizer": root / "V31_SANITIZER.ok",
-          }
-          status = "PASS" if all(path.exists() for path in required.values()) else "FAIL"
+          ordered_required = [
+              ("host_validation", root / "HOST_VALIDATION.ok"),
+              ("v1_validation", root / "V1_VALIDATION.ok"),
+              ("atomic_equivalence", root / "ab-atomic" / "EQUIVALENCE.json"),
+              ("two_stage_equivalence", root / "ab-two-stage" / "EQUIVALENCE.json"),
+              ("tuning", root / "tuning" / "TUNING_RESULT.json"),
+              ("v31_sanitizer", root / "V31_SANITIZER.ok"),
+          ]
+          observed = {key: path.exists() for key, path in ordered_required}
+          status = "PASS" if all(observed.values()) else "FAIL"
+          completed = [key for key, present in observed.items() if present]
+          first_incomplete = next((key for key, present in observed.items() if not present), None)
+
+          v1_summary_path = root / "v1-acceptance" / "V1_VALIDATION.json"
+          v1_summary = None
+          if v1_summary_path.exists():
+              try:
+                  v1_summary = json.loads(v1_summary_path.read_text())
+              except Exception:
+                  v1_summary = {"status": "UNREADABLE"}
+
           payload = {
               "schema": "gluball-runtime-v31-physical-efficiency-status/1",
               "status": status,
-              "required_markers": {key: path.exists() for key, path in required.items()},
+              "required_markers": observed,
+              "completed_required_stages": completed,
+              "first_incomplete_required_stage": first_incomplete,
+              "partial_evidence_retained": any(observed.values()) or v1_summary_path.exists(),
+              "v1_validation_summary_present": v1_summary_path.exists(),
+              "v1_validation_summary_status": v1_summary.get("status") if isinstance(v1_summary, dict) else None,
+              "v1_output_repeatable_byte_identical": v1_summary.get("output_repeatable_byte_identical") if isinstance(v1_summary, dict) else None,
+              "v1_acceptance_record_count": v1_summary.get("acceptance_record_count") if isinstance(v1_summary, dict) else None,
               "performance_observation_only": True,
               "reference_residual_checked": False,
               "conformance_acceptance": False,
