@@ -122,17 +122,6 @@ jobs:
       - name: GLUBALL CUDA preflight
         run: sh scripts/cuda_preflight.sh | tee physical-evidence/PREFLIGHT.txt
 
-      - name: Record sanitizer availability in campaign evidence
-        run: |
-          set -eu
-          mkdir -p physical-evidence/8gpu
-          if command -v compute-sanitizer >/dev/null 2>&1; then
-            printf '%s\n' 'available' > physical-evidence/8gpu/SANITIZER_STATUS.txt
-          else
-            printf '%s\n' 'unavailable: compute-sanitizer not found on PATH' \
-              > physical-evidence/8gpu/SANITIZER_STATUS.txt
-          fi
-
       - name: 8 GPU evidence - three accepted runs
         env:
           MODE: evidence
@@ -152,14 +141,34 @@ jobs:
         if: always()
         run: |
           set -eu
-          status_file=physical-evidence/8gpu/SANITIZER_STATUS.txt
-          test -s "$status_file"
-          if grep -qx 'available' "$status_file"; then
-            if [ ! -s physical-evidence/8gpu/memcheck.txt ] || [ ! -s physical-evidence/8gpu/racecheck.txt ]; then
+          campaign_dir=physical-evidence/8gpu
+          status_file="$campaign_dir/SANITIZER_STATUS.txt"
+          mkdir -p "$campaign_dir"
+          sanitizer_ok=true
+
+          if command -v compute-sanitizer >/dev/null 2>&1; then
+            if [ -s "$campaign_dir/memcheck.txt" ] && [ -s "$campaign_dir/racecheck.txt" ]; then
+              printf '%s\n' 'available: memcheck and racecheck evidence archived' > "$status_file"
+            else
               printf '%s\n' 'available-but-results-not-archived' > "$status_file"
               printf '%s\n' 'compute-sanitizer was available but memcheck/racecheck evidence is missing' >&2
-              exit 2
+              sanitizer_ok=false
             fi
+          else
+            printf '%s\n' 'unavailable: compute-sanitizer not found on PATH' > "$status_file"
+          fi
+
+          (
+            cd "$campaign_dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print \
+              | LC_ALL=C sort \
+              | xargs -r sha256sum \
+              > SHA256SUMS.txt
+          )
+          test -s "$campaign_dir/SHA256SUMS.txt"
+
+          if [ "$sanitizer_ok" != true ]; then
+            exit 2
           fi
 
       - name: Finalize bundle integrity manifest
