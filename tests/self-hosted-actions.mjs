@@ -36,6 +36,18 @@ assert.ok(
   oneStep >= 0 && twoStep > oneStep && fourStep > twoStep,
   "device ladder must stay ordered 1 -> 2 -> 4"
 );
+
+assert.match(workflow, /- name: Validate dispatch inputs/);
+assert.match(workflow, /positive_integer accepted_runs "\$ACCEPTED_RUNS_INPUT"/);
+assert.match(workflow, /accepted_runs must be > 0/);
+assert.match(workflow, /query-gpu=name --format=csv,noheader/);
+assert.match(workflow, /distinct_models/);
+assert.match(workflow, /requires GPUs 0-3 to have one identical model/);
+assert.match(workflow, /SELECTED_GPU_MODEL\.txt/);
+assert.match(workflow, /- name: Finalize bundle integrity manifest/);
+assert.match(workflow, /BUNDLE_SHA256SUMS\.txt/);
+assert.match(workflow, /find \. -type f ! -name BUNDLE_SHA256SUMS\.txt/);
+
 assert.doesNotMatch(workflow, /nvidia-smi\s+-L/, "workflow logs must not publish raw CUDA UUIDs");
 assert.doesNotMatch(workflow, /query-gpu=[^\n]*uuid/i, "workflow inventory must not query raw CUDA UUIDs");
 assert.match(workflow, /uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
