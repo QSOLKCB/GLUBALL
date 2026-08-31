@@ -50,6 +50,27 @@ constexpr std::int64_t kMinorRadiusFixed = 850000;
 constexpr std::int64_t kTubeRadiusFixed = 340000;
 constexpr float kTau = 6.2831853071795864769F;
 
+struct TorusSignature {
+  std::uint32_t first;
+  std::uint32_t second;
+};
+
+constexpr TorusSignature swap_torus_signature(TorusSignature signature) {
+  return TorusSignature{signature.second, signature.first};
+}
+
+constexpr TorusSignature kCanonicalTorusSignature{2U, 3U};
+constexpr TorusSignature kSwappedTorusSignature = swap_torus_signature(kCanonicalTorusSignature);
+constexpr TorusSignature kDoubleSwappedTorusSignature = swap_torus_signature(kSwappedTorusSignature);
+static_assert(kSwappedTorusSignature.first == 3U && kSwappedTorusSignature.second == 2U,
+              "canonical (2,3) torus signature must swap to (3,2)");
+static_assert(kDoubleSwappedTorusSignature.first == kCanonicalTorusSignature.first
+                  && kDoubleSwappedTorusSignature.second == kCanonicalTorusSignature.second,
+              "torus signature coordinate swap must be involutive");
+static_assert(kCanonicalTorusSignature.first != kSwappedTorusSignature.first
+                  || kCanonicalTorusSignature.second != kSwappedTorusSignature.second,
+              "(2,3) and (3,2) remain distinct ordered signatures");
+
 struct Options {
   std::uint32_t u = kDefaultU;
   std::uint32_t v = kDefaultV;
@@ -774,6 +795,16 @@ int main(int argc, char** argv) {
         << "  \"legacy_cuda_contract\": \"" << kLegacyCudaContract << "\",\n"
         << "  \"acceptance_contract\": \"" << kAcceptanceContract << "\",\n"
         << "  \"geometry_contract\": \"" << kGeometryContract << "\",\n"
+        << "  \"torus_knot_ordered_signature\": [" << kCanonicalTorusSignature.first << ", " << kCanonicalTorusSignature.second << "],\n"
+        << "  \"torus_knot_swapped_signature\": [" << kSwappedTorusSignature.first << ", " << kSwappedTorusSignature.second << "],\n"
+        << "  \"torus_knot_signature_orbit\": [[" << kCanonicalTorusSignature.first << ", " << kCanonicalTorusSignature.second
+        << "], [" << kSwappedTorusSignature.first << ", " << kSwappedTorusSignature.second << "]],\n"
+        << "  \"torus_knot_signature_swap_operator\": \"tau(a,b)=(b,a)\",\n"
+        << "  \"torus_knot_signature_swap_involutive\": true,\n"
+        << "  \"torus_knot_ordered_signatures_equal\": false,\n"
+        << "  \"torus_knot_canonical_geometry_signature_preserved\": true,\n"
+        << "  \"torus_knot_swapped_embedding_enabled\": false,\n"
+        << "  \"torus_knot_type_equivalence_used_for_acceptance\": false,\n"
         << "  \"host_runtime_contract\": \"" << kHostRuntimeContract << "\",\n"
         << "  \"floating_point_adapter_profile\": \"" << kFloatingPointAdapterProfile << "\",\n"
         << "  \"status\": \"OBSERVED\",\n"
@@ -794,6 +825,7 @@ int main(int argc, char** argv) {
         << "  \"v1_evidence_path_unchanged\": true,\n"
         << "  \"v2_runtime_unchanged\": true,\n"
         << "  \"v2_equivalence_checked\": false,\n"
+        << "  \"v2_exact_equivalence_homogeneous_devices_required\": true,\n"
         << "  \"precomputed_u_frames\": true,\n"
         << "  \"precomputed_v_angles\": true,\n"
         << "  \"precomputed_geometry_buffers_immutable_after_setup\": true,\n"
