@@ -23,6 +23,14 @@ only selected device count changes: 1 -> 2 -> 4
 
 The workflow is not a matrix because concurrent jobs on one 8-GPU host would create resource contention and weaken the interpretation of the timing observations.
 
+Before executing the ladder, the workflow fails closed unless:
+
+- all dispatch count/architecture inputs are positive integers;
+- at least four GPUs are visible;
+- GPUs 0 through 3 all report the same model name.
+
+These checks prevent a zero-run green workflow and prevent heterogeneous devices from being treated as a controlled same-model comparison.
+
 ## Security boundary
 
 GLUBALL is a public repository. A persistent public-repository self-hosted runner is therefore intentionally avoided.
@@ -115,7 +123,9 @@ physical-evidence/
   HOST_UNAME.txt
   NVIDIA_DEVICES.txt
   NVIDIA_INVENTORY.csv
+  SELECTED_GPU_MODEL.txt
   PREFLIGHT.txt
+  BUNDLE_SHA256SUMS.txt
   1gpu/
   2gpu/
   4gpu/
@@ -123,9 +133,11 @@ physical-evidence/
 
 Each completed device-count directory retains its normal campaign outputs, including `SHA256SUMS.txt`, CUDA sidecars, full-readback artifacts, Rust acceptance records, and sanitizer evidence.
 
-The upload step uses `if: always()`. Therefore an accepted 1-GPU campaign is still returned if a later 2-GPU or 4-GPU stage rejects and stops the job.
+`BUNDLE_SHA256SUMS.txt` is finalized under `if: always()` after the ladder attempt and hashes every available file in `physical-evidence/` except itself. This binds the exact source commit and redacted host/GPU provenance to the returned bundle, including partial evidence when a later stage rejects.
 
-GitHub's uploaded Actions artifact is a transport/archive convenience. The internal campaign manifests and separately recorded hashes remain the evidence integrity surface.
+The upload step also uses `if: always()`. Therefore an accepted 1-GPU campaign is still returned if a later 2-GPU or 4-GPU stage rejects and stops the job.
+
+GitHub's uploaded Actions artifact is a transport/archive convenience. The campaign manifests plus the root bundle manifest and separately recorded archive hashes form the evidence-integrity surface.
 
 ## Interpretation
 
