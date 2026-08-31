@@ -1,0 +1,52 @@
+{
+  "schema": "gluball-cuda-acceptance-contract/1",
+  "contract": "GLUBALL-CUDA-ACCEPTANCE-V1",
+  "geometry_contract": "GLUBALL-KNOT-V1",
+  "host_reference": "GLUBALL-RUST-RUNTIME-V1",
+  "cuda_contract": "GLUBALL-MULTI-DEVICE-CUDA-V1",
+  "cuda_adapter_profile": "gluball-cuda-f32-v1",
+  "residual_profile": "gluball-rust-vs-cuda-f32-full-v1",
+  "evidence_output": {
+    "format": "GLUBALL-CUDA-F32LE-XYZR-V1",
+    "record_bytes": 16,
+    "fields": ["x_f32le", "y_f32le", "z_f32le", "cuda_reported_tube_radius_error_f32le"],
+    "ordering": "global-linear-index-order",
+    "complete_readback_required": true,
+    "partial_artifacts_accepted": false
+  },
+  "required_cuda_sidecar_claims": {
+    "schema": "GLUBALL-MULTI-DEVICE-CUDA-EVIDENCE-SIDECAR-V1",
+    "actual_cuda_execution": true,
+    "complete_output_readback": true,
+    "local_invariant_acceptance": true,
+    "domain_fields_must_match_acceptance_cli": [
+      "u_segments",
+      "v_segments",
+      "repeats",
+      "total_points",
+      "repeat_run"
+    ]
+  },
+  "gates": {
+    "max_component_residual": 0.00005,
+    "max_euclidean_residual": 0.00008660254037844386,
+    "max_cuda_reported_tube_radius_error": 0.00005,
+    "nonfinite_records": 0,
+    "checked_points_equals_total_points": true
+  },
+  "acceptance_semantics": {
+    "reference_residual_checked": "true only in the independent Rust acceptance record after every serialized CUDA point is compared",
+    "conformance_acceptance": "true only when every required sidecar binding and numerical gate passes",
+    "actual_cuda_execution_authority": "CUDA sidecar produced on the physical host",
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "physical_model_validation": false
+  },
+  "campaign_policy": {
+    "evidence_runs_default": 3,
+    "rejected_runs_must_be_retained": true,
+    "sha256_manifest_required": true,
+    "throughput_mode_is_conformance": false,
+    "device_count_ladder": [1, 2, 4, 8]
+  }
+}
