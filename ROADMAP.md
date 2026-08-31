@@ -176,13 +176,17 @@ No item below may be checked merely because matching hardware was detected or re
 
 The accepted 1/2/4 evidence is GitHub Actions run `33378934659` on source commit `d73ad661464eb040e2966e5e9f036941543b4524`, artifact `9753091493` (`gluball-physical-cuda-1-2-4-33378934659-1`), ZIP SHA-256 `6ba740acf06617d0cf93d2d3548b6e0783994b88b9ed40ee342349f9f9d23747`. The downloaded root bundle and all three campaign manifests were independently verified.
 
+The accepted 8-GPU completion evidence is GitHub Actions run `33388107831` on source commit `0505b6e20e4f79514671fd63bb1e1f6d997a4493`, artifact `9756414599` (`gluball-physical-cuda-8gpu-33388107831-1`), ZIP SHA-256 `fd75447d5dbd88909a69339627c3e0114627aca5b7bfb66a0c9705b7fd03944d`. All three 8-GPU acceptance records passed, the downloaded inner and outer manifests verified, and archived Compute Sanitizer memcheck/racecheck summaries were clean.
+
 - [x] Run 1-GPU evidence mode for three accepted repeats.
 - [x] Run 2-GPU evidence mode for three accepted repeats.
 - [x] Run 4-GPU evidence mode for three accepted repeats.
-- [ ] Run 8-GPU evidence mode for three accepted repeats.
-- [ ] Confirm complete coverage and independent Rust residual acceptance at every device count.
-- [ ] Run Compute Sanitizer memcheck/racecheck where supported and archive the result or explicit unavailability.
-- [ ] Record exact host, driver, runtime, compile architecture, selected-device, and redacted-device provenance.
+- [x] Run 8-GPU evidence mode for three accepted repeats.
+- [x] Confirm complete coverage and independent Rust residual acceptance at every device count.
+- [x] Run Compute Sanitizer memcheck/racecheck where supported and archive the result or explicit unavailability.
+- [x] Record exact host, driver, runtime, compile architecture, selected-device, and redacted-device provenance.
+
+**Phase 5B graduation:** complete. Physical accelerator evidence remains non-authoritative for geometry and does not establish a universal speedup claim.
 
 ### 5C — "go brrrr" scaling campaign
 
