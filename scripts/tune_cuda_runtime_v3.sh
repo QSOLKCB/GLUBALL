@@ -17,13 +17,16 @@ ARCH=${GLUBALL_CUDA_ARCHITECTURES:-native}
 BUILD_DIR=${BUILD_DIR:-build/cuda-v3-tune}
 OUTPUT_DIR=${OUTPUT_DIR:-runtime-v3-tune}
 
-python3 - "$TRIALS" "$BLOCK_SIZES" "$GRAPH_MODES" <<'PY'
+python3 - "$TRIALS" "$BLOCK_SIZES" "$GRAPH_MODES" "$ITERATIONS" <<'PY'
 import sys
 trials = sys.argv[1]
 blocks = sys.argv[2]
 graphs = sys.argv[3]
+iterations = sys.argv[4]
 if not trials.isdecimal() or not 1 <= int(trials) <= 20:
     raise SystemExit("TRIALS must be an integer in [1,20]")
+if not iterations.isdecimal() or not 2 <= int(iterations) <= 10000:
+    raise SystemExit("ITERATIONS must be an integer in [2,10000] so compact repeatability is non-vacuous")
 block_values = blocks.split(",")
 if any(not value.isdecimal() for value in block_values):
     raise SystemExit("BLOCK_SIZES must be comma-separated decimal integers")
@@ -123,7 +126,26 @@ exact_keys = (
     "observed_nonfinite_records_max",
 )
 
+def homogeneous_device_signature(payload, label):
+    devices = payload.get("devices", [])
+    if not devices:
+        raise SystemExit(f"{label} contains no selected device records")
+    signatures = {
+        (device.get("name"), device.get("compute_capability"), device.get("compiled_cuda_arch_code"))
+        for device in devices
+    }
+    if len(signatures) != 1:
+        raise SystemExit(
+            f"{label} exact V2/V3 equivalence requires homogeneous selected devices; "
+            f"observed signatures: {sorted(signatures)!r}"
+        )
+    return next(iter(signatures))
+
+reference_device_signature = homogeneous_device_signature(reference, "V2 baseline")
+
 for payload in baseline_runs:
+    if payload.get("measured_iterations", 0) < 2:
+        raise SystemExit("V2 baseline measured_iterations must be >= 2 for non-vacuous repeatability")
     if payload.get("performance_observation_only") is not True:
         raise SystemExit("V2 baseline is not performance-observation-only")
     for key in claim_false:
@@ -131,6 +153,8 @@ for payload in baseline_runs:
             raise SystemExit(f"V2 baseline claim boundary changed: {key}")
     if payload.get("repeatable_compact_metrics") is not True or payload.get("compact_metrics_clean") is not True:
         raise SystemExit("V2 baseline compact metrics are not clean and repeatable")
+    if homogeneous_device_signature(payload, "V2 baseline trial") != reference_device_signature:
+        raise SystemExit("V2 baseline selected-device signature changed across trials")
     for key in exact_keys:
         if payload.get(key) != reference.get(key):
             raise SystemExit(f"V2 baseline trial mismatch for {key}")
@@ -147,6 +171,8 @@ for block in blocks:
                 raise SystemExit(f"unexpected V3 contract in {path}")
             if payload.get("v2_reference_contract") != "GLUBALL-CUDA-RUNTIME-V2":
                 raise SystemExit(f"V3 reference binding missing in {path}")
+            if payload.get("measured_iterations", 0) < 2:
+                raise SystemExit(f"V3 measured_iterations must be >= 2 for non-vacuous repeatability in {path}")
             if payload.get("performance_observation_only") is not True:
                 raise SystemExit(f"V3 claim boundary changed in {path}")
             for key in claim_false:
@@ -154,6 +180,8 @@ for block in blocks:
                     raise SystemExit(f"V3 claim boundary changed for {key} in {path}")
             if payload.get("repeatable_compact_metrics") is not True or payload.get("compact_metrics_clean") is not True:
                 raise SystemExit(f"V3 compact metrics are not clean and repeatable in {path}")
+            if homogeneous_device_signature(payload, f"V3 candidate {path}") != reference_device_signature:
+                raise SystemExit(f"V2/V3 homogeneous selected-device signature mismatch in {path}")
             for key in exact_keys:
                 if payload.get(key) != reference.get(key):
                     raise SystemExit(f"V2/V3 exact observation mismatch for {key} in {path}")
@@ -196,6 +224,14 @@ result = {
     "declared_candidate_set_complete": True,
     "candidate_count": len(candidates),
     "trial_count_per_candidate": trials,
+    "measured_iterations_per_process": reference.get("measured_iterations"),
+    "repeatability_nonvacuous": True,
+    "v2_equivalence_requires_homogeneous_selected_devices": True,
+    "homogeneous_selected_device_signature": {
+        "name": reference_device_signature[0],
+        "compute_capability": reference_device_signature[1],
+        "compiled_cuda_arch_code": reference_device_signature[2],
+    },
     "objective": "minimize median of per-process iteration_wall_milliseconds_median observations",
     "constraints": [
         "exact V2 aggregate_diagnostic_xor64",
@@ -204,6 +240,8 @@ result = {
         "same total_points_per_iteration",
         "same used_device_count",
         "same resolved_compiled_architectures",
+        "homogeneous selected-device signature",
+        "measured_iterations >= 2",
         "clean repeatable compact metrics",
     ],
     "v2_baseline_wall_milliseconds_median_of_trials": baseline_wall,
