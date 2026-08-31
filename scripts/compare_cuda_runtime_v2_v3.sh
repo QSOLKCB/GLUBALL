@@ -20,6 +20,13 @@ case "$CUDA_GRAPHS" in
   *) printf 'CUDA_GRAPHS must be on or off\n' >&2; exit 2 ;;
 esac
 
+python3 - "$ITERATIONS" <<'PY'
+import sys
+iterations = sys.argv[1]
+if not iterations.isdecimal() or not 2 <= int(iterations) <= 10000:
+    raise SystemExit("ITERATIONS must be an integer in [2,10000] so compact repeatability is non-vacuous")
+PY
+
 mkdir -p "$OUTPUT_DIR"
 cmake -S native/cuda -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
@@ -77,6 +84,9 @@ for label, payload in (("V2", v2), ("V3", v3)):
     for key in required_false:
         if payload.get(key) is not False:
             raise SystemExit(f"{label} claim boundary changed: {key}")
+    measured_iterations = payload.get("measured_iterations")
+    if not isinstance(measured_iterations, int) or measured_iterations < 2:
+        raise SystemExit(f"{label} measured_iterations must be >= 2 so compact repeatability is non-vacuous")
     if payload.get("repeatable_compact_metrics") is not True:
         raise SystemExit(f"{label} compact metrics are not repeatable")
     if payload.get("compact_metrics_clean") is not True:
@@ -132,6 +142,8 @@ result = {
     "v3_contract": v3["contract"],
     "v2_reference_source_blob_sha": v3["v2_reference_source_blob_sha"],
     "exact_observation_equivalence": True,
+    "minimum_measured_iterations": 2,
+    "repeatability_nonvacuous": True,
     "v2_equivalence_requires_homogeneous_selected_devices": True,
     "homogeneous_selected_device_signature": {
         "name": v2_device_signature[0],
