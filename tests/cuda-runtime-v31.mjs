@@ -18,8 +18,9 @@ function gitBlobSha(buffer) {
 
 const frozenV2Blob = "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1";
 const frozenV3Blob = "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0";
-assert.equal(gitBlobSha(v2), frozenV2Blob, "Runtime V2 source must remain the frozen V3.1 exact-observation oracle");
-assert.equal(gitBlobSha(v3), frozenV3Blob, "Runtime V3 source must remain the frozen V3.1 performance baseline");
+assert.equal(gitBlobSha(v2), frozenV2Blob, "Runtime V2 source must remain the frozen V3.1 reference");
+assert.equal(gitBlobSha(v3), frozenV3Blob, "Runtime V3 source must remain the frozen V3.1 performance and digest baseline");
+assert.equal(contract.schema, "gluball-cuda-runtime-v31-contract/2");
 assert.equal(contract.contract, "GLUBALL-CUDA-RUNTIME-V3.1");
 assert.equal(contract.v2_reference_source_blob_sha, frozenV2Blob);
 assert.equal(contract.v3_reference_source_blob_sha, frozenV3Blob);
@@ -47,10 +48,25 @@ assert.equal(contract.cache_boundary.cached_final_digest_enabled, false);
 assert.equal(contract.cache_boundary.cached_complete_observation_enabled, false);
 assert.equal(contract.comparison_gate.minimum_measured_iterations, 2);
 assert.equal(contract.comparison_gate.selected_devices_must_be_homogeneous, true);
+assert.deepEqual(contract.comparison_gate.must_match_exactly_across_v2_v3_v31, [
+  "total_points_per_iteration",
+  "used_device_count",
+  "observed_max_tube_radius_error",
+  "observed_nonfinite_records_max",
+  "resolved_compiled_architectures",
+]);
+assert.deepEqual(contract.comparison_gate.must_match_exactly_v3_v31, ["aggregate_diagnostic_xor64"]);
+assert.equal(contract.comparison_gate.v2_v3_digest_equality_required, false);
+assert.equal(contract.comparison_gate.v3_v31_digest_equality_required, true);
+assert.equal(contract.comparison_gate.raw_float_bit_digest_is_geometry_authority, false);
+assert.equal(contract.comparison_gate.physical_boundary_source_run, 33450200284);
 assert.deepEqual(contract.bounded_tuning.default_block_sizes, [32,64,128,256,512,1024]);
 assert.deepEqual(contract.bounded_tuning.default_cuda_graph_modes, ["off","on"]);
 assert.deepEqual(contract.bounded_tuning.default_reduction_modes, ["atomic","two-stage"]);
 assert.equal(contract.bounded_tuning.default_candidate_count, 24);
+assert.equal(contract.bounded_tuning.shared_v2_observation_equivalence_required, true);
+assert.equal(contract.bounded_tuning.v2_v3_digest_equality_required, false);
+assert.equal(contract.bounded_tuning.matched_v3_v31_digest_equality_required, true);
 assert.equal(contract.bounded_tuning.rigorous_global_optimum_claim, false);
 assert.equal(contract.observation_semantics.performance_observation_only, true);
 assert.equal(contract.observation_semantics.reference_residual_checked, false);
@@ -59,6 +75,7 @@ assert.equal(contract.observation_semantics.complete_output_readback, false);
 assert.equal(contract.observation_semantics.geometry_receipt_authority, false);
 assert.equal(contract.observation_semantics.universal_speedup_claim, false);
 assert.equal(contract.observation_semantics.raw_device_uuid_published, false);
+assert.equal(contract.observation_semantics.raw_float_bit_digest_is_geometry_authority, false);
 
 assert.match(cmake, /gluball-cuda-runtime-v31/);
 assert.match(cmake, /gluball_runtime_v31\.cu/);
@@ -123,12 +140,23 @@ assert.match(compareScript, /gluball-cuda-runtime-v2/);
 assert.match(compareScript, /gluball-cuda-runtime-v3/);
 assert.match(compareScript, /gluball-cuda-runtime-v31/);
 assert.match(compareScript, /ITERATIONS must be an integer in \[2,10000\]/);
-assert.match(compareScript, /aggregate_diagnostic_xor64/);
+assert.match(compareScript, /shared_keys = \('total_points_per_iteration','used_device_count','observed_max_tube_radius_error','observed_nonfinite_records_max'\)/);
+assert.match(compareScript, /if d3 != d31:/);
+assert.match(compareScript, /V3\/V3\.1 diagnostic digest mismatch/);
+assert.match(compareScript, /v2_v3_digest_equality_required':False/);
+assert.match(compareScript, /v3_v31_digest_equality_required':True/);
+assert.match(compareScript, /raw_float_bit_digest_is_geometry_authority':False/);
 assert.match(compareScript, /observed_v31_break_even_iterations_vs_v3/);
-assert.match(compareScript, /exact_observation_equivalence/);
+assert.match(compareScript, /shared_observation_equivalence/);
 assert.match(tuneScript, /REDUCTION_MODES=\$\{REDUCTION_MODES:-atomic,two-stage\}/);
 assert.match(tuneScript, /BLOCK_SIZES=\$\{BLOCK_SIZES:-32,64,128,256,512,1024\}/);
 assert.match(tuneScript, /GRAPH_MODES=\$\{GRAPH_MODES:-off,on\}/);
+assert.match(tuneScript, /V2 baseline diagnostic digest not repeatable/);
+assert.match(tuneScript, /V3 diagnostic digest changed across launch shapes or trials/);
+assert.match(tuneScript, /V3\.1 diagnostic digest mismatch vs matched V3/);
+assert.match(tuneScript, /v2_v3_digest_equality_required':False/);
+assert.match(tuneScript, /v3_v31_digest_equality_required':True/);
+assert.match(tuneScript, /shared_v2_observation_equivalence_required':True/);
 assert.match(tuneScript, /bounded-exhaustive-combinatorial-performance-observation/);
 assert.match(tuneScript, /best_observed_candidate_within_declared_set/);
 assert.match(tuneScript, /rigorous_global_optimum_claim/);
