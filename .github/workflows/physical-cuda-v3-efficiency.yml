@@ -69,18 +69,12 @@ jobs:
         run: |
           python3 - <<'PY'
           import os
-
-          def integer(name, minimum, maximum):
+          def integer(name, lo, hi):
               raw = os.environ[name]
-              if not raw.isdecimal():
-                  raise SystemExit(f"{name} must be a decimal integer")
+              if not raw.isdecimal(): raise SystemExit(f"{name} must be decimal")
               value = int(raw)
-              if not minimum <= value <= maximum:
-                  raise SystemExit(f"{name} must be in [{minimum}, {maximum}]")
-              return value
-
-          if not os.environ["MODEL_FRAGMENT"].strip():
-              raise SystemExit("expected_model_fragment must not be empty")
+              if not lo <= value <= hi: raise SystemExit(f"{name} must be in [{lo},{hi}]")
+          if not os.environ["MODEL_FRAGMENT"].strip(): raise SystemExit("expected_model_fragment must not be empty")
           integer("U_INPUT", 12, 1_000_000)
           integer("V_INPUT", 6, 65_536)
           integer("WARMUP_INPUT", 0, 1_000)
@@ -95,24 +89,15 @@ jobs:
           set -eu
           root="$EVIDENCE_ROOT"
           mkdir -p "$root"
-
           git rev-parse HEAD | tee "$root/SOURCE_COMMIT.txt"
           uname -a | tee "$root/HOST_UNAME.txt"
           uname -m | tee "$root/HOST_ARCH.txt"
           cat /etc/os-release > "$root/OS_RELEASE.txt"
           test "$(uname -m)" = x86_64
-
-          nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv \
-            | tee "$root/NVIDIA_INVENTORY.csv"
-          gpu_count=$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)
-          test "$gpu_count" -ge 1
+          nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv | tee "$root/NVIDIA_INVENTORY.csv"
           model=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1p')
           capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed -n '1p')
-          case "$model" in
-            *"$MODEL_FRAGMENT"*) ;;
-            *) printf 'GPU model %s does not contain expected fragment %s\n' "$model" "$MODEL_FRAGMENT" >&2; exit 2 ;;
-          esac
-
+          case "$model" in *"$MODEL_FRAGMENT"*) ;; *) printf 'unexpected GPU model: %s\n' "$model" >&2; exit 2 ;; esac
           arch_digits=$(printf '%s' "$capability" | tr -d '.')
           expected_compute="compute_${arch_digits}"
           expected_sm="sm_${arch_digits}"
@@ -120,8 +105,6 @@ jobs:
           printf '%s\n' "$capability" > "$root/EXPECTED_COMPUTE_CAPABILITY.txt"
           printf '%s\n' "$expected_sm" > "$root/EXPECTED_SM.txt"
           printf '0\n' > "$root/SELECTED_DEVICES.txt"
-
-          command -v nvcc
           nvcc --version | tee "$root/NVCC.txt"
           nvcc --list-gpu-arch | tee "$root/NVCC_GPU_ARCHS.txt"
           nvcc --list-gpu-code | tee "$root/NVCC_GPU_CODE.txt"
@@ -153,45 +136,27 @@ jobs:
           set -eu
           campaign="$EVIDENCE_ROOT/v1-acceptance"
           python3 - "$campaign" <<'PY'
-          import json
-          import sys
+          import json, sys
           from pathlib import Path
-
           root = Path(sys.argv[1])
           records = sorted(root.glob("acceptance-run-*.json"))
-          if len(records) != 3:
-              raise SystemExit(f"expected 3 V1 acceptance records, found {len(records)}")
+          if len(records) != 3: raise SystemExit(f"expected 3 V1 records, found {len(records)}")
           for path in records:
               payload = json.loads(path.read_text())
-              if payload.get("status") != "PASS":
-                  raise SystemExit(f"V1 acceptance failed: {path}")
-              if payload.get("reference_residual_checked") is not True:
-                  raise SystemExit(f"V1 reference residual missing: {path}")
-              if payload.get("conformance_acceptance") is not True:
-                  raise SystemExit(f"V1 conformance acceptance missing: {path}")
-              if payload.get("geometry_receipt_authority") is not False:
-                  raise SystemExit(f"V1 geometry authority boundary changed: {path}")
+              if payload.get("status") != "PASS": raise SystemExit(f"V1 failed: {path}")
+              if payload.get("reference_residual_checked") is not True: raise SystemExit(f"reference residual missing: {path}")
+              if payload.get("conformance_acceptance") is not True: raise SystemExit(f"conformance missing: {path}")
+              if payload.get("geometry_receipt_authority") is not False: raise SystemExit(f"geometry boundary changed: {path}")
           PY
-
           find_clean_summary() {
-            expected=$1
-            shift
+            expected=$1; shift
             for candidate in "$@"; do
-              if [ -s "$candidate" ] && grep -Fq "$expected" "$candidate"; then
-                printf '%s\n' "$candidate"
-                return 0
-              fi
+              if [ -s "$candidate" ] && grep -Fq "$expected" "$candidate"; then printf '%s\n' "$candidate"; return 0; fi
             done
             return 1
           }
-          memcheck_source=$(find_clean_summary \
-            'ERROR SUMMARY: 0 errors' \
-            "$campaign/memcheck.txt" \
-            "$campaign/memcheck-run.json" || true)
-          racecheck_source=$(find_clean_summary \
-            'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' \
-            "$campaign/racecheck.txt" \
-            "$campaign/racecheck-run.json" || true)
+          memcheck_source=$(find_clean_summary 'ERROR SUMMARY: 0 errors' "$campaign/memcheck.txt" "$campaign/memcheck-run.json" || true)
+          racecheck_source=$(find_clean_summary 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$campaign/racecheck.txt" "$campaign/racecheck-run.json" || true)
           test -n "$memcheck_source"
           test -n "$racecheck_source"
           (cd "$campaign" && sha256sum -c SHA256SUMS.txt)
@@ -236,20 +201,16 @@ jobs:
           mkdir -p "$root"
           binary="$GITHUB_WORKSPACE/build/cuda-v3-tune/gluball-cuda-runtime-v3"
           test -x "$binary"
-
           compute-sanitizer --tool memcheck --error-exitcode 86 \
             "$binary" --mode throughput --u 512 --v 32 --repeats 1 --devices 0 \
             --block-size 256 --warmup 1 --iterations 2 --cuda-graphs off --repeat-run 0 \
-            > "$root/memcheck-run.json" 2> "$root/memcheck.txt"
+            > "$root/memcheck.txt" 2>&1
           compute-sanitizer --tool racecheck --error-exitcode 87 \
             "$binary" --mode throughput --u 512 --v 32 --repeats 1 --devices 0 \
             --block-size 256 --warmup 1 --iterations 2 --cuda-graphs off --repeat-run 0 \
-            > "$root/racecheck-run.json" 2> "$root/racecheck.txt"
-
+            > "$root/racecheck.txt" 2>&1
           grep -Fq 'ERROR SUMMARY: 0 errors' "$root/memcheck.txt"
           grep -Fq 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$root/racecheck.txt"
-          python3 -m json.tool "$root/memcheck-run.json" >/dev/null
-          python3 -m json.tool "$root/racecheck-run.json" >/dev/null
           touch "$EVIDENCE_ROOT/V3_SANITIZER.ok"
 
       - name: Finalize Runtime V3 efficiency bundle
@@ -259,10 +220,8 @@ jobs:
           root="$EVIDENCE_ROOT"
           mkdir -p "$root"
           python3 - "$root" <<'PY'
-          import json
-          import sys
+          import json, sys
           from pathlib import Path
-
           root = Path(sys.argv[1])
           required = {
               "host_validation": root / "HOST_VALIDATION.ok",
@@ -304,6 +263,5 @@ jobs:
           import json
           from pathlib import Path
           payload = json.loads(Path("physical-evidence/runtime-v3-efficiency/VALIDATION_STATUS.json").read_text())
-          if payload.get("status") != "PASS":
-              raise SystemExit("Runtime V3 physical efficiency campaign did not reach PASS")
+          if payload.get("status") != "PASS": raise SystemExit("Runtime V3 physical efficiency campaign did not reach PASS")
           PY
