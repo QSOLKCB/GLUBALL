@@ -1,0 +1,76 @@
+name: GLUBALL Phase 5C 9x RTX 4090
+
+on:
+  workflow_dispatch:
+    inputs:
+      v1_u_segments:
+        description: "Bounded V1 acceptance U segments"
+        required: true
+        default: "512"
+        type: string
+      v1_v_segments:
+        description: "Bounded V1 acceptance V segments"
+        required: true
+        default: "32"
+        type: string
+      v1_accepted_runs:
+        description: "Required accepted V1 repeats"
+        required: true
+        default: "3"
+        type: string
+      strong_u_segments:
+        description: "Fixed-work Runtime V2 strong-scaling U segments"
+        required: true
+        default: "524288"
+        type: string
+      strong_v_segments:
+        description: "Runtime V2 V segments"
+        required: true
+        default: "128"
+        type: string
+      weak_u_per_device:
+        description: "Weak-scaling U segments added per selected GPU"
+        required: true
+        default: "32768"
+        type: string
+      warmup_iterations:
+        description: "Runtime V2 warmup iterations"
+        required: true
+        default: "20"
+        type: string
+      measured_iterations:
+        description: "Runtime V2 measured iterations"
+        required: true
+        default: "1000"
+        type: string
+      block_size:
+        description: "Runtime V2 CUDA block size"
+        required: true
+        default: "256"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gluball-phase5c-9x4090
+  cancel-in-progress: false
+
+jobs:
+  physical-scaling:
+    uses: ./.github/workflows/physical-cuda-multigpu-core.yml
+    with:
+      runner_label: gluball-vast-9x4090
+      expected_model_fragment: RTX 4090
+      required_devices: 9
+      scaling_counts: 1,2,4,8,9
+      artifact_slug: 9x4090
+      v1_u_segments: ${{ fromJSON(inputs.v1_u_segments) }}
+      v1_v_segments: ${{ fromJSON(inputs.v1_v_segments) }}
+      v1_accepted_runs: ${{ fromJSON(inputs.v1_accepted_runs) }}
+      strong_u_segments: ${{ fromJSON(inputs.strong_u_segments) }}
+      strong_v_segments: ${{ fromJSON(inputs.strong_v_segments) }}
+      weak_u_per_device: ${{ fromJSON(inputs.weak_u_per_device) }}
+      warmup_iterations: ${{ fromJSON(inputs.warmup_iterations) }}
+      measured_iterations: ${{ fromJSON(inputs.measured_iterations) }}
+      block_size: ${{ fromJSON(inputs.block_size) }}
