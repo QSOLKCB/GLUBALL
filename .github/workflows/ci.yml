@@ -26,5 +26,7 @@ jobs:
         run: node tests/phase2.mjs
       - name: AI agent contract validation
         run: node tests/agent-contract.mjs
+      - name: Self-hosted CUDA workflow boundary
+        run: node tests/self-hosted-actions.mjs
       - name: v1.0.0 release preflight
         run: node tests/release-preflight.mjs
