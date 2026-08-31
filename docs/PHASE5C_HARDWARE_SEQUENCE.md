@@ -6,60 +6,86 @@ It is an **operational research plan**, not a frozen geometry contract, hardware
 
 ## Entry gate
 
-Do not begin this sequence until the current 8× RTX 4080 SUPER Phase 5B completion rung has produced at least three accepted physical evidence runs, sanitizer evidence or explicit unavailability has been archived, and the downloaded campaign/bundle manifests verify.
+Phase 5B is complete. The accepted `1 / 2 / 4 / 8` physical CUDA ladder, sanitizer evidence, redacted provenance, and downloaded integrity manifests are recorded in `docs/PHASE5B_GRADUATION.md` and `docs/CURRENT_STATE.json`.
+
+Phase 5C must not treat source-level Runtime V2 implementation as physical validation. Before scaling or portability claims are made:
+
+1. `GLUBALL-CUDA-RUNTIME-V2` source/contract CI must be green;
+2. the target NVIDIA host must successfully build Runtime V2;
+3. a bounded V1 evidence run on that new architecture must still pass independent Rust full-readback acceptance;
+4. Runtime V2 compact metrics must be repeatable for the measured run;
+5. Runtime V2 remains throughput-only and cannot replace the V1 acceptance artifact.
+
+## Runtime V2 pre-hardware gate
+
+`GLUBALL-CUDA-RUNTIME-V2` is the preferred Phase 5C measurement runtime. It adds:
+
+- block-local XOR reduction with one global digest atomic per block;
+- persistent per-device CUDA contexts and compact metric buffers;
+- repeated in-process warmup/measured iterations;
+- explicit setup, kernel/wall, and compact-readback timing;
+- optional CUDA Graph replay;
+- no full-output allocation and no conformance claim.
+
+See `docs/CUDA_RUNTIME_V2.md` and `docs/CUDA_RUNTIME_V2_CONTRACT.json`.
 
 ## Ordered campaign plan
 
-1. **Finish the current 8× RTX 4080 SUPER evidence rung so Phase 5B closes cleanly.**
-   - Use the dedicated 8-GPU completion workflow.
-   - Require at least three accepted full-readback Rust residual checks.
-   - Archive sanitizer status and verify both inner and root manifests.
-   - Do not promote the 8-GPU roadmap rung until those artifacts verify.
+1. **Land and review CUDA Runtime V2 before renting the next performance specimen.**
+   - Keep the Phase 5B V1 evidence/acceptance path unchanged.
+   - Require source-contract CI and current-state validation to remain green.
+   - Do not mark Runtime V2 physically validated merely because it compiles in source review.
 
-2. **Use the same 8× RTX 4080 SUPER host for the first controlled 1/2/4/8 strong-scaling campaign.**
-   - This host already has correctness provenance from the physical acceptance ladder.
-   - Hold source commit, workload, driver/toolkit, host, and GPU model fixed.
-   - Change only selected device count: `1 -> 2 -> 4 -> 8`.
-   - Compute speedup and parallel efficiency outside the correctness claim surface.
-
-3. **Rent a 9× RTX 4090 host as the second same-host scaling baseline and architecture/profile comparison.**
-   - Use eight selected devices for a directly comparable `1/2/4/8` campaign; the ninth device is not required for the primary scaling series.
-   - Repeat an accepted evidence profile before interpreting throughput observations.
-   - Treat differences from the 4080 SUPER host as architecture/platform observations, not universal performance claims.
-
-4. **Try an NVIDIA GB10 host as the strange portability specimen.**
+2. **Use an NVIDIA GB10 host as the first Runtime V2 portability specimen.**
    - Treat GB10 as a distinct NVIDIA platform/toolchain/CPU-memory profile rather than a multi-GPU scaling target.
-   - Run bounded acceptance first.
-   - Use it to probe whether the CUDA adapter and evidence path remain portable across a materially different NVIDIA system configuration.
+   - Start with `GLUBALL_CUDA_ARCHITECTURES=native`; do not guess a numeric compute architecture in advance.
+   - Run CUDA preflight and a bounded V1 evidence/independent Rust acceptance check first.
+   - Build and run Runtime V2 with ordinary launches before enabling CUDA Graph replay.
+   - Record compiler, driver/runtime, device-reported compute capability, timing decomposition, compact metric repeatability, and the selected architecture.
    - Do not infer multi-GPU scaling from this single-device portability experiment.
+
+3. **Rent a same-host multi-GPU NVIDIA system for controlled Runtime V2 strong scaling.**
+   - Prefer a host capable of a directly comparable `1 -> 2 -> 4 -> 8` series, such as an 8+ RTX 4090 offer when available.
+   - Hold source commit, workload, block size, warmup count, measured iterations, graph policy, driver/toolkit, host, and GPU model fixed.
+   - Change only selected device count.
+   - Compute speedup and parallel efficiency outside the correctness claim surface.
+   - Repeat a bounded V1 evidence profile on the new architecture before interpreting Runtime V2 throughput.
+
+4. **Run a weak-scaling observation after the controlled strong-scaling baseline exists.**
+   - Increase workload proportional to selected device count.
+   - Keep measurement policy fixed.
+   - Separate kernel/wall time from compact-readback and setup costs.
 
 5. **Only then unleash the RTX 5090 hydra and identify where GLUBALL stops scaling and another bottleneck takes over.**
    - Treat RTX 5090 campaigns as maximum-throughput follow-ups.
    - Prefer a same-host multi-GPU system capable of a controlled `1/2/4/8` series before attempting larger device counts.
-   - Measure where kernel work, PCIe/fabric transfer, synchronization, CPU orchestration, digest work, memory traffic, or storage becomes limiting.
+   - Runtime V2 supports up to sixteen selected devices for later maximum-throughput experiments, but the primary scaling comparison remains `1/2/4/8`.
+   - Measure whether kernel work, PCIe/fabric transfer, synchronization, CPU orchestration, residual digest work, memory traffic, or storage becomes limiting.
    - A larger/faster GPU count must not revise GLUBALL geometry authority, correctness gates, or the frozen v1.0.0 contract surface.
 
 ## Interpretation boundary
 
-The campaign sequence is intentionally ordered:
+The updated sequence is:
 
 ```text
-8×4080 SUPER Phase 5B completion
+Phase 5B accepted 1/2/4/8 correctness ladder
         ↓
-8×4080 SUPER controlled 1/2/4/8 scaling
+CUDA Runtime V2 source/CI review
         ↓
-9×4090 second-host scaling/profile comparison
+GB10 V1 bounded acceptance + V2 portability observation
         ↓
-GB10 portability specimen
+same-host 1/2/4/8 Runtime V2 strong scaling
+        ↓
+weak scaling
         ↓
 RTX 5090 maximum-throughput / bottleneck campaign
 ```
 
 The sequence separates four questions that must not be collapsed into one claim:
 
-- **correctness:** did the physical output pass independent residual acceptance?
-- **scaling:** how does elapsed time change as same-host device count changes?
-- **portability:** does the accepted CUDA path survive a materially different NVIDIA platform?
+- **correctness:** did physical output pass independent V1 full-readback residual acceptance?
+- **scaling:** how does Runtime V2 elapsed time change as same-host device count changes?
+- **portability:** does the accepted V1 CUDA path and observational V2 runtime survive a materially different NVIDIA platform?
 - **maximum throughput:** how far can the implementation be pushed before a non-kernel bottleneck dominates?
 
 Faster hardware is observation infrastructure. It is not geometry authority and does not create a universal speedup claim.
