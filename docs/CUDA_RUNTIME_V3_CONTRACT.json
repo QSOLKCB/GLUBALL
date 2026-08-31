@@ -19,6 +19,20 @@
     "may_replace_v1_acceptance_evidence": false,
     "may_promote_performance_observation_to_geometry_authority": false
   },
+  "torus_signature_orbit": {
+    "enabled": true,
+    "canonical_ordered_signature": [2, 3],
+    "coordinate_swap": "tau(a,b)=(b,a)",
+    "swapped_ordered_signature": [3, 2],
+    "swap_involutive": true,
+    "swap_twice_returns_canonical_signature": true,
+    "ordered_pair_equality_claim": false,
+    "runtime_geometry_uses_canonical_signature_only": true,
+    "swapped_embedding_enabled": false,
+    "knot_type_equivalence_used_for_acceptance": false,
+    "proof_pattern_donor": "QSOLKCB/SAW-1 SAW1/PairSwap.lean",
+    "boundary": "the signature orbit is runtime metadata and algebraic structure only; it does not alter GLUBALL-KNOT-V1 point generation or authorize collapsing distinct ordered signatures"
+  },
   "optimization_invariants": {
     "precomputed_u_frames": {
       "enabled": true,
@@ -69,6 +83,10 @@
       "observed_nonfinite_records_max",
       "resolved_compiled_architectures"
     ],
+    "selected_devices_must_be_homogeneous": true,
+    "homogeneous_signature_fields": ["name", "compute_capability", "compiled_cuda_arch_code"],
+    "heterogeneous_exact_equivalence_forbidden": true,
+    "reason": "V2 point-level and V3 complete-ring quotient/remainder shards can assign different logical points to devices when selected architectures differ",
     "both_runtimes_must_report_clean_repeatable_compact_metrics": true,
     "equivalence_is_conformance_acceptance": false,
     "equivalence_is_geometry_receipt": false
@@ -79,6 +97,9 @@
     "default_block_sizes": [32, 64, 128, 256, 512, 1024],
     "default_cuda_graph_modes": ["off", "on"],
     "default_trials_per_candidate": 3,
+    "minimum_measured_iterations": 2,
+    "repeatability_must_be_nonvacuous": true,
+    "selected_devices_must_be_homogeneous_for_v2_equivalence": true,
     "candidate_enumeration_deterministic": true,
     "selection_tiebreak": ["lower observed wall median", "smaller block size", "graphs off before on"],
     "best_observed_candidate_within_declared_set_only": true,
