@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../native/cuda/gluball_runtime_v2.cu", import.meta.url), "utf8");
+const eventCompat = await readFile(new URL("../native/cuda/gluball_runtime_v2_event_compat.cuh", import.meta.url), "utf8");
 const cmake = await readFile(new URL("../native/cuda/CMakeLists.txt", import.meta.url), "utf8");
 const script = await readFile(new URL("../scripts/run_cuda_runtime_v2.sh", import.meta.url), "utf8");
 const contract = JSON.parse(await readFile(new URL("../docs/CUDA_RUNTIME_V2_CONTRACT.json", import.meta.url), "utf8"));
@@ -32,6 +33,15 @@ assert.equal(contract.phase5c_policy.sanitizer_timings_are_performance_evidence,
 
 assert.match(cmake, /gluball-cuda-runtime-v2/);
 assert.match(cmake, /gluball_runtime_v2\.cu/);
+assert.match(cmake, /gluball_runtime_v2_event_compat\.cuh/);
+assert.match(cmake, /--pre-include=/);
+
+assert.match(eventCompat, /cudaStreamIsCapturing/);
+assert.match(eventCompat, /cudaStreamCaptureStatusActive/);
+assert.match(eventCompat, /cudaEventRecordWithFlags/);
+assert.match(eventCompat, /cudaEventRecordExternal/);
+assert.match(eventCompat, /cudaEventRecordDefault/);
+assert.match(eventCompat, /#define cudaEventRecord\(event, stream\)/);
 
 assert.match(source, /GLUBALL-CUDA-RUNTIME-V2/);
 assert.match(source, /GLUBALL-MULTI-DEVICE-CUDA-V1/);
