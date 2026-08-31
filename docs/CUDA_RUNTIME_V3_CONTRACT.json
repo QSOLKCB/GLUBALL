@@ -83,6 +83,8 @@
       "observed_nonfinite_records_max",
       "resolved_compiled_architectures"
     ],
+    "minimum_measured_iterations": 2,
+    "repeatability_must_be_nonvacuous": true,
     "selected_devices_must_be_homogeneous": true,
     "homogeneous_signature_fields": ["name", "compute_capability", "compiled_cuda_arch_code"],
     "heterogeneous_exact_equivalence_forbidden": true,
