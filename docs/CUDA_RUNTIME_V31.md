@@ -116,6 +116,31 @@ No final-metric global atomics are used in this mode. The second reduction kerne
 
 Because the three receiver operations are associative integer operations, their reduction topology may change without changing the mathematical receiver value. Physical exactness still has to prove that the complete runtime observation remains identical.
 
+## Stream, reduce, discard
+
+Earlier large deterministic JavaScript experiments in the wider QSOL work hit a heap/object-allocation wall before the underlying arithmetic became the limiting factor. The Rust follow-up extended the useful envelope by using compact direct-memory representations instead of maintaining enormous object graphs.
+
+Runtime V3.1 imports the engineering lesson, not the application ontology:
+
+```text
+evaluate point transiently
+        ↓
+fold point into compact receivers
+        ↓
+discard point value
+```
+
+The runtime therefore does not materialize a complete `U×V` point field. Its reusable state is bounded by:
+
+```text
+O(U)      frame lookup
+O(V)      weighted-angle lookup
+O(blocks) optional compact reduction summaries
+O(1)      final compact metrics per device
+```
+
+This protects the efficiency experiment from rediscovering the same memory-scaling failure in a new language.
+
 ## Cache boundary
 
 Runtime V3.1 deliberately adopts a measurement boundary inspired by the serving/cache invariants used in QSOL-GEO-REASON.
@@ -141,16 +166,25 @@ The goal is to optimize the evaluator, not replace evaluation with memoized answ
 
 ## Setup amortization
 
-Moving work into setup can make steady-state iteration timing look better while increasing one-shot cost. The V2/V3/V3.1 comparison therefore records an observed V3.1 break-even estimate against V3:
+Moving work into setup can make steady-state iteration timing look better while increasing one-shot cost. V3.1 therefore records an observed break-even estimate against a **matched Runtime V3 launch shape**.
+
+For a V3.1 candidate with a particular block size and CUDA Graph mode, the tuner first measures Runtime V3 with the same values:
 
 ```text
-setup_delta = v31_setup - v3_setup
-iteration_gain = v3_wall - v31_wall
+V3    block=B graphs=G
+V3.1 block=B graphs=G reduction=R
+```
+
+Then:
+
+```text
+setup_delta = v31_setup - matched_v3_setup
+iteration_gain = matched_v3_wall - v31_wall
 
 break_even = ceil(setup_delta / iteration_gain)
 ```
 
-when the per-iteration gain is positive. This is an observed timing diagnostic, not a universal claim.
+when the per-iteration gain is positive. This prevents a block-size or graph-mode change from masquerading as a V3.1 optimization gain. The break-even value remains an observed timing diagnostic, not a universal claim.
 
 ## Bounded tuner
 
@@ -163,9 +197,11 @@ reduction: atomic, two-stage
 trials: 3
 ```
 
-This yields 24 declared candidates. Every candidate must preserve exact V2 compact observation and homogeneous-device identity before timing is considered.
+This yields 24 declared V3.1 candidates. The tuner also records 12 matched Runtime V3 baseline configurations, one for each block-size/graph-mode pair.
 
-The selected result remains only the best observed candidate in that finite set.
+Every V3 and V3.1 run must preserve exact V2 compact observation and homogeneous-device identity before timing is considered.
+
+The selected result remains only the best observed V3.1 candidate in that finite set.
 
 ## Deferred until after weak-GPU evidence
 
