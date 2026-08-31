@@ -46,9 +46,9 @@ Raw GPU UUIDs are not queried or published.
 
 ## Sanitizer archival boundary
 
-Before the campaign starts, the workflow writes `8gpu/SANITIZER_STATUS.txt` into the campaign evidence directory.
+After the campaign attempt, an `if: always()` step writes `8gpu/SANITIZER_STATUS.txt` and re-finalizes the inner `8gpu/SHA256SUMS.txt` so that status record is covered by the campaign manifest.
 
-If `compute-sanitizer` is unavailable, that file records explicit unavailability and is covered by the campaign/root manifests. If it is available, the workflow requires non-empty `memcheck.txt` and `racecheck.txt` before a green completion. This prevents a successful 8-GPU bundle from silently omitting both sanitizer evidence and an explicit unavailability record.
+If `compute-sanitizer` is unavailable, the status file records explicit unavailability. If it is available, a green completion requires non-empty `memcheck.txt` and `racecheck.txt`; otherwise the status records `available-but-results-not-archived` and the workflow fails. The root bundle manifest is finalized afterward, binding the same status and campaign files again at the bundle level.
 
 ## Ephemeral runner registration
 
