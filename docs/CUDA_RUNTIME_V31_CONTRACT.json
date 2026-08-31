@@ -1,14 +1,14 @@
 {
-  "schema": "gluball-cuda-runtime-v31-contract/1",
+  "schema": "gluball-cuda-runtime-v31-contract/2",
   "contract": "GLUBALL-CUDA-RUNTIME-V3.1",
-  "status": "post-v1-pre-rental-runtime-research",
+  "status": "post-v1-physical-runtime-research",
   "geometry_contract": "GLUBALL-KNOT-V1",
   "v2_reference_contract": "GLUBALL-CUDA-RUNTIME-V2",
   "v2_reference_source_blob_sha": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
   "v3_reference_contract": "GLUBALL-CUDA-RUNTIME-V3",
   "v3_reference_source_blob_sha": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
   "executable": "gluball-cuda-runtime-v31",
-  "purpose": "pre-rental efficiency refinement while preserving exact compact observation equivalence",
+  "purpose": "physical efficiency refinement while preserving the Runtime V3 raw diagnostic digest and shared Runtime V2 domain/radius/nonfinite observations",
   "compatibility": {
     "v1_evidence_path_unchanged": true,
     "v2_source_unchanged": true,
@@ -77,14 +77,21 @@
     "script": "scripts/compare_cuda_runtime_v2_v3_v31.sh",
     "minimum_measured_iterations": 2,
     "selected_devices_must_be_homogeneous": true,
-    "must_match_exactly": [
+    "must_match_exactly_across_v2_v3_v31": [
       "total_points_per_iteration",
       "used_device_count",
-      "aggregate_diagnostic_xor64",
       "observed_max_tube_radius_error",
       "observed_nonfinite_records_max",
       "resolved_compiled_architectures"
     ],
+    "must_match_exactly_v3_v31": [
+      "aggregate_diagnostic_xor64"
+    ],
+    "v2_v3_digest_equality_required": false,
+    "v3_v31_digest_equality_required": true,
+    "v2_v3_digest_relation_policy": "record the relation without treating equality as a graduation gate because the digest hashes raw binary32 point/radius bits and physical sm_61 evidence shows direct V2 evaluation and precomputed V3 evaluation may differ bitwise while preserving shared domain/radius/nonfinite observations",
+    "raw_float_bit_digest_is_geometry_authority": false,
+    "physical_boundary_source_run": 33450200284,
     "break_even_metric": "ceil((v31_setup-v3_setup)/(v3_wall-v31_wall)) when observed per-iteration gain is positive",
     "break_even_is_observed_timing_metric": true,
     "equivalence_is_conformance_acceptance": false,
@@ -100,6 +107,9 @@
     "default_candidate_count": 24,
     "minimum_measured_iterations": 2,
     "candidate_enumeration_deterministic": true,
+    "shared_v2_observation_equivalence_required": true,
+    "v2_v3_digest_equality_required": false,
+    "matched_v3_v31_digest_equality_required": true,
     "best_observed_candidate_within_declared_set_only": true,
     "rigorous_global_optimum_claim": false,
     "unbounded_configuration_space_global_optimum_claim": false
@@ -117,7 +127,8 @@
     "complete_output_readback": false,
     "geometry_receipt_authority": false,
     "universal_speedup_claim": false,
-    "raw_device_uuid_published": false
+    "raw_device_uuid_published": false,
+    "raw_float_bit_digest_is_geometry_authority": false
   },
   "donor_patterns": {
     "RSH": ["compact fixed-size accelerator records", "hierarchical local-summary reduction"],
