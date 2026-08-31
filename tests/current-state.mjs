@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const state = JSON.parse(await readFile(new URL("../docs/CURRENT_STATE.json", import.meta.url), "utf8"));
 const acceptance = JSON.parse(await readFile(new URL("../docs/CUDA_ACCEPTANCE_CONTRACT.json", import.meta.url), "utf8"));
+const runtimeV2 = JSON.parse(await readFile(new URL("../docs/CUDA_RUNTIME_V2_CONTRACT.json", import.meta.url), "utf8"));
 const historical = JSON.parse(await readFile(new URL("../docs/AI_AGENT_CONTRACT.json", import.meta.url), "utf8"));
 
 assert.equal(state.schema, "gluball-current-state/1");
@@ -18,6 +19,10 @@ assert.equal(historical.release_candidate.excluded_runtime_surfaces.includes("gp
 assert.equal(state.post_release_runtime.rust_runtime_contract, "GLUBALL-RUST-RUNTIME-V1");
 assert.equal(state.post_release_runtime.cuda_runtime_contract, "GLUBALL-MULTI-DEVICE-CUDA-V1");
 assert.equal(state.post_release_runtime.cuda_acceptance_contract, "GLUBALL-CUDA-ACCEPTANCE-V1");
+assert.equal(state.post_release_runtime.cuda_runtime_v2_contract, "GLUBALL-CUDA-RUNTIME-V2");
+assert.equal(state.post_release_runtime.cuda_runtime_v2_mode, "throughput-only");
+assert.equal(state.post_release_runtime.cuda_runtime_v2_physical_validation_pending, true);
+assert.equal(state.post_release_runtime.cuda_runtime_v2_may_replace_v1_acceptance, false);
 assert.equal(state.post_release_runtime.geometry_authority_changed, false);
 
 assert.equal(acceptance.contract, state.post_release_runtime.cuda_acceptance_contract);
@@ -29,6 +34,20 @@ assert.equal(acceptance.evidence_output.partial_artifacts_accepted, false);
 assert.equal(acceptance.acceptance_semantics.geometry_receipt_authority, false);
 assert.equal(acceptance.acceptance_semantics.universal_speedup_claim, false);
 assert.deepEqual(acceptance.campaign_policy.device_count_ladder, [1, 2, 4, 8]);
+
+assert.equal(runtimeV2.contract, state.post_release_runtime.cuda_runtime_v2_contract);
+assert.equal(runtimeV2.geometry_contract, state.released_contract_freeze.geometry_contract);
+assert.equal(runtimeV2.host_reference_contract, state.post_release_runtime.rust_runtime_contract);
+assert.equal(runtimeV2.legacy_cuda_contract, state.post_release_runtime.cuda_runtime_contract);
+assert.equal(runtimeV2.acceptance_contract, state.post_release_runtime.cuda_acceptance_contract);
+assert.equal(runtimeV2.compatibility.v1_full_readback_evidence_path_unchanged, true);
+assert.equal(runtimeV2.compatibility.may_replace_v1_acceptance_evidence, false);
+assert.equal(runtimeV2.observation_semantics.performance_observation_only, true);
+assert.equal(runtimeV2.observation_semantics.reference_residual_checked, false);
+assert.equal(runtimeV2.observation_semantics.conformance_acceptance, false);
+assert.equal(runtimeV2.observation_semantics.complete_output_readback, false);
+assert.equal(runtimeV2.observation_semantics.geometry_receipt_authority, false);
+assert.equal(runtimeV2.observation_semantics.universal_speedup_claim, false);
 
 const physical = state.physical_campaign_state;
 const ladder = physical.accepted_ladder_1_2_4;
@@ -95,5 +114,22 @@ assert.equal(eight.bundle_manifest_verified_after_download, true);
 assert.equal(eight.campaign_manifest_verified_after_download, true);
 assert.equal(eight.geometry_authority_changed, false);
 assert.equal(eight.universal_speedup_claim, false);
+
+const v2 = state.phase5c_runtime_v2_state;
+assert.equal(v2.source_implemented, true);
+assert.equal(v2.ci_source_contract_guarded, true);
+assert.equal(v2.physical_validation_pending, true);
+assert.equal(v2.throughput_only, true);
+assert.equal(v2.hierarchical_digest_reduction, true);
+assert.equal(v2.persistent_device_contexts, true);
+assert.equal(v2.persistent_compact_metric_buffers, true);
+assert.equal(v2.in_process_timing, true);
+assert.equal(v2.cuda_graph_replay_optional, true);
+assert.equal(v2.full_output_readback, false);
+assert.equal(v2.reference_residual_checked, false);
+assert.equal(v2.conformance_acceptance, false);
+assert.equal(v2.geometry_receipt_authority, false);
+assert.equal(v2.universal_speedup_claim, false);
+assert.equal(v2.next_portability_specimen, "GB10");
 
 console.log("GLUBALL current post-v1 state: PASS");

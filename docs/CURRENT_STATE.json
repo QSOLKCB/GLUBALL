@@ -18,6 +18,10 @@
     "cuda_runtime_contract": "GLUBALL-MULTI-DEVICE-CUDA-V1",
     "cuda_acceptance_contract": "GLUBALL-CUDA-ACCEPTANCE-V1",
     "cuda_acceptance_profile": "gluball-rust-vs-cuda-f32-full-v1",
+    "cuda_runtime_v2_contract": "GLUBALL-CUDA-RUNTIME-V2",
+    "cuda_runtime_v2_mode": "throughput-only",
+    "cuda_runtime_v2_physical_validation_pending": true,
+    "cuda_runtime_v2_may_replace_v1_acceptance": false,
     "geometry_authority_changed": false
   },
   "physical_campaign_state": {
@@ -94,5 +98,22 @@
       "geometry_authority_changed": false,
       "universal_speedup_claim": false
     }
+  },
+  "phase5c_runtime_v2_state": {
+    "source_implemented": true,
+    "ci_source_contract_guarded": true,
+    "physical_validation_pending": true,
+    "throughput_only": true,
+    "hierarchical_digest_reduction": true,
+    "persistent_device_contexts": true,
+    "persistent_compact_metric_buffers": true,
+    "in_process_timing": true,
+    "cuda_graph_replay_optional": true,
+    "full_output_readback": false,
+    "reference_residual_checked": false,
+    "conformance_acceptance": false,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "next_portability_specimen": "GB10"
   }
 }

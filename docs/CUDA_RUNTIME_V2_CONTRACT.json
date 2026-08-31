@@ -1,0 +1,100 @@
+{
+  "schema": "gluball-cuda-runtime-v2-contract/1",
+  "contract": "GLUBALL-CUDA-RUNTIME-V2",
+  "status": "post-v1-runtime-research",
+  "geometry_contract": "GLUBALL-KNOT-V1",
+  "host_reference_contract": "GLUBALL-RUST-RUNTIME-V1",
+  "legacy_cuda_contract": "GLUBALL-MULTI-DEVICE-CUDA-V1",
+  "acceptance_contract": "GLUBALL-CUDA-ACCEPTANCE-V1",
+  "executable": "gluball-cuda-runtime-v2",
+  "mode": "throughput-only",
+  "purpose": "same-host performance observation and accelerator portability characterization after Phase 5B correctness graduation",
+  "compatibility": {
+    "v1_full_readback_evidence_path_unchanged": true,
+    "v1_acceptance_thresholds_unchanged": true,
+    "v1_geometry_authority_unchanged": true,
+    "may_replace_v1_acceptance_evidence": false
+  },
+  "optimizations": {
+    "hierarchical_digest_reduction": {
+      "enabled": true,
+      "policy": "block-xor-then-one-global-atomic-per-block-v1",
+      "legacy_shape": "one global atomic XOR per evaluated point",
+      "v2_shape": "one global atomic XOR per CUDA block after exact block-local XOR reduction"
+    },
+    "hierarchical_radius_reduction": {
+      "enabled": true,
+      "policy": "block-max-then-one-global-atomic-per-block-v1",
+      "legacy_shape": "one global atomic maximum update per finite evaluated point",
+      "v2_shape": "one global atomic maximum update per CUDA block after block-local maximum reduction"
+    },
+    "hierarchical_nonfinite_reduction": {
+      "enabled": true,
+      "policy": "block-sum-then-one-global-atomic-per-block-v1",
+      "legacy_shape": "one global atomic increment per non-finite evaluated point",
+      "v2_shape": "one global atomic add per CUDA block after block-local non-finite count reduction"
+    },
+    "compact_resident_metrics": {
+      "enabled": true,
+      "per_device_fields": [
+        "diagnostic_xor64",
+        "max_tube_radius_error_bits",
+        "nonfinite_count"
+      ],
+      "bytes_per_device": 20,
+      "full_output_buffer_allocated": false
+    },
+    "persistent_device_contexts": true,
+    "persistent_metric_buffers": true,
+    "in_process_warmup_and_iterations": true,
+    "cuda_graph_replay_optional": true,
+    "kernel_event_timing_excludes_metric_resets": true,
+    "timing_decomposition": [
+      "runtime_setup_milliseconds",
+      "iteration_wall_milliseconds_median",
+      "iteration_wall_milliseconds_min",
+      "iteration_wall_milliseconds_max",
+      "compact_readback_milliseconds_median",
+      "per_device_kernel_milliseconds_median"
+    ],
+    "timing_semantics": {
+      "iteration_wall": "metric resets plus evaluation kernel plus stream synchronization; excludes compact host readback",
+      "per_device_kernel": "CUDA event interval around evaluation kernel only; excludes metric resets in ordinary and CUDA Graph modes",
+      "compact_readback": "host-side compact metric transfer after measured kernel work"
+    }
+  },
+  "observation_semantics": {
+    "performance_observation_only": true,
+    "reference_residual_checked": false,
+    "conformance_acceptance": false,
+    "complete_output_readback": false,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "distributed_execution": false,
+    "raw_device_uuid_published": false
+  },
+  "repeatability": {
+    "measured_iterations_must_be_positive": true,
+    "compact_metrics_compared_across_measured_iterations": true,
+    "compact_repeatability_is_not_conformance_acceptance": true
+  },
+  "hardware_policy": {
+    "maximum_selected_devices": 16,
+    "compile_architecture_must_be_recorded": true,
+    "resolved_compile_architecture_must_be_recorded": true,
+    "compile_architecture_policy_and_resolved_target_are_distinct": true,
+    "device_model_and_compute_capability_must_be_recorded": true,
+    "validate_grid_against_device_max_grid_size_x": true,
+    "raw_cuda_uuid_must_not_be_published": true,
+    "gb10_first_compile_architecture": "native",
+    "gb10_role": "portability specimen after source-level and existing Phase 5B correctness gates are green"
+  },
+  "phase5c_policy": {
+    "strong_scaling_device_counts": [1, 2, 4, 8],
+    "same_workload_required_for_strong_scaling": true,
+    "speedup_formula": "T1/Tn",
+    "parallel_efficiency_formula": "(T1/Tn)/n",
+    "sanitizer_timings_are_performance_evidence": false,
+    "correctness_and_performance_claim_surfaces_must_remain_separate": true
+  }
+}
