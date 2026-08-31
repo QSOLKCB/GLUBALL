@@ -34,7 +34,7 @@ on:
         default: "20"
         type: string
       v2_iterations:
-        description: "Runtime V2 measured iterations"
+        description: "Runtime V2 measured iterations (minimum 2 for repeatability)"
         required: true
         default: "1000"
         type: string
@@ -93,16 +93,24 @@ jobs:
                   raise SystemExit(f"{name} must be in [{minimum}, {maximum}], got {value}")
               return value
 
-          integer("V1_U", 12, 1_000_000)
-          integer("V1_V", 6, 65_536)
+          v1_u = integer("V1_U", 12, 1_000_000)
+          v1_v = integer("V1_V", 6, 65_536)
           integer("V1_RUNS", 3, 100)
           integer("V2_U", 12, 1_000_000)
           integer("V2_V", 6, 65_536)
           integer("V2_WARMUP", 0, 1_000)
-          integer("V2_ITERATIONS", 1, 10_000)
+          integer("V2_ITERATIONS", 2, 10_000)
           block = integer("BLOCK_SIZE", 32, 1_024)
           if block & (block - 1):
               raise SystemExit("BLOCK_SIZE must be a power of two")
+
+          v1_points = v1_u * v1_v
+          v1_full_readback_cap = 16_777_216
+          if v1_points > v1_full_readback_cap:
+              raise SystemExit(
+                  f"V1_U * V1_V = {v1_points} exceeds the V1 full-readback cap "
+                  f"of {v1_full_readback_cap} points"
+              )
           PY
 
       - name: Record and validate GB10 host provenance
@@ -255,10 +263,7 @@ jobs:
           find_racecheck() {
             for file in "$campaign/racecheck.txt" "$campaign/racecheck-run.json"; do
               if [ -s "$file" ] \
-                && grep -Fq 'RACECHECK SUMMARY:' "$file" \
-                && grep -Fq '0 hazards' "$file" \
-                && grep -Fq '0 errors' "$file" \
-                && grep -Fq '0 warnings' "$file"; then
+                && grep -Fq 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$file"; then
                 printf '%s\n' "$file"
                 return 0
               fi
@@ -452,10 +457,8 @@ jobs:
             --devices 0 --block-size 256 --warmup 0 --iterations 1 \
             --cuda-graphs off --repeat-run 902 \
             > "$root/runtime-v2-sanitizer/racecheck.txt" 2>&1
-          grep -Fq 'RACECHECK SUMMARY:' "$root/runtime-v2-sanitizer/racecheck.txt"
-          grep -Fq '0 hazards' "$root/runtime-v2-sanitizer/racecheck.txt"
-          grep -Fq '0 errors' "$root/runtime-v2-sanitizer/racecheck.txt"
-          grep -Fq '0 warnings' "$root/runtime-v2-sanitizer/racecheck.txt"
+          grep -Fq 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' \
+            "$root/runtime-v2-sanitizer/racecheck.txt"
 
           printf '%s\n' 'Runtime V2 memcheck and racecheck clean on bounded graphs-OFF diagnostic workload.' \
             > "$root/V2_SANITIZER_STATUS.txt"
@@ -498,7 +501,7 @@ jobs:
 
           (
             cd "$root"
-            find . -type f ! -name SHA256SUMS.txt -print0 \
+            find . -type f ! -path './SHA256SUMS.txt' -print0 \
               | LC_ALL=C sort -z \
               | xargs -0 -r sha256sum \
               > SHA256SUMS.txt
