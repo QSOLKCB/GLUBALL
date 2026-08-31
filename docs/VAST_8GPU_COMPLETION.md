@@ -4,6 +4,8 @@ This document covers the dedicated `GLUBALL physical CUDA 8-GPU completion` work
 
 It exists to finish the final device-count rung of the Phase 5B physical CUDA evidence ladder without modifying or rerunning the already archived 1 -> 2 -> 4 workflow.
 
+The prior ladder is recorded in `docs/CURRENT_STATE.json`: GitHub Actions run `33378934659`, source commit `d73ad661464eb040e2966e5e9f036941543b4524`, artifact `9753091493`, ZIP SHA-256 `6ba740acf06617d0cf93d2d3548b6e0783994b88b9ed40ee342349f9f9d23747`. The downloaded root bundle and the 1-GPU, 2-GPU, and 4-GPU campaign manifests were independently verified before those roadmap rungs were checked.
+
 ## Evidence profile
 
 The default RTX 4080 SUPER completion profile is intentionally identical to the accepted 1/2/4 ladder profile:
@@ -31,12 +33,22 @@ A successful run is correctness evidence only. It does not grant geometry author
 
 Before physical execution, the workflow requires:
 
-- all dispatch inputs to be positive integers;
+- all dispatch inputs to be decimal positive integers within explicit workflow bounds;
+- `u_segments <= 1000000`;
+- `v_segments <= 65536`;
+- `repeats <= 1024`;
+- `accepted_runs <= 100`;
 - at least eight visible NVIDIA GPUs;
 - GPUs 0 through 7 to report one identical model name;
 - the existing CUDA preflight to report READY.
 
 Raw GPU UUIDs are not queried or published.
+
+## Sanitizer archival boundary
+
+Before the campaign starts, the workflow writes `8gpu/SANITIZER_STATUS.txt` into the campaign evidence directory.
+
+If `compute-sanitizer` is unavailable, that file records explicit unavailability and is covered by the campaign/root manifests. If it is available, the workflow requires non-empty `memcheck.txt` and `racecheck.txt` before a green completion. This prevents a successful 8-GPU bundle from silently omitting both sanitizer evidence and an explicit unavailability record.
 
 ## Ephemeral runner registration
 
@@ -106,6 +118,7 @@ physical-evidence/
   PREFLIGHT.txt
   BUNDLE_SHA256SUMS.txt
   8gpu/
+    SANITIZER_STATUS.txt
     SHA256SUMS.txt
     cuda-run-1.json
     cuda-output-1.f32le
@@ -120,6 +133,8 @@ physical-evidence/
     racecheck.txt
     ...
 ```
+
+When Compute Sanitizer is unavailable, `SANITIZER_STATUS.txt` is retained while `memcheck.txt` and `racecheck.txt` are absent by design.
 
 `BUNDLE_SHA256SUMS.txt` is finalized under `if: always()` and binds the source/provenance files to all available campaign evidence. The campaign's own `SHA256SUMS.txt` remains the inner evidence manifest.
 
