@@ -174,9 +174,11 @@ This phase is post-v1.0.0 runtime research. Faster hardware cannot revise the fr
 
 No item below may be checked merely because matching hardware was detected or rented. It requires archived campaign artifacts from actual execution.
 
-- [ ] Run 1-GPU evidence mode for three accepted repeats.
-- [ ] Run 2-GPU evidence mode for three accepted repeats.
-- [ ] Run 4-GPU evidence mode for three accepted repeats.
+The accepted 1/2/4 evidence is GitHub Actions run `33378934659` on source commit `d73ad661464eb040e2966e5e9f036941543b4524`, artifact `9753091493` (`gluball-physical-cuda-1-2-4-33378934659-1`), ZIP SHA-256 `6ba740acf06617d0cf93d2d3548b6e0783994b88b9ed40ee342349f9f9d23747`. The downloaded root bundle and all three campaign manifests were independently verified.
+
+- [x] Run 1-GPU evidence mode for three accepted repeats.
+- [x] Run 2-GPU evidence mode for three accepted repeats.
+- [x] Run 4-GPU evidence mode for three accepted repeats.
 - [ ] Run 8-GPU evidence mode for three accepted repeats.
 - [ ] Confirm complete coverage and independent Rust residual acceptance at every device count.
 - [ ] Run Compute Sanitizer memcheck/racecheck where supported and archive the result or explicit unavailability.
