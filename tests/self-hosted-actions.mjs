@@ -34,6 +34,8 @@ assert.ok(
     && workflow.indexOf("2 GPU evidence") < workflow.indexOf("4 GPU evidence"),
   "device ladder must stay ordered 1 -> 2 -> 4"
 );
+assert.doesNotMatch(workflow, /nvidia-smi\s+-L/, "workflow logs must not publish raw CUDA UUIDs");
+assert.doesNotMatch(workflow, /query-gpu=[^\n]*uuid/i, "workflow inventory must not query raw CUDA UUIDs");
 assert.match(workflow, /uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
 assert.match(workflow, /if:\s*always\(\)/);
 assert.match(workflow, /geometry authority/i);
