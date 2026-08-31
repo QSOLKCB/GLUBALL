@@ -51,6 +51,35 @@ jobs:
           printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
 
+      - name: Validate dispatch inputs
+        env:
+          U_INPUT: ${{ inputs.u_segments }}
+          V_INPUT: ${{ inputs.v_segments }}
+          REPEATS_INPUT: ${{ inputs.repeats }}
+          ACCEPTED_RUNS_INPUT: ${{ inputs.accepted_runs }}
+          CUDA_ARCH_INPUT: ${{ inputs.cuda_architecture }}
+        run: |
+          set -eu
+          positive_integer() {
+            name=$1
+            value=$2
+            case "$value" in
+              ''|*[!0-9]*)
+                printf '%s must be a positive integer, got: %s\n' "$name" "$value" >&2
+                exit 2
+                ;;
+            esac
+            if [ "$value" -le 0 ]; then
+              printf '%s must be > 0, got: %s\n' "$name" "$value" >&2
+              exit 2
+            fi
+          }
+          positive_integer u_segments "$U_INPUT"
+          positive_integer v_segments "$V_INPUT"
+          positive_integer repeats "$REPEATS_INPUT"
+          positive_integer accepted_runs "$ACCEPTED_RUNS_INPUT"
+          positive_integer cuda_architecture "$CUDA_ARCH_INPUT"
+
       - name: Record exact source and redacted host inventory
         run: |
           set -eu
@@ -61,7 +90,21 @@ jobs:
             | tee physical-evidence/NVIDIA_DEVICES.txt
           nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv \
             | tee physical-evidence/NVIDIA_INVENTORY.csv
-          test "$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)" -ge 4
+
+          gpu_count=$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)
+          if [ "$gpu_count" -lt 4 ]; then
+            printf 'physical ladder requires at least 4 visible GPUs; found %s\n' "$gpu_count" >&2
+            exit 2
+          fi
+
+          first_four_models=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1,4p')
+          distinct_models=$(printf '%s\n' "$first_four_models" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort -u | wc -l)
+          if [ "$distinct_models" -ne 1 ]; then
+            printf '%s\n' 'physical ladder requires GPUs 0-3 to have one identical model:' >&2
+            printf '%s\n' "$first_four_models" >&2
+            exit 2
+          fi
+          printf '%s\n' "$first_four_models" | sed -n '1p' > physical-evidence/SELECTED_GPU_MODEL.txt
 
       - name: GLUBALL CUDA preflight
         run: sh scripts/cuda_preflight.sh | tee physical-evidence/PREFLIGHT.txt
@@ -110,6 +153,23 @@ jobs:
           CAMPAIGN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}-4gpu
           ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/4gpu
         run: sh scripts/run_vast_campaign.sh
+
+      - name: Finalize bundle integrity manifest
+        if: always()
+        run: |
+          set -eu
+          if [ ! -d physical-evidence ]; then
+            printf '%s\n' 'physical-evidence directory was never created' >&2
+            exit 2
+          fi
+          (
+            cd physical-evidence
+            find . -type f ! -name BUNDLE_SHA256SUMS.txt -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum \
+              > BUNDLE_SHA256SUMS.txt
+          )
+          test -s physical-evidence/BUNDLE_SHA256SUMS.txt
 
       - name: Summarize accepted residuals
         if: always()
