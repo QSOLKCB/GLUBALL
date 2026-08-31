@@ -76,6 +76,7 @@ struct DeviceContext {
   std::uint64_t digest_value = 0;
   std::uint32_t max_radius_bits_value = 0;
   std::uint64_t nonfinite_value = 0;
+  std::uint32_t compiled_arch_code = 0;
   std::string redacted_id;
   std::vector<double> kernel_samples_ms;
 };
@@ -279,6 +280,16 @@ __device__ inline std::uint64_t mix64(std::uint64_t value) {
   return value;
 }
 
+__global__ void record_compiled_arch(std::uint32_t* code) {
+  if (blockIdx.x == 0U && threadIdx.x == 0U) {
+#ifdef __CUDA_ARCH__
+    *code = static_cast<std::uint32_t>(__CUDA_ARCH__);
+#else
+    *code = 0U;
+#endif
+  }
+}
+
 __global__ void evaluate_range_v2(
     std::uint64_t start,
     std::uint64_t count,
@@ -287,9 +298,15 @@ __global__ void evaluate_range_v2(
     std::uint64_t* digest,
     std::uint32_t* max_radius_bits,
     std::uint64_t* nonfinite_count) {
-  extern __shared__ unsigned long long shared_digest[];
+  extern __shared__ unsigned char shared_raw[];
+  auto* shared_digest = reinterpret_cast<unsigned long long*>(shared_raw);
+  auto* shared_radius = reinterpret_cast<unsigned int*>(shared_digest + blockDim.x);
+  auto* shared_nonfinite = reinterpret_cast<unsigned long long*>(shared_radius + blockDim.x);
+
   const std::uint64_t local = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   unsigned long long token = 0ULL;
+  unsigned int radius_bits = 0U;
+  unsigned long long nonfinite = 0ULL;
 
   if (local < count) {
     const std::uint64_t linear = start + local;
@@ -301,9 +318,9 @@ __global__ void evaluate_range_v2(
     const float3 point = surface_point(u, u_count, v, v_count, &radius_error);
     const bool finite = isfinite(point.x) && isfinite(point.y) && isfinite(point.z) && isfinite(radius_error);
     if (finite) {
-      atomicMax(reinterpret_cast<unsigned int*>(max_radius_bits), __float_as_uint(radius_error));
+      radius_bits = __float_as_uint(radius_error);
     } else {
-      atomicAdd(reinterpret_cast<unsigned long long*>(nonfinite_count), 1ULL);
+      nonfinite = 1ULL;
     }
 
     const std::uint64_t packed_xy =
@@ -316,13 +333,23 @@ __global__ void evaluate_range_v2(
   }
 
   shared_digest[threadIdx.x] = token;
+  shared_radius[threadIdx.x] = radius_bits;
+  shared_nonfinite[threadIdx.x] = nonfinite;
   __syncthreads();
+
   for (unsigned int stride = blockDim.x / 2U; stride > 0U; stride >>= 1U) {
-    if (threadIdx.x < stride) shared_digest[threadIdx.x] ^= shared_digest[threadIdx.x + stride];
+    if (threadIdx.x < stride) {
+      shared_digest[threadIdx.x] ^= shared_digest[threadIdx.x + stride];
+      shared_radius[threadIdx.x] = max(shared_radius[threadIdx.x], shared_radius[threadIdx.x + stride]);
+      shared_nonfinite[threadIdx.x] += shared_nonfinite[threadIdx.x + stride];
+    }
     __syncthreads();
   }
+
   if (threadIdx.x == 0U) {
     atomicXor(reinterpret_cast<unsigned long long*>(digest), shared_digest[0]);
+    atomicMax(reinterpret_cast<unsigned int*>(max_radius_bits), shared_radius[0]);
+    atomicAdd(reinterpret_cast<unsigned long long*>(nonfinite_count), shared_nonfinite[0]);
   }
 }
 
@@ -366,6 +393,13 @@ inline std::string format_cuda_version(int value) {
   return output.str();
 }
 
+inline std::string format_sm_arch(std::uint32_t cuda_arch_code) {
+  if (cuda_arch_code == 0U) return "unknown";
+  std::ostringstream output;
+  output << "sm_" << cuda_arch_code / 10U;
+  return output.str();
+}
+
 inline float float_from_bits(std::uint32_t bits) {
   float value = 0.0F;
   static_assert(sizeof(value) == sizeof(bits), "float/u32 size mismatch");
@@ -381,14 +415,20 @@ inline double median(std::vector<double> values) {
   return (values[middle - 1U] + values[middle]) / 2.0;
 }
 
+inline std::size_t shared_metric_bytes(std::uint32_t block_size) {
+  return static_cast<std::size_t>(block_size)
+      * (sizeof(unsigned long long) + sizeof(unsigned int) + sizeof(unsigned long long));
+}
+
 inline void enqueue_iteration(DeviceContext& device, const Options& options) {
   check_cuda(cudaMemsetAsync(device.digest, 0, sizeof(std::uint64_t), device.stream), "cudaMemsetAsync(digest)");
   check_cuda(cudaMemsetAsync(device.max_radius_bits, 0, sizeof(std::uint32_t), device.stream), "cudaMemsetAsync(max_radius_bits)");
   check_cuda(cudaMemsetAsync(device.nonfinite_count, 0, sizeof(std::uint64_t), device.stream), "cudaMemsetAsync(nonfinite_count)");
+  check_cuda(cudaEventRecord(device.start_event, device.stream), "cudaEventRecord(kernel-start)");
   evaluate_range_v2<<<
       static_cast<unsigned int>(device.blocks),
       options.block_size,
-      static_cast<std::size_t>(options.block_size) * sizeof(unsigned long long),
+      shared_metric_bytes(options.block_size),
       device.stream>>>(
       device.start,
       device.end - device.start,
@@ -398,6 +438,7 @@ inline void enqueue_iteration(DeviceContext& device, const Options& options) {
       device.max_radius_bits,
       device.nonfinite_count);
   check_cuda(cudaGetLastError(), "evaluate_range_v2 launch");
+  check_cuda(cudaEventRecord(device.stop_event, device.stream), "cudaEventRecord(kernel-stop)");
 }
 
 inline void launch_iteration(DeviceContext& device, const Options& options) {
@@ -413,6 +454,23 @@ inline void read_compact_metrics(DeviceContext& device) {
   check_cuda(cudaMemcpy(&device.digest_value, device.digest, sizeof(device.digest_value), cudaMemcpyDeviceToHost), "cudaMemcpy(digest)");
   check_cuda(cudaMemcpy(&device.max_radius_bits_value, device.max_radius_bits, sizeof(device.max_radius_bits_value), cudaMemcpyDeviceToHost), "cudaMemcpy(max_radius_bits)");
   check_cuda(cudaMemcpy(&device.nonfinite_value, device.nonfinite_count, sizeof(device.nonfinite_value), cudaMemcpyDeviceToHost), "cudaMemcpy(nonfinite_count)");
+}
+
+inline std::uint32_t probe_compiled_architecture() {
+  std::uint32_t* device_code = nullptr;
+  std::uint32_t host_code = 0U;
+  check_cuda(cudaMalloc(reinterpret_cast<void**>(&device_code), sizeof(std::uint32_t)), "cudaMalloc(compiled_arch_probe)");
+  try {
+    record_compiled_arch<<<1, 1>>>(device_code);
+    check_cuda(cudaGetLastError(), "record_compiled_arch launch");
+    check_cuda(cudaDeviceSynchronize(), "cudaDeviceSynchronize(compiled_arch_probe)");
+    check_cuda(cudaMemcpy(&host_code, device_code, sizeof(host_code), cudaMemcpyDeviceToHost), "cudaMemcpy(compiled_arch_probe)");
+    check_cuda(cudaFree(device_code), "cudaFree(compiled_arch_probe)");
+  } catch (...) {
+    cudaFree(device_code);
+    throw;
+  }
+  return host_code;
 }
 
 inline void cleanup(std::vector<DeviceContext>& devices) {
@@ -468,12 +526,16 @@ int main(int argc, char** argv) {
       if (options.block_size > static_cast<std::uint32_t>(context.properties.maxThreadsPerBlock)) {
         throw std::runtime_error("block size exceeds a selected device limit");
       }
+      if (shared_metric_bytes(options.block_size) > static_cast<std::size_t>(context.properties.sharedMemPerBlock)) {
+        throw std::runtime_error("Runtime V2 shared metric reduction exceeds selected device shared-memory limit");
+      }
       check_cuda(cudaStreamCreateWithFlags(&context.stream, cudaStreamNonBlocking), "cudaStreamCreateWithFlags");
       check_cuda(cudaEventCreate(&context.start_event), "cudaEventCreate(start)");
       check_cuda(cudaEventCreate(&context.stop_event), "cudaEventCreate(stop)");
       check_cuda(cudaMalloc(reinterpret_cast<void**>(&context.digest), sizeof(std::uint64_t)), "cudaMalloc(digest)");
       check_cuda(cudaMalloc(reinterpret_cast<void**>(&context.max_radius_bits), sizeof(std::uint32_t)), "cudaMalloc(max_radius_bits)");
       check_cuda(cudaMalloc(reinterpret_cast<void**>(&context.nonfinite_count), sizeof(std::uint64_t)), "cudaMalloc(nonfinite_count)");
+      context.compiled_arch_code = probe_compiled_architecture();
       context.redacted_id = redacted_device_id(context.properties.uuid);
       devices.push_back(context);
     }
@@ -481,7 +543,7 @@ int main(int argc, char** argv) {
     const std::uint64_t base = total_points / devices.size();
     const std::uint64_t remainder = total_points % devices.size();
     std::uint64_t cursor = 0;
-    std::uint64_t total_digest_atomics = 0;
+    std::uint64_t total_block_atomics = 0;
     for (std::size_t slot = 0; slot < devices.size(); ++slot) {
       DeviceContext& device = devices[slot];
       const std::uint64_t length = base + (slot < remainder ? 1ULL : 0ULL);
@@ -490,10 +552,16 @@ int main(int argc, char** argv) {
       device.end = cursor + length;
       cursor = device.end;
       device.blocks = (length + options.block_size - 1ULL) / options.block_size;
-      if (device.blocks > std::numeric_limits<unsigned int>::max()) {
-        throw std::runtime_error("CUDA grid exceeds one-dimensional block bound");
+      if (device.properties.maxGridSize[0] <= 0) {
+        throw std::runtime_error("selected device reports an invalid x-grid limit");
       }
-      total_digest_atomics += device.blocks;
+      if (device.blocks > static_cast<std::uint64_t>(device.properties.maxGridSize[0])) {
+        throw std::runtime_error("CUDA grid exceeds selected device maxGridSize[0]");
+      }
+      if (device.blocks > static_cast<std::uint64_t>(std::numeric_limits<unsigned int>::max())) {
+        throw std::runtime_error("CUDA grid exceeds host launch index representation");
+      }
+      total_block_atomics += device.blocks;
     }
     if (cursor != total_points) throw std::runtime_error("device partition coverage invariant failed");
 
@@ -538,15 +606,13 @@ int main(int argc, char** argv) {
       const auto wall_start = std::chrono::steady_clock::now();
       for (DeviceContext& device : devices) {
         check_cuda(cudaSetDevice(device.cuda_index), "cudaSetDevice");
-        check_cuda(cudaEventRecord(device.start_event, device.stream), "cudaEventRecord(start)");
         launch_iteration(device, options);
-        check_cuda(cudaEventRecord(device.stop_event, device.stream), "cudaEventRecord(stop)");
       }
       for (DeviceContext& device : devices) {
         check_cuda(cudaSetDevice(device.cuda_index), "cudaSetDevice");
         check_cuda(cudaStreamSynchronize(device.stream), "cudaStreamSynchronize(measured)");
         float kernel_ms = 0.0F;
-        check_cuda(cudaEventElapsedTime(&kernel_ms, device.start_event, device.stop_event), "cudaEventElapsedTime");
+        check_cuda(cudaEventElapsedTime(&kernel_ms, device.start_event, device.stop_event), "cudaEventElapsedTime(kernel-only)");
         device.kernel_samples_ms.push_back(static_cast<double>(kernel_ms));
       }
       const auto wall_stop = std::chrono::steady_clock::now();
@@ -601,9 +667,14 @@ int main(int argc, char** argv) {
     const std::uint64_t compact_bytes_per_device =
         sizeof(std::uint64_t) + sizeof(std::uint32_t) + sizeof(std::uint64_t);
     const std::uint64_t compact_readback_bytes = compact_bytes_per_device * devices.size();
-    const double atomic_reduction_ratio = total_digest_atomics > 0
-        ? static_cast<double>(total_points) / static_cast<double>(total_digest_atomics)
+    const double digest_atomic_reduction_ratio = total_block_atomics > 0
+        ? static_cast<double>(total_points) / static_cast<double>(total_block_atomics)
         : 0.0;
+
+    std::set<std::string> resolved_architectures;
+    for (const DeviceContext& device : devices) {
+      resolved_architectures.insert(format_sm_arch(device.compiled_arch_code));
+    }
 
     std::cout
         << "{\n"
@@ -630,11 +701,14 @@ int main(int argc, char** argv) {
         << "  \"complete_output_readback\": false,\n"
         << "  \"full_output_buffer_allocated\": false,\n"
         << "  \"v1_evidence_path_unchanged\": true,\n"
-        << "  \"hierarchical_digest_reduction\": true,\n"
+        << "  \"hierarchical_compact_metric_reduction\": true,\n"
         << "  \"digest_reduction_policy\": \"block-xor-then-one-global-atomic-per-block-v1\",\n"
+        << "  \"radius_reduction_policy\": \"block-max-then-one-global-atomic-per-block-v1\",\n"
+        << "  \"nonfinite_reduction_policy\": \"block-sum-then-one-global-atomic-per-block-v1\",\n"
         << "  \"persistent_device_contexts\": true,\n"
         << "  \"persistent_compact_metric_buffers\": true,\n"
         << "  \"cuda_graphs_enabled\": " << (options.cuda_graphs ? "true" : "false") << ",\n"
+        << "  \"kernel_timing_excludes_metric_resets\": true,\n"
         << "  \"repeatable_compact_metrics\": " << (repeatable_compact_metrics ? "true" : "false") << ",\n"
         << "  \"compact_metrics_clean\": " << (compact_metrics_clean ? "true" : "false") << ",\n"
         << "  \"assignment_policy\": \"contiguous-quotient-remainder-per-device-v1\",\n"
@@ -648,9 +722,11 @@ int main(int argc, char** argv) {
         << "  \"detected_device_count\": " << detected_device_count << ",\n"
         << "  \"used_device_count\": " << devices.size() << ",\n"
         << "  \"legacy_point_digest_atomics_per_iteration\": " << total_points << ",\n"
-        << "  \"v2_global_digest_atomics_per_iteration\": " << total_digest_atomics << ",\n"
+        << "  \"v2_global_digest_atomics_per_iteration\": " << total_block_atomics << ",\n"
+        << "  \"v2_global_radius_atomics_per_iteration\": " << total_block_atomics << ",\n"
+        << "  \"v2_global_nonfinite_atomics_per_iteration\": " << total_block_atomics << ",\n"
         << std::fixed << std::setprecision(6)
-        << "  \"digest_atomic_reduction_ratio\": " << atomic_reduction_ratio << ",\n"
+        << "  \"digest_atomic_reduction_ratio\": " << digest_atomic_reduction_ratio << ",\n"
         << "  \"runtime_setup_milliseconds\": " << setup_ms << ",\n"
         << "  \"iteration_wall_milliseconds_median\": " << median_wall_ms << ",\n"
         << "  \"iteration_wall_milliseconds_min\": " << min_wall_ms << ",\n"
@@ -667,7 +743,15 @@ int main(int argc, char** argv) {
         << std::defaultfloat
         << "  \"aggregate_diagnostic_xor64\": \""
         << std::hex << std::setw(16) << std::setfill('0') << reference_digest << std::dec << "\",\n"
-        << "  \"compiled_architectures\": \"" << json_escape(GLUBALL_CUDA_ARCHITECTURES) << "\",\n"
+        << "  \"compiled_architecture_policy\": \"" << json_escape(GLUBALL_CUDA_ARCHITECTURES) << "\",\n"
+        << "  \"resolved_compiled_architectures\": [";
+
+    std::size_t arch_index = 0;
+    for (const std::string& arch : resolved_architectures) {
+      std::cout << (arch_index++ == 0 ? "" : ", ") << "\"" << json_escape(arch) << "\"";
+    }
+    std::cout
+        << "],\n"
         << "  \"cuda_driver_api_version\": " << driver_version << ",\n"
         << "  \"cuda_driver_api\": \"" << format_cuda_version(driver_version) << "\",\n"
         << "  \"cuda_runtime_version\": " << runtime_version << ",\n"
@@ -683,11 +767,16 @@ int main(int argc, char** argv) {
           << ", \"name\": \"" << json_escape(device.properties.name)
           << "\", \"redacted_device_id\": \"" << device.redacted_id
           << "\", \"compute_capability\": \"" << device.properties.major << '.' << device.properties.minor
-          << "\", \"total_memory_bytes\": " << static_cast<unsigned long long>(device.properties.totalGlobalMem)
+          << "\", \"compiled_cuda_arch_code\": " << device.compiled_arch_code
+          << ", \"resolved_compiled_architecture\": \"" << format_sm_arch(device.compiled_arch_code)
+          << "\", \"max_grid_size_x\": " << device.properties.maxGridSize[0]
+          << ", \"total_memory_bytes\": " << static_cast<unsigned long long>(device.properties.totalGlobalMem)
           << ", \"start\": " << device.start
           << ", \"end\": " << device.end
           << ", \"points\": " << device.end - device.start
           << ", \"digest_global_atomics\": " << device.blocks
+          << ", \"radius_global_atomics\": " << device.blocks
+          << ", \"nonfinite_global_atomics\": " << device.blocks
           << ", \"kernel_milliseconds_median\": " << median(device.kernel_samples_ms)
           << "}"
           << (slot + 1U == devices.size() ? "\n" : ",\n");
