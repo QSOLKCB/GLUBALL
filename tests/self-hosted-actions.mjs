@@ -74,12 +74,15 @@ assert.match(eightWorkflow, /SELECTED_DEVICES\.txt/);
 assert.match(eightWorkflow, /DEVICES:\s*"0,1,2,3,4,5,6,7"/);
 assert.match(eightWorkflow, /LOGICAL_DEVICE_SLOTS:\s*"8"/);
 assert.match(eightWorkflow, /ARTIFACT_DIR:.*physical-evidence\/8gpu/);
-assert.match(eightWorkflow, /- name: Record sanitizer availability in campaign evidence/);
+assert.match(eightWorkflow, /- name: Verify sanitizer archival boundary/);
 assert.match(eightWorkflow, /SANITIZER_STATUS\.txt/);
 assert.match(eightWorkflow, /unavailable: compute-sanitizer not found on PATH/);
-assert.match(eightWorkflow, /- name: Verify sanitizer archival boundary/);
+assert.match(eightWorkflow, /available: memcheck and racecheck evidence archived/);
+assert.match(eightWorkflow, /available-but-results-not-archived/);
 assert.match(eightWorkflow, /memcheck\.txt/);
 assert.match(eightWorkflow, /racecheck\.txt/);
+assert.match(eightWorkflow, /find \. -maxdepth 1 -type f ! -name SHA256SUMS\.txt/);
+assert.match(eightWorkflow, /> SHA256SUMS\.txt/);
 assert.match(eightWorkflow, /gluball-physical-cuda-8gpu-/);
 
 console.log("GLUBALL self-hosted Actions boundary: PASS");
