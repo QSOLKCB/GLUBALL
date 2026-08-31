@@ -82,6 +82,28 @@ for label, payload in (("V2", v2), ("V3", v3)):
     if payload.get("compact_metrics_clean") is not True:
         raise SystemExit(f"{label} compact metrics are not clean")
 
+
+def device_signature(payload, label):
+    devices = payload.get("devices", [])
+    if not devices:
+        raise SystemExit(f"{label} contains no selected device records")
+    signatures = {
+        (device.get("name"), device.get("compute_capability"), device.get("compiled_cuda_arch_code"))
+        for device in devices
+    }
+    if len(signatures) != 1:
+        raise SystemExit(
+            f"{label} exact V2/V3 equivalence requires homogeneous selected devices because "
+            f"V2 point shards and V3 complete-ring shards may otherwise move points across architectures; "
+            f"observed signatures: {sorted(signatures)!r}"
+        )
+    return next(iter(signatures))
+
+v2_device_signature = device_signature(v2, "V2")
+v3_device_signature = device_signature(v3, "V3")
+if v2_device_signature != v3_device_signature:
+    raise SystemExit("V2/V3 homogeneous selected-device signature mismatch")
+
 exact_keys = (
     "total_points_per_iteration",
     "used_device_count",
@@ -96,8 +118,8 @@ for key in exact_keys:
 if v2.get("resolved_compiled_architectures") != v3.get("resolved_compiled_architectures"):
     raise SystemExit("V2/V3 compiled architecture mismatch")
 
-v2_devices = [(d.get("cuda_index"), d.get("name"), d.get("compute_capability")) for d in v2.get("devices", [])]
-v3_devices = [(d.get("cuda_index"), d.get("name"), d.get("compute_capability")) for d in v3.get("devices", [])]
+v2_devices = [(d.get("cuda_index"), d.get("name"), d.get("compute_capability"), d.get("compiled_cuda_arch_code")) for d in v2.get("devices", [])]
+v3_devices = [(d.get("cuda_index"), d.get("name"), d.get("compute_capability"), d.get("compiled_cuda_arch_code")) for d in v3.get("devices", [])]
 if v2_devices != v3_devices:
     raise SystemExit("V2/V3 selected device identity mismatch")
 
@@ -110,6 +132,12 @@ result = {
     "v3_contract": v3["contract"],
     "v2_reference_source_blob_sha": v3["v2_reference_source_blob_sha"],
     "exact_observation_equivalence": True,
+    "v2_equivalence_requires_homogeneous_selected_devices": True,
+    "homogeneous_selected_device_signature": {
+        "name": v2_device_signature[0],
+        "compute_capability": v2_device_signature[1],
+        "compiled_cuda_arch_code": v2_device_signature[2],
+    },
     "equivalence_fields": list(exact_keys),
     "v2_wall_milliseconds_median": v2_wall,
     "v3_wall_milliseconds_median": v3_wall,
