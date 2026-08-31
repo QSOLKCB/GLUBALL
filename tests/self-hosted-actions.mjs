@@ -13,6 +13,10 @@ const gb10Workflow = await readFile(
   new URL("../.github/workflows/physical-cuda-gb10.yml", import.meta.url),
   "utf8"
 );
+const vastCampaign = await readFile(
+  new URL("../scripts/run_vast_campaign.sh", import.meta.url),
+  "utf8"
+);
 
 function explicitTriggers(text, label) {
   const triggerMatch = text.match(/\non:\n([\s\S]*?)\npermissions:/);
@@ -140,6 +144,8 @@ assert.doesNotMatch(
   /grep -Fq '0 hazards'/,
   "GB10 sanitizer verification must not accept suffix substrings from nonzero racecheck counts"
 );
+assert.match(gb10Workflow, /"\$campaign\/memcheck\.txt" "\$campaign\/memcheck-run\.json"/);
+assert.match(gb10Workflow, /"\$campaign\/racecheck\.txt" "\$campaign\/racecheck-run\.json"/);
 const offStep = gb10Workflow.indexOf("- name: Runtime V2 graphs OFF");
 const onStep = gb10Workflow.indexOf("- name: Runtime V2 graphs ON");
 assert.ok(offStep >= 0 && onStep > offStep, "GB10 V2 workflow must run graphs OFF before graphs ON");
@@ -162,5 +168,12 @@ assert.match(gb10Workflow, /uses: actions\/upload-artifact@ea165f8d65b6e75b54044
 assert.match(gb10Workflow, /V1 is correctness evidence/);
 assert.match(gb10Workflow, /Runtime V2 is performance observation only/);
 assert.match(gb10Workflow, /GPU output is not geometry authority/);
+
+assert.match(vastCampaign, /compute-sanitizer --tool memcheck --error-exitcode 86/);
+assert.match(vastCampaign, /compute-sanitizer --tool racecheck --error-exitcode 87/);
+assert.match(vastCampaign, /> "\$ARTIFACT_DIR\/memcheck-run\.json"/);
+assert.match(vastCampaign, /2> "\$ARTIFACT_DIR\/memcheck\.txt"/);
+assert.match(vastCampaign, /> "\$ARTIFACT_DIR\/racecheck-run\.json"/);
+assert.match(vastCampaign, /2> "\$ARTIFACT_DIR\/racecheck\.txt"/);
 
 console.log("GLUBALL self-hosted Actions boundary: PASS");
