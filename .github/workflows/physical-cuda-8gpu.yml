@@ -151,12 +151,39 @@ jobs:
           mkdir -p "$campaign_dir"
           sanitizer_ok=true
 
+          find_clean_summary() {
+            expected=$1
+            shift
+            for candidate in "$@"; do
+              if [ -s "$candidate" ] && grep -Fq "$expected" "$candidate"; then
+                printf '%s\n' "$candidate"
+                return 0
+              fi
+            done
+            return 1
+          }
+
           if command -v compute-sanitizer >/dev/null 2>&1; then
-            if [ -s "$campaign_dir/memcheck.txt" ] && [ -s "$campaign_dir/racecheck.txt" ]; then
-              printf '%s\n' 'available: memcheck and racecheck evidence archived' > "$status_file"
+            memcheck_source=$(find_clean_summary \
+              'ERROR SUMMARY: 0 errors' \
+              "$campaign_dir/memcheck.txt" \
+              "$campaign_dir/memcheck-run.json" || true)
+            racecheck_source=$(find_clean_summary \
+              'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' \
+              "$campaign_dir/racecheck.txt" \
+              "$campaign_dir/racecheck-run.json" || true)
+
+            if [ -n "$memcheck_source" ] && [ -n "$racecheck_source" ]; then
+              printf 'available: clean memcheck archived in %s; clean racecheck archived in %s\n' \
+                "$(basename "$memcheck_source")" \
+                "$(basename "$racecheck_source")" \
+                > "$status_file"
             else
-              printf '%s\n' 'available-but-results-not-archived' > "$status_file"
-              printf '%s\n' 'compute-sanitizer was available but memcheck/racecheck evidence is missing' >&2
+              printf 'available-but-clean-results-not-verified: memcheck=%s racecheck=%s\n' \
+                "${memcheck_source:-missing-or-nonclean}" \
+                "${racecheck_source:-missing-or-nonclean}" \
+                > "$status_file"
+              printf '%s\n' 'compute-sanitizer was available but clean memcheck/racecheck summaries were not both verified' >&2
               sanitizer_ok=false
             fi
           else
