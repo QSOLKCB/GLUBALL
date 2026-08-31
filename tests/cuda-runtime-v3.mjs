@@ -22,6 +22,13 @@ assert.equal(contract.v2_reference_contract, "GLUBALL-CUDA-RUNTIME-V2");
 assert.equal(contract.v2_reference_source_blob_sha, frozenV2Blob);
 assert.equal(contract.compatibility.v2_source_unchanged, true);
 assert.equal(contract.compatibility.may_replace_v1_acceptance_evidence, false);
+assert.deepEqual(contract.torus_signature_orbit.canonical_ordered_signature, [2, 3]);
+assert.deepEqual(contract.torus_signature_orbit.swapped_ordered_signature, [3, 2]);
+assert.equal(contract.torus_signature_orbit.swap_involutive, true);
+assert.equal(contract.torus_signature_orbit.ordered_pair_equality_claim, false);
+assert.equal(contract.torus_signature_orbit.runtime_geometry_uses_canonical_signature_only, true);
+assert.equal(contract.torus_signature_orbit.swapped_embedding_enabled, false);
+assert.equal(contract.torus_signature_orbit.knot_type_equivalence_used_for_acceptance, false);
 assert.equal(contract.optimization_invariants.precomputed_u_frames.enabled, true);
 assert.equal(contract.optimization_invariants.precomputed_u_frames.immutability_after_setup, true);
 assert.equal(contract.optimization_invariants.precomputed_v_angles.enabled, true);
@@ -32,6 +39,12 @@ assert.equal(contract.optimization_invariants.conditional_nonfinite_global_atomi
 assert.equal(contract.optimization_invariants.conditional_nonfinite_global_atomic.clean_case_global_nonfinite_atomics, 0);
 assert.equal(contract.optimization_invariants.symmetry_orbit_compression.enabled, false);
 assert.equal(contract.optimization_invariants.symmetry_orbit_compression.candidate_only, true);
+assert.equal(contract.v2_equivalence_gate.selected_devices_must_be_homogeneous, true);
+assert.equal(contract.v2_equivalence_gate.heterogeneous_exact_equivalence_forbidden, true);
+assert.deepEqual(contract.v2_equivalence_gate.homogeneous_signature_fields, ["name", "compute_capability", "compiled_cuda_arch_code"]);
+assert.equal(contract.bounded_tuning.minimum_measured_iterations, 2);
+assert.equal(contract.bounded_tuning.repeatability_must_be_nonvacuous, true);
+assert.equal(contract.bounded_tuning.selected_devices_must_be_homogeneous_for_v2_equivalence, true);
 assert.equal(contract.bounded_tuning.candidate_enumeration_deterministic, true);
 assert.equal(contract.bounded_tuning.best_observed_candidate_within_declared_set_only, true);
 assert.equal(contract.bounded_tuning.rigorous_global_optimum_claim, false);
@@ -54,6 +67,17 @@ assert.match(cmake, /gluball_runtime_v2_event_compat\.cuh/);
 assert.match(source, /GLUBALL-CUDA-RUNTIME-V3/);
 assert.match(source, /GLUBALL-CUDA-RUNTIME-V2/);
 assert.match(source, new RegExp(frozenV2Blob));
+assert.match(source, /struct TorusSignature/);
+assert.match(source, /swap_torus_signature/);
+assert.match(source, /kCanonicalTorusSignature\{2U, 3U\}/);
+assert.match(source, /kSwappedTorusSignature/);
+assert.match(source, /torus_knot_ordered_signature/);
+assert.match(source, /torus_knot_swapped_signature/);
+assert.match(source, /torus_knot_signature_swap_involutive\\\": true/);
+assert.match(source, /torus_knot_ordered_signatures_equal\\\": false/);
+assert.match(source, /torus_knot_canonical_geometry_signature_preserved\\\": true/);
+assert.match(source, /torus_knot_swapped_embedding_enabled\\\": false/);
+assert.match(source, /torus_knot_type_equivalence_used_for_acceptance\\\": false/);
 assert.match(source, /struct Frame/);
 assert.match(source, /precompute_frames/);
 assert.match(source, /precompute_angles/);
@@ -66,6 +90,7 @@ assert.match(source, /warp_per_u_ring_topology\\\": true/);
 assert.match(source, /per_point_uv_divmod_eliminated\\\": true/);
 assert.match(source, /conditional_nonfinite_global_atomic\\\": true/);
 assert.match(source, /symmetry_orbit_compression_enabled\\\": false/);
+assert.match(source, /v2_exact_equivalence_homogeneous_devices_required\\\": true/);
 assert.match(source, /performance_observation_only\\\": true/);
 assert.match(source, /reference_residual_checked\\\": false/);
 assert.match(source, /conformance_acceptance\\\": false/);
@@ -96,14 +121,28 @@ assert.match(compareScript, /GLUBALL-CUDA-RUNTIME-V3/);
 assert.match(compareScript, /aggregate_diagnostic_xor64/);
 assert.match(compareScript, /observed_max_tube_radius_error/);
 assert.match(compareScript, /exact_observation_equivalence/);
+assert.match(compareScript, /exact V2\/V3 equivalence requires homogeneous selected devices/);
+assert.match(compareScript, /compiled_cuda_arch_code/);
 assert.match(tuneScript, /BLOCK_SIZES=\$\{BLOCK_SIZES:-32,64,128,256,512,1024\}/);
 assert.match(tuneScript, /GRAPH_MODES=\$\{GRAPH_MODES:-off,on\}/);
+assert.match(tuneScript, /ITERATIONS must be an integer in \[2,10000\]/);
+assert.match(tuneScript, /measured_iterations must be >= 2/);
+assert.match(tuneScript, /exact V2\/V3 equivalence requires homogeneous selected devices/);
 assert.match(tuneScript, /bounded-exhaustive-combinatorial-performance-observation/);
 assert.match(tuneScript, /best_observed_candidate_within_declared_set/);
 assert.match(tuneScript, /rigorous_global_optimum_claim/);
 assert.match(tuneScript, /unbounded_configuration_space_global_optimum_claim/);
 
-// SAW-1-inspired candidate proof pattern only. This is not enabled in the CUDA kernel.
+// SAW-1-inspired ordered-pair pattern: swap is involutive but the ordered pairs stay distinct.
+function coordinateSwap([a, b]) {
+  return [b, a];
+}
+assert.deepEqual(coordinateSwap([2, 3]), [3, 2]);
+assert.deepEqual(coordinateSwap([3, 2]), [2, 3]);
+assert.deepEqual(coordinateSwap(coordinateSwap([2, 3])), [2, 3]);
+assert.notDeepEqual([2, 3], [3, 2]);
+
+// SAW-1-inspired tube-coordinate candidate proof pattern only. This is not enabled in the CUDA kernel.
 function mirrorV(v, count) {
   return (count - v) % count;
 }
