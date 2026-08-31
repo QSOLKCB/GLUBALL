@@ -9,12 +9,15 @@ const eightWorkflow = await readFile(
   new URL("../.github/workflows/physical-cuda-8gpu.yml", import.meta.url),
   "utf8"
 );
+const gb10Workflow = await readFile(
+  new URL("../.github/workflows/physical-cuda-gb10.yml", import.meta.url),
+  "utf8"
+);
 
-function assertManualSelfHostedBoundary(text, label) {
+function explicitTriggers(text, label) {
   const triggerMatch = text.match(/\non:\n([\s\S]*?)\npermissions:/);
   assert.ok(triggerMatch, `${label} must have an explicit trigger block`);
   const triggers = triggerMatch[1];
-
   assert.match(triggers, /^\s{2}workflow_dispatch:/m);
   for (const forbidden of ["push", "pull_request", "pull_request_target", "schedule", "workflow_run"]) {
     assert.doesNotMatch(
@@ -23,7 +26,11 @@ function assertManualSelfHostedBoundary(text, label) {
       `${label} must not enable ${forbidden}`
     );
   }
+  return triggers;
+}
 
+function assertManualSelfHostedBoundary(text, label) {
+  explicitTriggers(text, label);
   assert.match(
     text,
     /runs-on:\s*\[self-hosted, linux, x64, gluball-vast-8gpu\]/,
@@ -92,5 +99,55 @@ assert.match(eightWorkflow, /unavailable: compute-sanitizer not found on PATH/);
 assert.match(eightWorkflow, /find \. -maxdepth 1 -type f ! -name SHA256SUMS\.txt/);
 assert.match(eightWorkflow, /> SHA256SUMS\.txt/);
 assert.match(eightWorkflow, /gluball-physical-cuda-8gpu-/);
+
+explicitTriggers(gb10Workflow, "GB10 physical validation workflow");
+assert.match(
+  gb10Workflow,
+  /runs-on:\s*\[self-hosted, linux, ARM64, gluball-vast-gb10\]/,
+  "GB10 validation must require the dedicated ARM64 Vast runner label"
+);
+assert.doesNotMatch(gb10Workflow, /\bmatrix\s*:/);
+assert.match(gb10Workflow, /permissions:\n\s{2}contents:\s*read/);
+assert.match(gb10Workflow, /- name: Validate dispatch inputs/);
+assert.match(gb10Workflow, /V1_RUNS.*3, 100/);
+assert.match(gb10Workflow, /\/usr\/local\/cuda-13\.2\/bin/);
+assert.match(gb10Workflow, /test "\$\(uname -m\)" = aarch64/);
+assert.match(gb10Workflow, /test "\$model" = 'NVIDIA GB10'/);
+assert.match(gb10Workflow, /test "\$capability" = '12\.1'/);
+assert.match(gb10Workflow, /compute_121/);
+assert.match(gb10Workflow, /sm_121/);
+assert.doesNotMatch(gb10Workflow, /nvidia-smi\s+-L/);
+assert.doesNotMatch(gb10Workflow, /query-gpu=[^\n]*uuid/i);
+assert.match(gb10Workflow, /- name: GB10 bounded V1 full-readback acceptance/);
+assert.match(gb10Workflow, /MODE:\s*evidence/);
+assert.match(gb10Workflow, /GLUBALL_CUDA_ARCHITECTURES:\s*native/);
+assert.match(gb10Workflow, /ARTIFACT_DIR:.*physical-evidence\/gb10\/v1-acceptance/);
+assert.match(gb10Workflow, /reference_residual_checked/);
+assert.match(gb10Workflow, /conformance_acceptance/);
+assert.match(gb10Workflow, /V1_SANITIZER_STATUS\.txt/);
+assert.match(gb10Workflow, /ERROR SUMMARY: 0 errors/);
+assert.match(gb10Workflow, /RACECHECK SUMMARY:/);
+const offStep = gb10Workflow.indexOf("- name: Runtime V2 graphs OFF");
+const onStep = gb10Workflow.indexOf("- name: Runtime V2 graphs ON");
+assert.ok(offStep >= 0 && onStep > offStep, "GB10 V2 workflow must run graphs OFF before graphs ON");
+assert.match(gb10Workflow, /CUDA_GRAPHS:\s*off/);
+assert.match(gb10Workflow, /CUDA_GRAPHS:\s*on/);
+assert.match(gb10Workflow, /repeatable_compact_metrics/);
+assert.match(gb10Workflow, /compact_metrics_clean/);
+assert.match(gb10Workflow, /compiled_cuda_arch_code.*1210/);
+assert.match(gb10Workflow, /aggregate_diagnostic_xor64/);
+assert.match(gb10Workflow, /observed_graph_wall_speedup/);
+assert.match(gb10Workflow, /- name: Compute Sanitizer Runtime V2 compact kernel/);
+assert.match(gb10Workflow, /--error-exitcode 86/);
+assert.match(gb10Workflow, /--error-exitcode 87/);
+assert.match(gb10Workflow, /- name: Finalize GB10 validation manifests/);
+assert.match(gb10Workflow, /VALIDATION_STATUS\.json/);
+assert.match(gb10Workflow, /SHA256SUMS\.txt/);
+assert.match(gb10Workflow, /BUNDLE_SHA256SUMS\.txt/);
+assert.match(gb10Workflow, /gluball-physical-gb10-/);
+assert.match(gb10Workflow, /uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
+assert.match(gb10Workflow, /V1 is correctness evidence/);
+assert.match(gb10Workflow, /Runtime V2 is performance observation only/);
+assert.match(gb10Workflow, /GPU output is not geometry authority/);
 
 console.log("GLUBALL self-hosted Actions boundary: PASS");
