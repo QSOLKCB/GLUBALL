@@ -23,21 +23,24 @@ Use `gluball-cuda-evidence` plus the Rust `gluball-cuda-accept` binary whenever 
 
 ## Why V2 exists
 
-The Phase 5B runtime computes one exact diagnostic token per point and the V1 throughput adapter folds every token into a single device digest with one global `atomicXor` per evaluated point. That is acceptable for bounded correctness work but can turn a large GPU into an atomic-contention benchmark.
+The Phase 5B runtime computes exact compact diagnostics alongside the geometry work. A large throughput run must not collapse into contention on a handful of device-global metric words.
 
-V2 keeps the exact XOR algebra while changing the reduction shape:
+V2 therefore reduces all three compact metrics within each CUDA block before touching global memory:
 
 ```text
-thread token
-   -> block-local shared-memory XOR reduction
-   -> one global atomic XOR per CUDA block
-   -> one compact digest per device
-   -> host XOR across device digests
+per-thread point result
+   -> block-local shared-memory reduction
+      digest: XOR
+      radius: maximum
+      nonfinite: sum
+   -> block leader issues one global update per metric
+   -> compact metrics per device
+   -> host combines selected-device metrics
 ```
 
-For the default block size of 256, the asymptotic global digest-atomic count is reduced by approximately 256x before final partial-block effects.
+For the default block size of 256, the global digest and radius update counts are reduced from point scale to approximately one update per 256 evaluated points before final partial-block effects. The non-finite counter is also block-reduced, so even a pathological observation cannot turn the counter itself into a per-point global-atomic bottleneck.
 
-The sidecar records both the legacy point-atomic count and the V2 block-atomic count so the reduction is explicit rather than inferred.
+The sidecar records the legacy point digest-atomic count and the V2 block-atomic counts so the reduction is explicit rather than inferred.
 
 ## Compact resident metrics
 
@@ -62,8 +65,16 @@ The runtime reports:
 - setup time;
 - median/min/max same-host iteration wall time;
 - median compact-readback time;
-- median per-device CUDA event time;
+- median per-device evaluation-kernel CUDA event time;
 - median model points/s.
+
+The timing surfaces are intentionally distinct:
+
+- `iteration_wall_*` includes compact metric resets, evaluation-kernel execution, and stream synchronization, but excludes the later compact host readback;
+- `kernel_milliseconds_median` is bracketed by CUDA events **after** metric resets and around only the evaluation kernel;
+- `compact_readback_milliseconds_median` measures the subsequent compact device-to-host metric transfer.
+
+The same event bracketing is captured inside CUDA Graph mode, so graph-replay kernel timing excludes the reset nodes as well.
 
 Warmups are excluded from the measured sample set.
 
@@ -74,11 +85,27 @@ The intended Phase 5C comparison uses identical `U`, `V`, `REPEATS`, block size,
 `--cuda-graphs on` captures one fixed workload graph per selected device containing:
 
 1. compact-metric resets;
-2. the Runtime V2 geometry/evaluation kernel.
+2. a kernel-start CUDA event;
+3. the Runtime V2 geometry/evaluation kernel;
+4. a kernel-stop CUDA event.
 
-Measured iterations launch the pre-instantiated graphs on their persistent non-blocking streams.
+Measured iterations launch the pre-instantiated graphs on their persistent non-blocking streams. The event interval therefore measures the evaluation kernel, not reset-plus-kernel time.
 
 Graph and ordinary-launch observations must be labeled separately. A graph result is not silently substituted for an ordinary-launch result.
+
+## Grid and launch bounds
+
+Runtime V2 validates each shard against the selected device that will execute it. In addition to the block-size and shared-memory checks, the computed x-grid must not exceed that device's reported `maxGridSize[0]`. Oversized accepted input values therefore fail before launch instead of relying on a generic host integer bound and later producing an invalid CUDA configuration.
+
+## Compile-architecture provenance
+
+The CMake architecture input is a **policy**, not proof of the code-generation target actually selected at runtime. Runtime V2 records both surfaces separately:
+
+- `compiled_architecture_policy`, for example `native` or `89`;
+- `resolved_compiled_architectures`, populated by a setup probe kernel that records its device-side `__CUDA_ARCH__` value;
+- each device record also contains `compiled_cuda_arch_code` and `resolved_compiled_architecture`, for example `890` and `sm_89`.
+
+This distinction matters for the first GB10 run: `native` is retained as the requested policy while the executing binary records the actual resolved architecture observed on silicon.
 
 ## Build and run
 
@@ -106,7 +133,7 @@ OUTPUT=runtime-v2-8gpu.json \
 sh scripts/run_cuda_runtime_v2.sh
 ```
 
-Do not copy an architecture number from a different GPU family. For a first portability specimen such as GB10, start with `GLUBALL_CUDA_ARCHITECTURES=native`, record the compiler-selected result and device-reported compute capability, and only pin a numeric architecture after it is actually observed and reproduced.
+Do not copy an architecture number from a different GPU family. For a first portability specimen such as GB10, start with `GLUBALL_CUDA_ARCHITECTURES=native`, preserve that requested policy in the sidecar, record the Runtime V2 resolved `__CUDA_ARCH__` target and device-reported compute capability, and only pin a numeric architecture after it is actually observed and reproduced.
 
 ## Phase 5C interpretation
 
