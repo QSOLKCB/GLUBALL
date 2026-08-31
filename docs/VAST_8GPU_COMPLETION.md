@@ -18,6 +18,8 @@ accepted runs:       3
 CUDA architecture:  89
 ```
 
+The completion workflow requires at least three accepted runs. `accepted_runs=1` or `2` is rejected before any physical campaign starts; larger values remain allowed up to the declared workflow maximum.
+
 The workflow selects exactly:
 
 ```text
@@ -25,7 +27,7 @@ DEVICES=0,1,2,3,4,5,6,7
 LOGICAL_DEVICE_SLOTS=8
 ```
 
-Each of the three physical runs must complete the existing evidence path: full ordered CUDA readback, independent Rust full-domain residual acceptance, and Compute Sanitizer where available.
+Each qualifying physical run must complete the existing evidence path: full ordered CUDA readback, independent Rust full-domain residual acceptance, and Compute Sanitizer where available.
 
 A successful run is correctness evidence only. It does not grant geometry authority and does not establish a universal speedup claim.
 
@@ -37,7 +39,7 @@ Before physical execution, the workflow requires:
 - `u_segments <= 1000000`;
 - `v_segments <= 65536`;
 - `repeats <= 1024`;
-- `accepted_runs <= 100`;
+- `3 <= accepted_runs <= 100`;
 - at least eight visible NVIDIA GPUs;
 - GPUs 0 through 7 to report one identical model name;
 - the existing CUDA preflight to report READY.
@@ -94,7 +96,7 @@ After the workflow is merged to `main`:
 1. Open **Actions**.
 2. Select **GLUBALL physical CUDA 8-GPU completion**.
 3. Choose **Run workflow** on `main`.
-4. Keep the default evidence profile above.
+4. Keep the default evidence profile above unless intentionally requesting more than three accepted runs.
 5. Dispatch the job while the ephemeral Vast runner is listening.
 
 ## Returned evidence
@@ -138,4 +140,4 @@ When Compute Sanitizer is unavailable, `SANITIZER_STATUS.txt` is retained while 
 
 `BUNDLE_SHA256SUMS.txt` is finalized under `if: always()` and binds the source/provenance files to all available campaign evidence. The campaign's own `SHA256SUMS.txt` remains the inner evidence manifest.
 
-The Phase 5B 8-GPU checkbox must remain unchecked until the physical workflow has actually completed, the three acceptance records are PASS, sanitizer evidence is archived or explicitly unavailable, and the downloaded bundle manifests verify.
+The Phase 5B 8-GPU checkbox must remain unchecked until the physical workflow has actually completed, at least three acceptance records are PASS, sanitizer evidence is archived or explicitly unavailable, and the downloaded bundle manifests verify.
