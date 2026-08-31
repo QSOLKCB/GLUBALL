@@ -201,16 +201,34 @@ jobs:
           mkdir -p "$root"
           binary="$GITHUB_WORKSPACE/build/cuda-v3-tune/gluball-cuda-runtime-v3"
           test -x "$binary"
+
+          set +e
           compute-sanitizer --tool memcheck --error-exitcode 86 \
             "$binary" --mode throughput --u 512 --v 32 --repeats 1 --devices 0 \
             --block-size 256 --warmup 1 --iterations 2 --cuda-graphs off --repeat-run 0 \
             > "$root/memcheck.txt" 2>&1
+          memcheck_status=$?
           compute-sanitizer --tool racecheck --error-exitcode 87 \
             "$binary" --mode throughput --u 512 --v 32 --repeats 1 --devices 0 \
             --block-size 256 --warmup 1 --iterations 2 --cuda-graphs off --repeat-run 0 \
             > "$root/racecheck.txt" 2>&1
-          grep -Fq 'ERROR SUMMARY: 0 errors' "$root/memcheck.txt"
-          grep -Fq 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$root/racecheck.txt"
+          racecheck_status=$?
+          set -e
+
+          printf 'memcheck_exit_status=%s\nracecheck_exit_status=%s\n' \
+            "$memcheck_status" "$racecheck_status" > "$root/SANITIZER_EXIT_STATUS.txt"
+
+          memcheck_clean=0
+          racecheck_clean=0
+          grep -Fq 'ERROR SUMMARY: 0 errors' "$root/memcheck.txt" || memcheck_clean=$?
+          grep -Fq 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)' "$root/racecheck.txt" || racecheck_clean=$?
+
+          if [ "$memcheck_status" -ne 0 ] || [ "$racecheck_status" -ne 0 ] \
+            || [ "$memcheck_clean" -ne 0 ] || [ "$racecheck_clean" -ne 0 ]; then
+            printf 'Runtime V3 sanitizer failure: memcheck status=%s clean=%s, racecheck status=%s clean=%s\n' \
+              "$memcheck_status" "$memcheck_clean" "$racecheck_status" "$racecheck_clean" >&2
+            exit 88
+          fi
           touch "$EVIDENCE_ROOT/V3_SANITIZER.ok"
 
       - name: Finalize Runtime V3 efficiency bundle
