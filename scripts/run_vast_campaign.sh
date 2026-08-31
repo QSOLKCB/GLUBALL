@@ -76,9 +76,9 @@ printf '%s\n' '== GLUBALL Rust reference =='
 cargo test --all-targets
 cargo build --release
 capture_stdout "$ARTIFACT_DIR/rust-self-test.json" \
-  cargo run --release -- self-test
+  cargo run --release --bin gluball-runtime -- self-test
 capture_stdout "$ARTIFACT_DIR/rust-reference.json" \
-  cargo run --release -- simulate \
+  cargo run --release --bin gluball-runtime -- simulate \
     --u "$U" --v "$V" --repeats "$REPEATS" \
     --workers "${RUST_WORKERS:-32}" \
     --device-slots "${LOGICAL_DEVICE_SLOTS:-1}"
