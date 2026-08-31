@@ -5,7 +5,7 @@ set(
   GLUBALL_CUDA_ARCHITECTURES
   "native"
   CACHE STRING
-  "CUDA architectures for GLUBALL adapters (examples: native, 86, 89, 120)"
+  "CUDA architectures for GLUBALL adapters (examples: native, 61, 75, 86, 89, 120)"
 )
 
 if(GLUBALL_CUDA_ARCHITECTURES)
@@ -44,9 +44,12 @@ endfunction()
 gluball_cuda_target(gluball-multi-cuda gluball_multi_device.cu)
 gluball_cuda_target(gluball-cuda-evidence gluball_evidence.cu)
 gluball_cuda_target(gluball-cuda-runtime-v2 gluball_runtime_v2.cu)
+gluball_cuda_target(gluball-cuda-runtime-v3 gluball_runtime_v3.cu)
 
-target_compile_options(
-  gluball-cuda-runtime-v2
-  PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:--pre-include=${CMAKE_CURRENT_SOURCE_DIR}/gluball_runtime_v2_event_compat.cuh>
-)
+foreach(runtime_target IN ITEMS gluball-cuda-runtime-v2 gluball-cuda-runtime-v3)
+  target_compile_options(
+    ${runtime_target}
+    PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:--pre-include=${CMAKE_CURRENT_SOURCE_DIR}/gluball_runtime_v2_event_compat.cuh>
+  )
+endforeach()
