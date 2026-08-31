@@ -11,6 +11,7 @@ on:
       - "scripts/cuda_preflight.sh"
       - "scripts/run_vast_campaign.sh"
       - "scripts/run_cuda_runtime_v2.sh"
+      - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
       - "research/multi-device-cuda/**"
@@ -22,6 +23,7 @@ on:
       - "docs/CURRENT_STATE.json"
       - "tests/current-state.mjs"
       - "tests/cuda-runtime-v2.mjs"
+      - "tests/phase5c-multigpu-actions.mjs"
       - "docs/RSH_RUNTIME_HANDOFF.md"
       - ".github/workflows/cuda-boundary.yml"
   pull_request:
@@ -33,6 +35,7 @@ on:
       - "scripts/cuda_preflight.sh"
       - "scripts/run_vast_campaign.sh"
       - "scripts/run_cuda_runtime_v2.sh"
+      - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
       - "research/multi-device-cuda/**"
@@ -44,6 +47,7 @@ on:
       - "docs/CURRENT_STATE.json"
       - "tests/current-state.mjs"
       - "tests/cuda-runtime-v2.mjs"
+      - "tests/phase5c-multigpu-actions.mjs"
       - "docs/RSH_RUNTIME_HANDOFF.md"
       - ".github/workflows/cuda-boundary.yml"
 
@@ -90,11 +94,13 @@ jobs:
           grep -q 'actual_cuda_execution: false' research/multi-device-cuda/SPEC.md
           grep -q 'geometry_receipt_authority: false' research/multi-device-cuda/SPEC.md
           node tests/cuda-runtime-v2.mjs
+          node tests/phase5c-multigpu-actions.mjs
       - name: Host script syntax
         run: |
           sh -n scripts/cuda_preflight.sh
           sh -n scripts/run_vast_campaign.sh
           sh -n scripts/run_cuda_runtime_v2.sh
+          sh -n scripts/run_phase5c_multigpu_scaling.sh
       - name: Frozen and post-v1 runtime checks
         run: |
           cargo test --all-targets
