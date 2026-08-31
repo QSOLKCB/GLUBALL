@@ -45,8 +45,9 @@ gluball_cuda_target(gluball-multi-cuda gluball_multi_device.cu)
 gluball_cuda_target(gluball-cuda-evidence gluball_evidence.cu)
 gluball_cuda_target(gluball-cuda-runtime-v2 gluball_runtime_v2.cu)
 gluball_cuda_target(gluball-cuda-runtime-v3 gluball_runtime_v3.cu)
+gluball_cuda_target(gluball-cuda-runtime-v31 gluball_runtime_v31.cu)
 
-foreach(runtime_target IN ITEMS gluball-cuda-runtime-v2 gluball-cuda-runtime-v3)
+foreach(runtime_target IN ITEMS gluball-cuda-runtime-v2 gluball-cuda-runtime-v3 gluball-cuda-runtime-v31)
   target_compile_options(
     ${runtime_target}
     PRIVATE
