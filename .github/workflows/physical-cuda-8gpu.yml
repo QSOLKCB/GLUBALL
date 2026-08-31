@@ -60,25 +60,37 @@ jobs:
           CUDA_ARCH_INPUT: ${{ inputs.cuda_architecture }}
         run: |
           set -eu
-          positive_integer() {
+          bounded_positive_integer() {
             name=$1
             value=$2
+            maximum=$3
             case "$value" in
               ''|*[!0-9]*)
                 printf '%s must be a positive integer, got: %s\n' "$name" "$value" >&2
                 exit 2
                 ;;
             esac
-            if [ "$value" -le 0 ]; then
+
+            normalized=$(printf '%s' "$value" | sed 's/^0*//')
+            if [ -z "$normalized" ]; then
               printf '%s must be > 0, got: %s\n' "$name" "$value" >&2
               exit 2
             fi
+
+            if [ "${#normalized}" -gt "${#maximum}" ]; then
+              printf '%s exceeds maximum %s, got: %s\n' "$name" "$maximum" "$value" >&2
+              exit 2
+            fi
+            if [ "$normalized" -gt "$maximum" ]; then
+              printf '%s exceeds maximum %s, got: %s\n' "$name" "$maximum" "$value" >&2
+              exit 2
+            fi
           }
-          positive_integer u_segments "$U_INPUT"
-          positive_integer v_segments "$V_INPUT"
-          positive_integer repeats "$REPEATS_INPUT"
-          positive_integer accepted_runs "$ACCEPTED_RUNS_INPUT"
-          positive_integer cuda_architecture "$CUDA_ARCH_INPUT"
+          bounded_positive_integer u_segments "$U_INPUT" 1000000
+          bounded_positive_integer v_segments "$V_INPUT" 65536
+          bounded_positive_integer repeats "$REPEATS_INPUT" 1024
+          bounded_positive_integer accepted_runs "$ACCEPTED_RUNS_INPUT" 100
+          bounded_positive_integer cuda_architecture "$CUDA_ARCH_INPUT" 999
 
       - name: Record exact source and redacted 8-GPU host inventory
         run: |
@@ -110,6 +122,17 @@ jobs:
       - name: GLUBALL CUDA preflight
         run: sh scripts/cuda_preflight.sh | tee physical-evidence/PREFLIGHT.txt
 
+      - name: Record sanitizer availability in campaign evidence
+        run: |
+          set -eu
+          mkdir -p physical-evidence/8gpu
+          if command -v compute-sanitizer >/dev/null 2>&1; then
+            printf '%s\n' 'available' > physical-evidence/8gpu/SANITIZER_STATUS.txt
+          else
+            printf '%s\n' 'unavailable: compute-sanitizer not found on PATH' \
+              > physical-evidence/8gpu/SANITIZER_STATUS.txt
+          fi
+
       - name: 8 GPU evidence - three accepted runs
         env:
           MODE: evidence
@@ -124,6 +147,20 @@ jobs:
           CAMPAIGN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}-8gpu
           ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/8gpu
         run: sh scripts/run_vast_campaign.sh
+
+      - name: Verify sanitizer archival boundary
+        if: always()
+        run: |
+          set -eu
+          status_file=physical-evidence/8gpu/SANITIZER_STATUS.txt
+          test -s "$status_file"
+          if grep -qx 'available' "$status_file"; then
+            if [ ! -s physical-evidence/8gpu/memcheck.txt ] || [ ! -s physical-evidence/8gpu/racecheck.txt ]; then
+              printf '%s\n' 'available-but-results-not-archived' > "$status_file"
+              printf '%s\n' 'compute-sanitizer was available but memcheck/racecheck evidence is missing' >&2
+              exit 2
+            fi
+          fi
 
       - name: Finalize bundle integrity manifest
         if: always()
