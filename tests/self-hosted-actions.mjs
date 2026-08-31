@@ -29,9 +29,11 @@ assert.match(workflow, /permissions:\n\s{2}contents:\s*read/);
 assert.match(workflow, /DEVICES:\s*"0"/);
 assert.match(workflow, /DEVICES:\s*"0,1"/);
 assert.match(workflow, /DEVICES:\s*"0,1,2,3"/);
+const oneStep = workflow.indexOf("- name: 1 GPU evidence - three accepted runs");
+const twoStep = workflow.indexOf("- name: 2 GPU evidence - three accepted runs");
+const fourStep = workflow.indexOf("- name: 4 GPU evidence - three accepted runs");
 assert.ok(
-  workflow.indexOf("1 GPU evidence") < workflow.indexOf("2 GPU evidence")
-    && workflow.indexOf("2 GPU evidence") < workflow.indexOf("4 GPU evidence"),
+  oneStep >= 0 && twoStep > oneStep && fourStep > twoStep,
   "device ladder must stay ordered 1 -> 2 -> 4"
 );
 assert.doesNotMatch(workflow, /nvidia-smi\s+-L/, "workflow logs must not publish raw CUDA UUIDs");
