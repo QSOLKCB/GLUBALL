@@ -46,6 +46,13 @@
       "two_stage_global_metric_atomics": 0,
       "two_stage_associative_receivers": ["xor_u64", "max_u32", "sum_u64"],
       "kernel_timing_includes_second_stage": true
+    },
+    "stream_reduce_discard": {
+      "enabled": true,
+      "complete_point_field_materialized": false,
+      "per_iteration_output_memory_depends_on_u_times_v": false,
+      "hot_path_policy": "evaluate points transiently, fold into compact receivers, discard point values",
+      "reason": "avoid JavaScript-style heap/object scaling failure modes and keep runtime memory tied to reusable O(U), O(V), and compact O(blocks) state rather than O(U*V) point storage"
     }
   },
   "cache_boundary": {
@@ -62,6 +69,7 @@
       "cached complete observation"
     ],
     "full_point_cache_enabled": false,
+    "cached_radius_error_field_enabled": false,
     "cached_final_digest_enabled": false,
     "cached_complete_observation_enabled": false
   },
@@ -115,6 +123,7 @@
     "RSH": ["compact fixed-size accelerator records", "hierarchical local-summary reduction"],
     "TAS": ["hoist configuration-invariant work out of deep evaluation loops"],
     "QSOL-GEO-REASON": ["cache/state reuse remains a measurement variable and must not redefine the object"],
-    "BLOCH": ["explicit deterministic LUT policy and bounded representation discipline"]
+    "BLOCH": ["explicit deterministic LUT policy and bounded representation discipline"],
+    "VORTEX": ["stream or reduce rather than materialize enormous object graphs", "packed direct-memory representations avoid garbage-collector and heap scaling cliffs"]
   }
 }
