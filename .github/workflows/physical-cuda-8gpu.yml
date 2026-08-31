@@ -1,0 +1,180 @@
+name: GLUBALL physical CUDA 8-GPU completion
+
+on:
+  workflow_dispatch:
+    inputs:
+      u_segments:
+        description: "U segments for the evidence campaign"
+        required: true
+        default: "16384"
+        type: string
+      v_segments:
+        description: "V segments for the evidence campaign"
+        required: true
+        default: "128"
+        type: string
+      repeats:
+        description: "Full mesh repeats inside each CUDA run"
+        required: true
+        default: "1"
+        type: string
+      accepted_runs:
+        description: "Required accepted 8-GPU evidence runs"
+        required: true
+        default: "3"
+        type: string
+      cuda_architecture:
+        description: "CMake CUDA architecture (89 for RTX 4080 SUPER)"
+        required: true
+        default: "89"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gluball-physical-cuda-ladder
+  cancel-in-progress: false
+
+jobs:
+  physical-cuda-8gpu:
+    name: Same-host 8 GPU completion evidence
+    runs-on: [self-hosted, linux, x64, gluball-vast-8gpu]
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout exact workflow ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Expose rented-host toolchains
+        run: |
+          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
+
+      - name: Validate dispatch inputs
+        env:
+          U_INPUT: ${{ inputs.u_segments }}
+          V_INPUT: ${{ inputs.v_segments }}
+          REPEATS_INPUT: ${{ inputs.repeats }}
+          ACCEPTED_RUNS_INPUT: ${{ inputs.accepted_runs }}
+          CUDA_ARCH_INPUT: ${{ inputs.cuda_architecture }}
+        run: |
+          set -eu
+          positive_integer() {
+            name=$1
+            value=$2
+            case "$value" in
+              ''|*[!0-9]*)
+                printf '%s must be a positive integer, got: %s\n' "$name" "$value" >&2
+                exit 2
+                ;;
+            esac
+            if [ "$value" -le 0 ]; then
+              printf '%s must be > 0, got: %s\n' "$name" "$value" >&2
+              exit 2
+            fi
+          }
+          positive_integer u_segments "$U_INPUT"
+          positive_integer v_segments "$V_INPUT"
+          positive_integer repeats "$REPEATS_INPUT"
+          positive_integer accepted_runs "$ACCEPTED_RUNS_INPUT"
+          positive_integer cuda_architecture "$CUDA_ARCH_INPUT"
+
+      - name: Record exact source and redacted 8-GPU host inventory
+        run: |
+          set -eu
+          mkdir -p physical-evidence
+          git rev-parse HEAD | tee physical-evidence/SOURCE_COMMIT.txt
+          uname -a | tee physical-evidence/HOST_UNAME.txt
+          nvidia-smi --query-gpu=index,name --format=csv,noheader \
+            | tee physical-evidence/NVIDIA_DEVICES.txt
+          nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv \
+            | tee physical-evidence/NVIDIA_INVENTORY.csv
+
+          gpu_count=$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)
+          if [ "$gpu_count" -lt 8 ]; then
+            printf '8-GPU completion requires at least 8 visible GPUs; found %s\n' "$gpu_count" >&2
+            exit 2
+          fi
+
+          first_eight_models=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1,8p')
+          distinct_models=$(printf '%s\n' "$first_eight_models" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort -u | wc -l)
+          if [ "$distinct_models" -ne 1 ]; then
+            printf '%s\n' '8-GPU completion requires GPUs 0-7 to have one identical model:' >&2
+            printf '%s\n' "$first_eight_models" >&2
+            exit 2
+          fi
+          printf '%s\n' "$first_eight_models" | sed -n '1p' > physical-evidence/SELECTED_GPU_MODEL.txt
+          printf '%s\n' '0,1,2,3,4,5,6,7' > physical-evidence/SELECTED_DEVICES.txt
+
+      - name: GLUBALL CUDA preflight
+        run: sh scripts/cuda_preflight.sh | tee physical-evidence/PREFLIGHT.txt
+
+      - name: 8 GPU evidence - three accepted runs
+        env:
+          MODE: evidence
+          U: ${{ inputs.u_segments }}
+          V: ${{ inputs.v_segments }}
+          REPEATS: ${{ inputs.repeats }}
+          RUNS: ${{ inputs.accepted_runs }}
+          DEVICES: "0,1,2,3,4,5,6,7"
+          RUST_WORKERS: "32"
+          LOGICAL_DEVICE_SLOTS: "8"
+          GLUBALL_CUDA_ARCHITECTURES: ${{ inputs.cuda_architecture }}
+          CAMPAIGN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}-8gpu
+          ARTIFACT_DIR: ${{ github.workspace }}/physical-evidence/8gpu
+        run: sh scripts/run_vast_campaign.sh
+
+      - name: Finalize bundle integrity manifest
+        if: always()
+        run: |
+          set -eu
+          if [ ! -d physical-evidence ]; then
+            printf '%s\n' 'physical-evidence directory was never created' >&2
+            exit 2
+          fi
+          (
+            cd physical-evidence
+            find . -type f ! -name BUNDLE_SHA256SUMS.txt -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum \
+              > BUNDLE_SHA256SUMS.txt
+          )
+          test -s physical-evidence/BUNDLE_SHA256SUMS.txt
+
+      - name: Summarize accepted residuals
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob
+          import json
+
+          print("## GLUBALL physical CUDA 8-GPU completion")
+          print()
+          print("| Run | Status | Checked points | Max component residual | Max Euclidean residual |")
+          print("| ---: | --- | ---: | ---: | ---: |")
+          paths = sorted(glob.glob("physical-evidence/8gpu/cuda-acceptance-*.json"))
+          if not paths:
+              print("| - | no acceptance artifact | - | - | - |")
+          for path in paths:
+              with open(path, "r", encoding="utf-8") as handle:
+                  record = json.load(handle)
+              run = record.get("repeat_run", "?")
+              status = record.get("status", "?")
+              checked = record.get("checked_points", "?")
+              component = record.get("max_component_residual", "?")
+              euclidean = record.get("max_euclidean_residual", "?")
+              print(f"| {run} | {status} | {checked} | {component} | {euclidean} |")
+          print()
+          print("Correctness evidence only. This completion rung does not imply universal speedup or geometry authority.")
+          PY
+
+      - name: Upload physical 8-GPU evidence bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gluball-physical-cuda-8gpu-${{ github.run_id }}-${{ github.run_attempt }}
+          path: physical-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
