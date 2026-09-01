@@ -51,14 +51,17 @@ def load(path: Path) -> dict[str, Any]:
     return value
 
 
-def immutable_profile_identity(definition: Any) -> dict[str, Any] | None:
+def immutable_profile_identity(definition: Any, label: str) -> dict[str, Any]:
     if not isinstance(definition, dict):
-        return None
+        raise SystemExit(f"{label}: profile definition missing")
+    status = definition.get("status")
+    if not isinstance(status, str) or not status:
+        raise SystemExit(f"{label}: profile lifecycle status missing or invalid")
     identity: dict[str, Any] = {}
     for key in _PROFILE_IDENTITY_FIELDS:
         value = definition.get(key)
         if not isinstance(value, str) or not value:
-            return None
+            raise SystemExit(f"{label}: profile identity field missing or invalid: {key}")
         identity[key] = value
     return identity
 
@@ -90,13 +93,15 @@ def profile(payload: dict[str, Any], label: str) -> str:
     if expected_sm != registry_sm:
         raise SystemExit(f"{label}: native SM does not match profile registry")
 
-    embedded_identity = immutable_profile_identity(payload.get("profile_definition"))
-    registry_identity = immutable_profile_identity(definition)
-    if embedded_identity is None or registry_identity is None or embedded_identity != registry_identity:
+    embedded_identity = immutable_profile_identity(
+        payload.get("profile_definition"), f"{label}: embedded"
+    )
+    registry_identity = immutable_profile_identity(definition, f"{label}: registry")
+    if embedded_identity != registry_identity:
         raise SystemExit(f"{label}: embedded profile definition does not match profile registry")
-    # Lifecycle metadata such as profile_definition.status is intentionally not
-    # part of identity. A valid archived measurement must remain comparable
-    # after the registry records that its formerly pending profile completed.
+    # Lifecycle metadata such as profile_definition.status is schema-validated
+    # above but intentionally excluded from identity equality. A valid archived
+    # measurement must remain comparable after its lifecycle status changes.
     return value
 
 
