@@ -213,6 +213,7 @@ payload = {
     "observed_git_blob_ids": observed,
     "source_matches_expected": source_matches,
     "runtime_source_frozen_during_measurement": True,
+    "performance_observation_only": True,
     "geometry_receipt_authority": False,
     "universal_speedup_claim": False,
 }
