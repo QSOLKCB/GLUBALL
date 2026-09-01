@@ -41,6 +41,7 @@ def main() -> int:
     root.mkdir(parents=True, exist_ok=True)
 
     markers = {
+        "profile_definition": root / "PROFILE_DEFINITION.json",
         "host_validation": root / "HOST_VALIDATION.ok",
         "v1_validation": root / "V1_VALIDATION.ok",
         "atomic_equivalence": root / "ab-atomic" / "EQUIVALENCE.json",
@@ -52,6 +53,13 @@ def main() -> int:
     status = "PASS" if all(required.values()) else "FAIL"
     completed = [key for key, present in required.items() if present]
     first_incomplete = next((key for key, present in required.items() if not present), None)
+
+    profile_payload = load_json(root / "PROFILE_DEFINITION.json")
+    profile_definition = (
+        profile_payload.get("definition") if isinstance(profile_payload, dict) else None
+    )
+    if not isinstance(profile_definition, dict):
+        profile_definition = None
 
     v1 = load_json(root / "v1-acceptance" / "V1_VALIDATION.json")
     atomic = load_json(root / "ab-atomic" / "EQUIVALENCE.json")
@@ -72,6 +80,7 @@ def main() -> int:
         "schema": "gluball-cuda-runtime-v31-architecture-result/1",
         "status": status,
         "profile": args.profile,
+        "profile_definition": profile_definition,
         "source_commit": source_commit,
         "gpu": {
             "model": model,
@@ -152,6 +161,7 @@ def main() -> int:
         "schema": "gluball-runtime-v31-architecture-status/1",
         "status": status,
         "profile": args.profile,
+        "profile_definition_present": profile_definition is not None,
         "required_markers": required,
         "completed_required_stages": completed,
         "first_incomplete_required_stage": first_incomplete,
