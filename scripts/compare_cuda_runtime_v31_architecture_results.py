@@ -54,15 +54,23 @@ def profile(payload: dict[str, Any], label: str) -> str:
     model = gpu.get("model")
     capability = gpu.get("compute_capability")
     expected_sm = gpu.get("expected_sm")
-    fragment = definition.get("expected_model_fragment_case_insensitive")
+    model_pattern = definition.get("expected_model_regex_case_insensitive")
     registry_capability = definition.get("expected_compute_capability")
     registry_sm = definition.get("expected_sm")
-    if not isinstance(model, str) or not isinstance(fragment, str) or fragment.casefold() not in model.casefold():
+    if not isinstance(model, str) or not isinstance(model_pattern, str) or not model_pattern:
+        raise SystemExit(f"{label}: GPU model/profile pattern missing")
+    try:
+        model_matches = re.fullmatch(model_pattern, model, flags=re.IGNORECASE) is not None
+    except re.error as exc:
+        raise SystemExit(f"{label}: invalid model regex in profile registry: {exc}") from exc
+    if not model_matches:
         raise SystemExit(f"{label}: GPU model does not match profile registry")
     if capability != registry_capability:
         raise SystemExit(f"{label}: compute capability does not match profile registry")
     if expected_sm != registry_sm:
         raise SystemExit(f"{label}: native SM does not match profile registry")
+    if payload.get("profile_definition") != definition:
+        raise SystemExit(f"{label}: embedded profile definition does not match profile registry")
     return value
 
 
