@@ -30,6 +30,9 @@ jobs:
         run: |
           python3 -m py_compile scripts/verify_cuda_runtime_v31_physical_preflight.py
           python3 -m py_compile scripts/bind_cuda_runtime_v31_physical_preflight.py
+          python3 -m py_compile scripts/bind_cuda_runtime_v31_frozen_build_inputs.py
+          python3 -m py_compile scripts/finalize_cuda_runtime_v31_architecture.py
+          python3 -m py_compile scripts/compare_cuda_runtime_v31_architecture_results.py
           node tests/self-hosted-actions.mjs
           node tests/phase5c-multigpu-actions.mjs
           node tests/cuda-runtime-v3.mjs
@@ -38,5 +41,6 @@ jobs:
           node tests/cuda-runtime-v31-workflow.mjs
           node tests/cuda-runtime-v31-architecture-ladder.mjs
           node tests/cuda-runtime-v31-physical-preflight.mjs
+          node tests/cuda-runtime-v31-receipt-boundary-hardening.mjs
       - name: v1.0.0 release preflight
         run: node tests/release-preflight.mjs
