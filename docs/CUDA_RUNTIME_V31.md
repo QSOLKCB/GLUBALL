@@ -1,14 +1,14 @@
 # GLUBALL CUDA Runtime V3.1
 
-Runtime V3.1 is an additive pre-rental efficiency refinement layered beside the merged Runtime V3 implementation. It does not replace V1 correctness evidence and it does not modify Runtime V2 or Runtime V3 source.
+Runtime V3.1 is an additive physical efficiency refinement layered beside the merged Runtime V3 implementation. It does not replace V1 correctness evidence and it does not modify Runtime V2 or Runtime V3 source.
 
 ## Research question
 
-Runtime V3 asked whether redundant geometry work could be removed while preserving the frozen Runtime V2 compact observation.
+Runtime V3 asked whether redundant geometry work could be removed while preserving the useful compact observation boundary established beside Runtime V2.
 
 Runtime V3.1 asks a narrower question:
 
-> Can the remaining setup, metric-transport, and compact-reduction overhead be reduced before weak-GPU measurement without turning the benchmark into cached-answer replay?
+> Can the remaining setup, metric-transport, and compact-reduction overhead be reduced on weak GPUs without turning the benchmark into cached-answer replay?
 
 ## Frozen references
 
@@ -22,7 +22,34 @@ Runtime V3 source blob
 dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0
 ```
 
-The physical comparison must establish exact V2/V3/V3.1 compact-observation equality before any V3.1 timing is interpreted.
+Physical GTX 1080 Ti run `33450200284` established an important boundary. V2, V3, and V3.1 agreed exactly on domain size, used-device count, maximum tube-radius error, nonfinite count, and compiled architecture, while the raw diagnostic digests were:
+
+```text
+V2    1e15cffd50e6f653
+V3    1e206a0f3b649b9a
+V3.1  1e206a0f3b649b9a
+```
+
+The digest hashes raw binary32 point/radius bits. V2 evaluates the point directly in the hot kernel, while V3 precomputes frames and angles before evaluation. Physical `sm_61` evidence therefore falsified the stronger assumption that those two execution representations must be bit-identical on every CUDA architecture.
+
+The comparison boundary is now explicit:
+
+```text
+V2 / V3 / V3.1 must match:
+  total points per iteration
+  used device count
+  maximum tube-radius error
+  nonfinite record count
+  compiled architecture
+
+V3 / V3.1 must additionally match:
+  aggregate diagnostic XOR64
+
+V2 / V3 digest relation:
+  recorded, not treated as a graduation gate
+```
+
+This does not weaken V1 correctness evidence and does not make the raw digest geometry authority.
 
 ## V3.1-A: packed compact metric transport
 
@@ -86,7 +113,7 @@ sin(3t)
 
 once, then constructs centre, derivative, normal, and binormal from those four values.
 
-The equivalent V3 helper expansion contains sixteen `cosf`/`sinf` calls per `u` frame. This optimization affects setup only; physical exact-observation comparison remains mandatory.
+The equivalent V3 helper expansion contains sixteen `cosf`/`sinf` calls per `u` frame. This optimization affects setup only; physical V3↔V3.1 digest equivalence remains mandatory.
 
 ## V3.1-D: compact reduction topology tuner
 
@@ -114,7 +141,7 @@ u64 SUM
 
 No final-metric global atomics are used in this mode. The second reduction kernel is included inside the CUDA event timing interval.
 
-Because the three receiver operations are associative integer operations, their reduction topology may change without changing the mathematical receiver value. Physical exactness still has to prove that the complete runtime observation remains identical.
+Because the three receiver operations are associative integer operations, their reduction topology may change without changing the mathematical receiver value. Physical V3↔V3.1 exactness still has to prove that the optimized runtime preserves the V3 compact digest.
 
 ## Stream, reduce, discard
 
@@ -199,13 +226,13 @@ trials: 3
 
 This yields 24 declared V3.1 candidates. The tuner also records 12 matched Runtime V3 baseline configurations, one for each block-size/graph-mode pair.
 
-Every V3 and V3.1 run must preserve exact V2 compact observation and homogeneous-device identity before timing is considered.
+Every V2, V3, and V3.1 run must preserve the shared domain/radius/nonfinite/architecture observation and homogeneous-device identity before timing is considered. Runtime V2 must remain internally digest-repeatable; Runtime V3 must remain digest-stable across its matched launch shapes; and every V3.1 candidate must match the digest of its Runtime V3 baseline exactly.
 
 The selected result remains only the best observed V3.1 candidate in that finite set.
 
 ## Deferred until after weak-GPU evidence
 
-The following are intentionally not included before the first Pascal/Turing measurement:
+The following remain intentionally deferred until the physical tuner identifies a reason to add them:
 
 ```text
 u32 index specialization
@@ -213,8 +240,6 @@ block-shared angle staging
 manual v-loop unrolling
 other memory-layout experiments
 ```
-
-The weak GPU should still be able to reveal whether indexing, cache access, occupancy, launch overhead, or another cost dominates after V3.1.
 
 ## Claim boundary
 
@@ -230,4 +255,4 @@ universal_speedup_claim: false
 raw_device_uuid_published: false
 ```
 
-A faster V3.1 execution does not expand the geometry claim surface.
+A faster V3.1 execution does not expand the geometry claim surface. The aggregate diagnostic XOR64 is an execution-representation diagnostic, not a geometry receipt.

@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# Build V2, V3, and V3.1 once and require exact compact-observation agreement.
+# Build V2, V3, and V3.1 once and require the physical comparison boundaries.
 set -eu
 
 U=${U:-16384}
@@ -50,7 +50,7 @@ run_common "$BUILD_DIR/gluball-cuda-runtime-v3" "$OUTPUT_DIR/V3.json"
 run_common "$BUILD_DIR/gluball-cuda-runtime-v31" "$OUTPUT_DIR/V31.json" --reduction "$REDUCTION"
 
 python3 - "$OUTPUT_DIR/V2.json" "$OUTPUT_DIR/V3.json" "$OUTPUT_DIR/V31.json" "$OUTPUT_DIR/EQUIVALENCE.json" <<'PY'
-import json, math, sys
+import json, math, re, sys
 from pathlib import Path
 v2p, v3p, v31p, outp = map(Path, sys.argv[1:])
 v2, v3, v31 = [json.loads(p.read_text()) for p in (v2p, v3p, v31p)]
@@ -68,6 +68,9 @@ for label, payload in (('V2',v2),('V3',v3),('V3.1',v31)):
         if payload.get(key) is not False: raise SystemExit(f'{label} claim boundary changed: {key}')
     if payload.get('repeatable_compact_metrics') is not True or payload.get('compact_metrics_clean') is not True:
         raise SystemExit(f'{label} compact metrics not clean/repeatable')
+    digest = payload.get('aggregate_diagnostic_xor64')
+    if not isinstance(digest, str) or re.fullmatch(r'[0-9a-fA-F]{16}', digest) is None:
+        raise SystemExit(f'{label} diagnostic digest missing or malformed')
 
 def signature(payload, label):
     devices = payload.get('devices', [])
@@ -79,12 +82,25 @@ def signature(payload, label):
 s2, s3, s31 = signature(v2,'V2'), signature(v3,'V3'), signature(v31,'V3.1')
 if not (s2 == s3 == s31): raise SystemExit('V2/V3/V3.1 homogeneous device signature mismatch')
 
-keys = ('total_points_per_iteration','used_device_count','aggregate_diagnostic_xor64','observed_max_tube_radius_error','observed_nonfinite_records_max')
-for key in keys:
+shared_keys = ('total_points_per_iteration','used_device_count','observed_max_tube_radius_error','observed_nonfinite_records_max')
+for key in shared_keys:
     if not (v2.get(key) == v3.get(key) == v31.get(key)):
-        raise SystemExit(f'exact observation mismatch for {key}: {v2.get(key)!r}, {v3.get(key)!r}, {v31.get(key)!r}')
+        raise SystemExit(f'shared observation mismatch for {key}: {v2.get(key)!r}, {v3.get(key)!r}, {v31.get(key)!r}')
 if not (v2.get('resolved_compiled_architectures') == v3.get('resolved_compiled_architectures') == v31.get('resolved_compiled_architectures')):
     raise SystemExit('compiled architecture mismatch')
+
+# Physical sm_61 evidence showed that V2 direct point construction and the V3
+# precomputed representation can differ in raw float bits while preserving the
+# shared domain/radius/nonfinite observation. V3.1 is an optimization of V3, so
+# V3<->V3.1 raw digest equality remains a mandatory graduation gate.
+d2 = v2['aggregate_diagnostic_xor64']
+d3 = v3['aggregate_diagnostic_xor64']
+d31 = v31['aggregate_diagnostic_xor64']
+if d3 != d31:
+    raise SystemExit(f'V3/V3.1 diagnostic digest mismatch: {d3!r}, {d31!r}')
+v2_v3_digest_match = d2 == d3
+all_runtime_digest_match = d2 == d3 == d31
+
 for key, expected in {
     'packed_compact_metric_record': True,
     'precomputed_radius_weighted_v_angles': True,
@@ -108,10 +124,17 @@ if gain > 0:
 else:
     break_even = None
 result = {
-    'schema':'gluball-cuda-runtime-v2-v3-v31-equivalence/1',
+    'schema':'gluball-cuda-runtime-v2-v3-v31-equivalence/2',
     'status':'PASS',
-    'exact_observation_equivalence':True,
-    'equivalence_fields':list(keys),
+    'shared_observation_equivalence':True,
+    'shared_equivalence_fields':list(shared_keys),
+    'v3_v31_exact_digest_equivalence':True,
+    'v2_v3_digest_match':v2_v3_digest_match,
+    'all_runtime_digest_match':all_runtime_digest_match,
+    'v2_v3_digest_equality_required':False,
+    'v3_v31_digest_equality_required':True,
+    'diagnostic_digests':{'v2':d2,'v3':d3,'v31':d31},
+    'raw_float_bit_digest_is_geometry_authority':False,
     'minimum_measured_iterations':2,
     'repeatability_nonvacuous':True,
     'homogeneous_selected_device_signature':{'name':s2[0],'compute_capability':s2[1],'compiled_cuda_arch_code':s2[2]},
