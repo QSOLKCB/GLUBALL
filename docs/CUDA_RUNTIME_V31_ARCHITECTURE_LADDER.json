@@ -129,6 +129,8 @@
     "profile_registry_identity_validation_required": true,
     "profile_lifecycle_status_schema_validation_required": true,
     "profile_lifecycle_status_is_identity": false,
+    "physical_preflight_validation_required_for_cross_profile_summary": true,
+    "frozen_measured_build_input_validation_required_for_cross_profile_summary": true,
     "cross_device_digest_equality_required": false,
     "within_device_v3_v31_digest_equality_required": true,
     "cross_hardware_timing_ratio_is_diagnostic_only": true,
