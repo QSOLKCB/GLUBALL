@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 240
     env:
       PROFILE: ${{ inputs.target_profile }}
-      EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}
+      EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout exact workflow ref
@@ -87,14 +87,22 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: gluball-v31-architecture-${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}
+          path: ${{ env.EVIDENCE_ROOT }}
           if-no-files-found: error
           retention-days: 90
 
       - name: Require final PASS
         if: always()
+        env:
+          CAMPAIGN_OUTCOME: ${{ steps.campaign.outcome }}
         run: |
           set -eu
+          if [ "$CAMPAIGN_OUTCOME" != "success" ]; then
+            printf 'architecture campaign step outcome: %s\n' "$CAMPAIGN_OUTCOME" >&2
+            exit 1
+          fi
+          test -s "$EVIDENCE_ROOT/BUNDLE_SHA256SUMS.txt"
+          (cd "$EVIDENCE_ROOT" && sha256sum -c BUNDLE_SHA256SUMS.txt)
           python3 - "$EVIDENCE_ROOT/VALIDATION_STATUS.json" <<'PY'
           import json, sys
           from pathlib import Path
