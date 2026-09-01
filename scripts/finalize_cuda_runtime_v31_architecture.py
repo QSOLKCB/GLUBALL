@@ -12,6 +12,12 @@ from typing import Any
 
 
 _PROFILE_SCHEMA = "gluball-cuda-runtime-v31-architecture-profile-definition/1"
+_FROZEN_SOURCE_SCHEMA = "gluball-cuda-runtime-v31-frozen-source-validation/1"
+_FROZEN_SOURCE_BLOBS = {
+    "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874",
+}
 _CC_PATTERN = re.compile(r"[0-9]+\.[0-9]+")
 _SM_PATTERN = re.compile(r"sm_[0-9]+")
 
@@ -64,6 +70,29 @@ def validated_profile_definition(payload: dict[str, Any] | None, profile: str) -
     return definition
 
 
+def validated_frozen_source_receipt(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("schema") != _FROZEN_SOURCE_SCHEMA or payload.get("status") != "PASS":
+        return None
+    if payload.get("contract_matches_frozen_expected_map") is not True:
+        return None
+    if payload.get("expected_git_blob_ids") != _FROZEN_SOURCE_BLOBS:
+        return None
+    if payload.get("observed_git_blob_ids") != _FROZEN_SOURCE_BLOBS:
+        return None
+    expected_matches = {key: True for key in _FROZEN_SOURCE_BLOBS}
+    if payload.get("source_matches_expected") != expected_matches:
+        return None
+    if payload.get("runtime_source_frozen_during_measurement") is not True:
+        return None
+    if payload.get("geometry_receipt_authority") is not False:
+        return None
+    if payload.get("universal_speedup_claim") is not False:
+        return None
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
@@ -80,9 +109,10 @@ def main() -> int:
 
     profile_payload = load_json(root / "PROFILE_DEFINITION.json")
     profile_definition = validated_profile_definition(profile_payload, args.profile)
+    frozen_source_payload = load_json(root / "FROZEN_RUNTIME_SOURCE_VALIDATION.json")
+    frozen_sources = validated_frozen_source_receipt(frozen_source_payload)
 
     marker_paths = {
-        "frozen_runtime_sources": root / "FROZEN_RUNTIME_SOURCES.ok",
         "host_validation": root / "HOST_VALIDATION.ok",
         "v1_validation": root / "V1_VALIDATION.ok",
         "atomic_equivalence": root / "ab-atomic" / "EQUIVALENCE.json",
@@ -90,7 +120,12 @@ def main() -> int:
         "bounded_tuning": root / "tuning" / "TUNING_RESULT.json",
         "v31_sanitizer": root / "V31_SANITIZER.ok",
     }
-    required = {"profile_definition": profile_definition is not None}
+    required = {
+        "profile_definition": profile_definition is not None,
+        "frozen_runtime_sources": (
+            frozen_sources is not None and (root / "FROZEN_RUNTIME_SOURCES.ok").exists()
+        ),
+    }
     required.update({key: path.exists() for key, path in marker_paths.items()})
     status = "PASS" if all(required.values()) else "FAIL"
     completed = [key for key, present in required.items() if present]
@@ -101,7 +136,6 @@ def main() -> int:
     two_stage = load_json(root / "ab-two-stage" / "EQUIVALENCE.json")
     tuning = load_json(root / "tuning" / "TUNING_RESULT.json")
     resource = load_json(root / "compiler-resources" / "RESOURCE_CAPTURE_STATUS.json")
-    frozen_sources = load_json(root / "FROZEN_RUNTIME_SOURCE_VALIDATION.json")
 
     model = read_text(root / "SELECTED_GPU_MODEL.txt")
     capability = read_text(root / "EXPECTED_COMPUTE_CAPABILITY.txt")
@@ -200,7 +234,8 @@ def main() -> int:
         "profile": args.profile,
         "profile_definition_present": profile_payload is not None,
         "profile_definition_valid": profile_definition is not None,
-        "frozen_runtime_source_validation_present": frozen_sources is not None,
+        "frozen_runtime_source_validation_present": frozen_source_payload is not None,
+        "frozen_runtime_source_validation_valid": frozen_sources is not None,
         "required_markers": required,
         "completed_required_stages": completed,
         "first_incomplete_required_stage": first_incomplete,
