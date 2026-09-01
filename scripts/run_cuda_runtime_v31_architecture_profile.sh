@@ -34,7 +34,7 @@ print(value)
 PY
 }
 
-MODEL_FRAGMENT=$(profile_field expected_model_fragment_case_insensitive)
+MODEL_REGEX=$(profile_field expected_model_regex_case_insensitive)
 EXPECTED_PROFILE_CC=$(profile_field expected_compute_capability)
 EXPECTED_PROFILE_SM=$(profile_field expected_sm)
 ARCHITECTURE_FAMILY=$(profile_field architecture_family)
@@ -61,11 +61,23 @@ mkdir -p "$root"
 
 python3 - "$PROFILE_REGISTRY" "$PROFILE" "$root/PROFILE_DEFINITION.json" <<'PY'
 import json
+import re
 import sys
 from pathlib import Path
 registry_path, profile, output_path = sys.argv[1:]
 payload = json.loads(Path(registry_path).read_text())
-definition = payload["profiles"][profile]
+if payload.get("schema") != "gluball-cuda-runtime-v31-architecture-profiles/1":
+    raise SystemExit("unexpected architecture profile registry schema")
+definition = payload.get("profiles", {}).get(profile)
+if not isinstance(definition, dict):
+    raise SystemExit(f"unsupported architecture profile: {profile}")
+pattern = definition.get("expected_model_regex_case_insensitive")
+if not isinstance(pattern, str) or not pattern:
+    raise SystemExit(f"profile {profile} missing model regex")
+try:
+    re.compile(pattern, flags=re.IGNORECASE)
+except re.error as exc:
+    raise SystemExit(f"profile {profile} has invalid model regex: {exc}") from exc
 Path(output_path).write_text(json.dumps({
     "schema": "gluball-cuda-runtime-v31-architecture-profile-definition/1",
     "profile": profile,
@@ -163,6 +175,53 @@ PY
 }
 trap finalize EXIT
 
+# Recompute frozen runtime source identities before any physical measurement.
+python3 - "$root/FROZEN_RUNTIME_SOURCE_VALIDATION.json" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+output = Path(sys.argv[1])
+expected = {
+    "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874",
+}
+paths = {
+    "runtime_v2": "native/cuda/gluball_runtime_v2.cu",
+    "runtime_v3": "native/cuda/gluball_runtime_v3.cu",
+    "runtime_v31": "native/cuda/gluball_runtime_v31.cu",
+}
+contract_path = Path("docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json")
+contract = json.loads(contract_path.read_text())
+contract_frozen = contract.get("frozen_runtime_source_blobs")
+contract_matches_expected = contract_frozen == expected
+observed = {}
+for key, path in paths.items():
+    observed[key] = subprocess.check_output(
+        ["git", "hash-object", path], text=True
+    ).strip()
+source_matches = {key: observed[key] == expected[key] for key in expected}
+status = "PASS" if contract_matches_expected and all(source_matches.values()) else "FAIL"
+payload = {
+    "schema": "gluball-cuda-runtime-v31-frozen-source-validation/1",
+    "status": status,
+    "contract_path": str(contract_path),
+    "contract_matches_frozen_expected_map": contract_matches_expected,
+    "expected_git_blob_ids": expected,
+    "observed_git_blob_ids": observed,
+    "source_matches_expected": source_matches,
+    "runtime_source_frozen_during_measurement": True,
+    "geometry_receipt_authority": False,
+    "universal_speedup_claim": False,
+}
+output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+if status != "PASS":
+    raise SystemExit("Runtime V2/V3/V3.1 frozen source blob validation failed")
+PY
+touch "$root/FROZEN_RUNTIME_SOURCES.ok"
+
 # Safe host provenance. Do not query or publish raw device UUIDs.
 git rev-parse HEAD | tee "$root/SOURCE_COMMIT.txt"
 uname -a | tee "$root/HOST_UNAME.txt"
@@ -172,11 +231,16 @@ test "$(uname -m)" = x86_64
 nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv | tee "$root/NVIDIA_INVENTORY.csv"
 model=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1p')
 capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed -n '1p')
-python3 - "$model" "$MODEL_FRAGMENT" "$capability" "$EXPECTED_PROFILE_CC" <<'PY'
+python3 - "$model" "$MODEL_REGEX" "$capability" "$EXPECTED_PROFILE_CC" <<'PY'
+import re
 import sys
-model, fragment, capability, expected_capability = sys.argv[1:]
-if fragment.casefold() not in model.casefold():
-    raise SystemExit(f"unexpected GPU model: {model!r}; expected fragment {fragment!r}")
+model, pattern, capability, expected_capability = sys.argv[1:]
+try:
+    model_matches = re.fullmatch(pattern, model, flags=re.IGNORECASE) is not None
+except re.error as exc:
+    raise SystemExit(f"invalid profile model regex: {exc}") from exc
+if not model_matches:
+    raise SystemExit(f"unexpected GPU model: {model!r}; expected regex {pattern!r}")
 if capability != expected_capability:
     raise SystemExit(
         f"unexpected compute capability for {model!r}: {capability!r}; expected {expected_capability!r}"
