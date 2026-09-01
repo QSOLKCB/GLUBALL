@@ -131,6 +131,8 @@ assert.match(comparator, /compute capability does not match profile registry/);
 assert.match(comparator, /native SM does not match profile registry/);
 assert.match(comparator, /physical preflight graduation stage missing/);
 assert.match(comparator, /physical preflight receipt missing/);
+assert.match(comparator, /frozen measured build-input graduation stage missing/);
+assert.match(comparator, /frozen measured build-input receipt missing/);
 assert.match(comparator, /same source commit/);
 assert.match(comparator, /source_commit must be a 40-hex commit identifier/);
 assert.match(comparator, /same canonical workload/);
@@ -254,6 +256,24 @@ const makePreflight = (profile, model, cc, index = 0) => ({
   raw_device_uuid_published: false,
 });
 
+const makeBuildReceipt = () => ({
+  schema: "gluball-cuda-runtime-v31-frozen-build-input-validation/1",
+  status: "PASS",
+  contract_path: "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+  contract_matches_frozen_expected_map: true,
+  expected_git_blob_ids: structuredClone(contract.frozen_measured_build_inputs),
+  observed_git_blob_ids: structuredClone(contract.frozen_measured_build_inputs),
+  build_input_matches_expected: Object.fromEntries(
+    Object.keys(contract.frozen_measured_build_inputs).map((key) => [key, true]),
+  ),
+  includes_cuda_cmake_target_definition: true,
+  includes_event_timing_compat_header: true,
+  measured_build_inputs_frozen_during_measurement: true,
+  performance_observation_only: true,
+  geometry_receipt_authority: false,
+  universal_speedup_claim: false,
+});
+
 const temp = await mkdtemp(join(tmpdir(), "gluball-v31-arch-"));
 try {
   const base = {
@@ -264,8 +284,9 @@ try {
     source_commit: "a".repeat(40),
     gpu: { model: "NVIDIA Tesla V100-PCIE-16GB", compute_capability: "7.0", expected_sm: "sm_70" },
     canonical_workload: { ...canonicalWorkload },
-    required_stages: { physical_preflight: true },
+    required_stages: { physical_preflight: true, frozen_measured_build_inputs: true },
     physical_preflight_validation: makePreflight("v100", "NVIDIA Tesla V100-PCIE-16GB", "7.0"),
+    frozen_measured_build_input_validation: makeBuildReceipt(),
     bounded_tuning: {
       status: "PASS",
       best_observed_candidate_within_declared_set: {
@@ -301,6 +322,7 @@ try {
   assert.equal(compared.cross_device_digest_match_observed, false);
   assert.equal(compared.cross_device_digest_observation_available, true);
   assert.equal(compared.physical_preflight_required, true);
+  assert.equal(compared.frozen_measured_build_inputs_required, true);
 
   const missingPreflight = JSON.parse(JSON.stringify(base));
   delete missingPreflight.physical_preflight_validation;
@@ -309,6 +331,20 @@ try {
   const missingPreflightStage = JSON.parse(JSON.stringify(base));
   delete missingPreflightStage.required_stages.physical_preflight;
   assert.notEqual((await runComparator(missingPreflightStage, right)).status, 0);
+
+  const missingBuildReceipt = JSON.parse(JSON.stringify(base));
+  delete missingBuildReceipt.frozen_measured_build_input_validation;
+  assert.notEqual((await runComparator(missingBuildReceipt, right)).status, 0);
+
+  const missingBuildStage = JSON.parse(JSON.stringify(base));
+  delete missingBuildStage.required_stages.frozen_measured_build_inputs;
+  assert.notEqual((await runComparator(missingBuildStage, right)).status, 0);
+
+  const mismatchedBuildReceipt = JSON.parse(JSON.stringify(base));
+  mismatchedBuildReceipt.frozen_measured_build_input_validation.observed_git_blob_ids[
+    "native/cuda/gluball_runtime_v2_event_compat.cuh"
+  ] = "0".repeat(40);
+  assert.notEqual((await runComparator(mismatchedBuildReceipt, right)).status, 0);
 
   const mismatchedPreflightModel = JSON.parse(JSON.stringify(base));
   mismatchedPreflightModel.physical_preflight_validation.safe_gpu_inventory.name = "NVIDIA Tesla T4";
