@@ -19,20 +19,72 @@ assert.equal(contract.measurement_source_policy.canonical_workload_exact_match_r
 assert.equal(contract.measurement_source_policy.full_gpu_profiles_reject_mig_enabled_or_partitioned_devices, true);
 assert.equal(contract.comparison_boundary.exact_declared_canonical_workload_required, true);
 
+const canonicalWorkload = {
+  u_segments: 16384,
+  v_segments: 128,
+  repeats: 1,
+  warmup_iterations: 20,
+  measured_iterations: 1000,
+  trials_per_candidate: 3,
+  fixed_across_profiles: true,
+};
+
+const makePreflight = (profile, model, cc, index = 0) => ({
+  schema: "gluball-cuda-runtime-v31-physical-preflight/1",
+  status: "PASS",
+  profile,
+  canonical_workload_expected: { ...canonicalWorkload },
+  canonical_workload_observed: { ...canonicalWorkload },
+  canonical_workload_match: true,
+  full_gpu_required: true,
+  required_nvidia_smi_visible_gpu_count: 1,
+  nvidia_smi_visible_gpu_count: 1,
+  single_visible_gpu_verified: true,
+  cuda_device_ordinal: 0,
+  cuda_ordinal_zero_mapping_unambiguous: true,
+  selected_nvidia_smi_index: index,
+  cuda_visible_devices_set: false,
+  cuda_visible_devices_value_published: false,
+  mig_capable_profile: Number(cc.split(".")[0]) >= 8,
+  mig_query_supported: Number(cc.split(".")[0]) >= 8,
+  mig_query_exit_code: 0,
+  mig_query_error: null,
+  identity_query_exit_code: 0,
+  identity_query_error: null,
+  mig_mode_current: Number(cc.split(".")[0]) >= 8 ? "Disabled" : "not-applicable-query-unavailable",
+  mig_mode_acceptable: true,
+  mig_enabled: false,
+  mig_partition_observed: false,
+  safe_gpu_inventory: {
+    index,
+    name: model,
+    compute_capability: cc,
+    memory_total_mib: "16384",
+  },
+  profile_model_match: true,
+  profile_compute_capability_match: true,
+  performance_observation_only: true,
+  geometry_receipt_authority: false,
+  universal_speedup_claim: false,
+  raw_device_uuid_queried: false,
+  raw_device_uuid_published: false,
+});
+
 const temp = await mkdtemp(join(tmpdir(), "gluball-v31-preflight-"));
 try {
   const bin = join(temp, "bin");
   const { mkdir } = await import("node:fs/promises");
   await mkdir(bin, { recursive: true });
   const nvidiaSmi = join(bin, "nvidia-smi");
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
+  const baseEnv = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
 
-  const writeFakeSmi = async (line) => {
-    await writeFile(nvidiaSmi, `#!/bin/sh\nprintf '%s\\n' '${line}'\n`);
+  const writeFakeSmi = async (text) => {
+    const escaped = text.replaceAll("'", "'\\''");
+    await writeFile(nvidiaSmi, `#!/bin/sh\nprintf '%s\\n' '${escaped}'\n`);
     await chmod(nvidiaSmi, 0o755);
   };
 
-  const runPreflight = (suffix, extra = []) => {
+  const runPreflight = (suffix, extra = [], env = baseEnv) => {
     const output = join(temp, `preflight-${suffix}.json`);
     const args = [
       verifierUrl.pathname,
@@ -49,14 +101,38 @@ try {
     return { result, output };
   };
 
-  await writeFakeSmi("0, NVIDIA A100-SXM4-40GB, 8.0, 40960, Disabled");
-  const fullGpu = runPreflight("full");
+  // A CUDA_VISIBLE_DEVICES selector is safe for this canonical ladder only
+  // when exactly one NVIDIA-SMI-visible physical GPU exists, making CUDA
+  // ordinal 0 unambiguous. The selector value itself is never archived.
+  await writeFakeSmi("7, NVIDIA A100-SXM4-40GB, 8.0, 40960, Disabled");
+  const remappedEnv = { ...baseEnv, CUDA_VISIBLE_DEVICES: "7" };
+  const fullGpu = runPreflight("full", [], remappedEnv);
   assert.equal(fullGpu.result.status, 0, fullGpu.result.stderr);
   const fullReceipt = JSON.parse(await readFile(fullGpu.output, "utf8"));
   assert.equal(fullReceipt.status, "PASS");
+  assert.equal(fullReceipt.nvidia_smi_visible_gpu_count, 1);
+  assert.equal(fullReceipt.single_visible_gpu_verified, true);
+  assert.equal(fullReceipt.cuda_device_ordinal, 0);
+  assert.equal(fullReceipt.cuda_ordinal_zero_mapping_unambiguous, true);
+  assert.equal(fullReceipt.selected_nvidia_smi_index, 7);
+  assert.equal(fullReceipt.cuda_visible_devices_set, true);
+  assert.equal(fullReceipt.cuda_visible_devices_value_published, false);
   assert.equal(fullReceipt.mig_enabled, false);
   assert.equal(fullReceipt.mig_partition_observed, false);
   assert.equal(fullReceipt.canonical_workload_match, true);
+
+  // More than one NVIDIA-SMI-visible GPU reintroduces ordinal/remapping
+  // ambiguity and is rejected even if one row matches the requested profile.
+  await writeFakeSmi([
+    "0, NVIDIA Tesla T4, 7.5, 16384, N/A",
+    "1, NVIDIA A100-SXM4-40GB, 8.0, 40960, Disabled",
+  ].join("\n"));
+  const ambiguous = runPreflight("ambiguous", [], { ...baseEnv, CUDA_VISIBLE_DEVICES: "1" });
+  assert.notEqual(ambiguous.result.status, 0);
+  const ambiguousReceipt = JSON.parse(await readFile(ambiguous.output, "utf8"));
+  assert.equal(ambiguousReceipt.nvidia_smi_visible_gpu_count, 2);
+  assert.equal(ambiguousReceipt.single_visible_gpu_verified, false);
+  assert.equal(ambiguousReceipt.cuda_ordinal_zero_mapping_unambiguous, false);
 
   await writeFakeSmi("0, NVIDIA A100-SXM4-40GB, 8.0, 40960, Enabled");
   const mig = runPreflight("mig");
@@ -83,7 +159,7 @@ try {
     "--iterations", "1000",
     "--trials", "3",
     "--output", noncanonicalOutput,
-  ], { encoding: "utf8", env });
+  ], { encoding: "utf8", env: baseEnv });
   assert.notEqual(noncanonical.status, 0);
   const noncanonicalReceipt = JSON.parse(await readFile(noncanonicalOutput, "utf8"));
   assert.equal(noncanonicalReceipt.status, "FAIL");
@@ -96,7 +172,9 @@ try {
     profile_definition: profiles.profiles[profile],
     source_commit: "a".repeat(40),
     gpu: { model, compute_capability: cc, expected_sm: sm },
-    canonical_workload: { ...contract.canonical_workload },
+    canonical_workload: { ...canonicalWorkload },
+    required_stages: { physical_preflight: true },
+    physical_preflight_validation: makePreflight(profile, model, cc),
     bounded_tuning: {
       status: "PASS",
       best_observed_candidate_within_declared_set: {
@@ -119,6 +197,11 @@ try {
   await writeFile(rightPath, JSON.stringify(right));
   const canonicalCompare = spawnSync("python3", [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" });
   assert.equal(canonicalCompare.status, 0, canonicalCompare.stderr);
+
+  const noPreflight = JSON.parse(JSON.stringify(left));
+  delete noPreflight.physical_preflight_validation;
+  await writeFile(leftPath, JSON.stringify(noPreflight));
+  assert.notEqual(spawnSync("python3", [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" }).status, 0);
 
   left.canonical_workload.u_segments = 8192;
   right.canonical_workload.u_segments = 8192;
