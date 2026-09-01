@@ -6,11 +6,15 @@ on:
       target_profile:
         description: "Physical GPU profile"
         required: true
-        default: "titan-xp"
+        default: "v100"
         type: choice
         options:
           - titan-xp
+          - v100
+          - t4
+          - a100
           - h200
+          - b200
       u_segments:
         description: "Canonical comparison/tuning U segments"
         required: true
@@ -50,6 +54,7 @@ jobs:
     timeout-minutes: 240
     env:
       PROFILE: ${{ inputs.target_profile }}
+      PROFILE_REGISTRY: docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
       EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
@@ -62,14 +67,32 @@ jobs:
           printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
 
-      - name: Resolve architecture profile
+      - name: Validate architecture profile registry
         run: |
           set -eu
-          case "$PROFILE" in
-            titan-xp) printf '%s\n' 'MODEL_FRAGMENT=TITAN Xp' >> "$GITHUB_ENV" ;;
-            h200) printf '%s\n' 'MODEL_FRAGMENT=H200' >> "$GITHUB_ENV" ;;
-            *) printf 'unsupported target profile: %s\n' "$PROFILE" >&2; exit 2 ;;
-          esac
+          python3 - "$PROFILE_REGISTRY" "$PROFILE" <<'PY'
+          import json, sys
+          from pathlib import Path
+          registry_path = Path(sys.argv[1])
+          profile = sys.argv[2]
+          payload = json.loads(registry_path.read_text())
+          if payload.get("schema") != "gluball-cuda-runtime-v31-architecture-profiles/1":
+              raise SystemExit("unexpected architecture profile registry schema")
+          profiles = payload.get("profiles")
+          if not isinstance(profiles, dict) or profile not in profiles:
+              raise SystemExit(f"unsupported architecture profile: {profile}")
+          definition = profiles[profile]
+          required = (
+              "expected_model_fragment_case_insensitive",
+              "expected_compute_capability",
+              "expected_sm",
+              "architecture_family",
+              "device_class",
+          )
+          missing = [key for key in required if not isinstance(definition.get(key), str) or not definition[key]]
+          if missing:
+              raise SystemExit(f"profile {profile} missing fields: {', '.join(missing)}")
+          PY
 
       - name: Run Runtime V3.1 architecture profile
         id: campaign
