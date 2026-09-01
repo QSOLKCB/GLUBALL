@@ -18,6 +18,7 @@
       "architecture_family": "Pascal",
       "device_class": "consumer/prosumer",
       "measurement_role": "historical-pascal-follow-up",
+      "requires_full_gpu": true,
       "status": "completed-physical-run-pr19"
     },
     "v100": {
@@ -27,6 +28,7 @@
       "architecture_family": "Volta",
       "device_class": "datacenter",
       "measurement_role": "post-pr20-generation-ladder",
+      "requires_full_gpu": true,
       "status": "pending-physical-run"
     },
     "t4": {
@@ -36,6 +38,7 @@
       "architecture_family": "Turing",
       "device_class": "datacenter",
       "measurement_role": "post-pr20-generation-ladder",
+      "requires_full_gpu": true,
       "status": "pending-physical-run"
     },
     "a100": {
@@ -45,6 +48,7 @@
       "architecture_family": "Ampere",
       "device_class": "datacenter",
       "measurement_role": "post-pr20-generation-ladder",
+      "requires_full_gpu": true,
       "status": "pending-physical-run"
     },
     "h200": {
@@ -54,6 +58,7 @@
       "architecture_family": "Hopper",
       "device_class": "datacenter",
       "measurement_role": "post-pr20-generation-ladder",
+      "requires_full_gpu": true,
       "status": "pending-physical-run"
     },
     "b200": {
@@ -63,6 +68,7 @@
       "architecture_family": "Blackwell",
       "device_class": "datacenter",
       "measurement_role": "post-pr20-generation-ladder",
+      "requires_full_gpu": true,
       "status": "pending-physical-run"
     }
   },
@@ -73,6 +79,8 @@
     "model_regex_must_match_profile_definition": true,
     "compute_capability_must_match_profile_definition": true,
     "native_sm_must_match_profile_definition": true,
+    "full_gpu_profiles_reject_mig_enabled_or_partitioned_devices": true,
+    "mig_partition_profiles_supported": false,
     "cross_device_digest_equality_required": false,
     "within_device_v3_v31_digest_equality_required": true,
     "performance_observation_only": true,
