@@ -96,6 +96,24 @@ const makePreflight = (profile, model, cc, index = 0) => ({
   raw_device_uuid_published: false,
 });
 
+const makeBuildReceipt = () => ({
+  schema: "gluball-cuda-runtime-v31-frozen-build-input-validation/1",
+  status: "PASS",
+  contract_path: "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+  contract_matches_frozen_expected_map: true,
+  expected_git_blob_ids: structuredClone(contract.frozen_measured_build_inputs),
+  observed_git_blob_ids: structuredClone(contract.frozen_measured_build_inputs),
+  build_input_matches_expected: Object.fromEntries(
+    Object.keys(contract.frozen_measured_build_inputs).map((key) => [key, true]),
+  ),
+  includes_cuda_cmake_target_definition: true,
+  includes_event_timing_compat_header: true,
+  measured_build_inputs_frozen_during_measurement: true,
+  performance_observation_only: true,
+  geometry_receipt_authority: false,
+  universal_speedup_claim: false,
+});
+
 const temp = await mkdtemp(join(tmpdir(), "gluball-v31-review-hardening-"));
 try {
   const common = {
@@ -103,7 +121,8 @@ try {
     status: "PASS",
     source_commit: "a".repeat(40),
     canonical_workload: { ...canonicalWorkload },
-    required_stages: { physical_preflight: true },
+    required_stages: { physical_preflight: true, frozen_measured_build_inputs: true },
+    frozen_measured_build_input_validation: makeBuildReceipt(),
     bounded_tuning: {
       status: "PASS",
       best_observed_candidate_within_declared_set: {
@@ -150,6 +169,20 @@ try {
   const invalidPreflight = structuredClone(left);
   invalidPreflight.physical_preflight_validation.cuda_ordinal_zero_mapping_unambiguous = false;
   assert.notEqual((await runComparator(invalidPreflight, right)).status, 0);
+
+  const missingBuildReceipt = structuredClone(left);
+  delete missingBuildReceipt.frozen_measured_build_input_validation;
+  assert.notEqual((await runComparator(missingBuildReceipt, right)).status, 0);
+
+  const missingBuildStage = structuredClone(left);
+  delete missingBuildStage.required_stages.frozen_measured_build_inputs;
+  assert.notEqual((await runComparator(missingBuildStage, right)).status, 0);
+
+  const tamperedBuildReceipt = structuredClone(left);
+  tamperedBuildReceipt.frozen_measured_build_input_validation.observed_git_blob_ids[
+    "native/cuda/gluball_runtime_v2_event_compat.cuh"
+  ] = "0".repeat(40);
+  assert.notEqual((await runComparator(tamperedBuildReceipt, right)).status, 0);
 
   const changedLifecycle = structuredClone(left);
   changedLifecycle.profile_definition.status = "completed-physical-run";
