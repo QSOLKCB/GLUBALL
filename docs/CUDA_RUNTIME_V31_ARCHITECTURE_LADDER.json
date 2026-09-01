@@ -97,12 +97,18 @@
     "workflow_verifies_complete_measured_build_input_map_before_campaign": true,
     "measured_build_input_receipt_bound_into_uploaded_bundle": true,
     "measured_build_input_validation_is_workflow_graduation_gate": true,
-    "reason": "preserve exact-source, exact build-input, merged-main campaign machinery and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
+    "physical_preflight_receipt_required": true,
+    "full_gpu_profiles_reject_mig_enabled_or_partitioned_devices": true,
+    "mig_partition_profiles_supported": false,
+    "canonical_workload_exact_match_required_for_graduation": true,
+    "dispatcher_overrides_outside_canonical_workload_rejected": true,
+    "reason": "preserve exact-source, exact build-input, full-GPU, merged-main campaign machinery and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
   },
   "required_per_profile_stages": [
     "profile_definition",
     "frozen_runtime_sources",
     "frozen_measured_build_inputs",
+    "physical_preflight",
     "host_validation",
     "v1_validation",
     "atomic_equivalence",
@@ -118,6 +124,8 @@
   "comparison_boundary": {
     "same_source_commit_required_for_cross_profile_summary": true,
     "same_canonical_workload_required_for_cross_profile_summary": true,
+    "exact_declared_canonical_workload_required": true,
+    "full_gpu_profile_required": true,
     "profile_registry_identity_validation_required": true,
     "profile_lifecycle_status_schema_validation_required": true,
     "profile_lifecycle_status_is_identity": false,
