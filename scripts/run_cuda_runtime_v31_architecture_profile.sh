@@ -4,7 +4,7 @@
 set -eu
 
 PROFILE=${PROFILE:?PROFILE is required}
-MODEL_FRAGMENT=${MODEL_FRAGMENT:?MODEL_FRAGMENT is required}
+PROFILE_REGISTRY=${PROFILE_REGISTRY:-docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json}
 EVIDENCE_ROOT=${EVIDENCE_ROOT:?EVIDENCE_ROOT is required}
 U=${U:-16384}
 V=${V:-128}
@@ -12,10 +12,32 @@ WARMUP=${WARMUP:-20}
 ITERATIONS=${ITERATIONS:-1000}
 TRIALS=${TRIALS:-3}
 
-case "$PROFILE" in
-  titan-xp|h200) ;;
-  *) echo "PROFILE must be titan-xp or h200" >&2; exit 2 ;;
-esac
+profile_field() {
+  python3 - "$PROFILE_REGISTRY" "$PROFILE" "$1" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+registry_path = Path(sys.argv[1])
+profile = sys.argv[2]
+field = sys.argv[3]
+payload = json.loads(registry_path.read_text())
+if payload.get("schema") != "gluball-cuda-runtime-v31-architecture-profiles/1":
+    raise SystemExit("unexpected architecture profile registry schema")
+profiles = payload.get("profiles")
+if not isinstance(profiles, dict) or profile not in profiles:
+    raise SystemExit(f"unsupported architecture profile: {profile}")
+value = profiles[profile].get(field)
+if not isinstance(value, str) or not value:
+    raise SystemExit(f"profile {profile} missing required field: {field}")
+print(value)
+PY
+}
+
+MODEL_FRAGMENT=$(profile_field expected_model_fragment_case_insensitive)
+EXPECTED_PROFILE_CC=$(profile_field expected_compute_capability)
+EXPECTED_PROFILE_SM=$(profile_field expected_sm)
+ARCHITECTURE_FAMILY=$(profile_field architecture_family)
 
 python3 - "$U" "$V" "$WARMUP" "$ITERATIONS" "$TRIALS" <<'PY'
 import sys
@@ -36,6 +58,20 @@ if [ -d "$root" ] && find "$root" -mindepth 1 -print -quit | grep -q .; then
   exit 3
 fi
 mkdir -p "$root"
+
+python3 - "$PROFILE_REGISTRY" "$PROFILE" "$root/PROFILE_DEFINITION.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+registry_path, profile, output_path = sys.argv[1:]
+payload = json.loads(Path(registry_path).read_text())
+definition = payload["profiles"][profile]
+Path(output_path).write_text(json.dumps({
+    "schema": "gluball-cuda-runtime-v31-architecture-profile-definition/1",
+    "profile": profile,
+    "definition": definition,
+}, indent=2, sort_keys=True) + "\n")
+PY
 
 mark_manifest_failure() {
   python3 - "$root" <<'PY'
@@ -136,18 +172,29 @@ test "$(uname -m)" = x86_64
 nvidia-smi --query-gpu=index,name,driver_version,compute_cap,memory.total --format=csv | tee "$root/NVIDIA_INVENTORY.csv"
 model=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1p')
 capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed -n '1p')
-python3 - "$model" "$MODEL_FRAGMENT" <<'PY'
+python3 - "$model" "$MODEL_FRAGMENT" "$capability" "$EXPECTED_PROFILE_CC" <<'PY'
 import sys
-model, fragment = sys.argv[1:]
+model, fragment, capability, expected_capability = sys.argv[1:]
 if fragment.casefold() not in model.casefold():
     raise SystemExit(f"unexpected GPU model: {model!r}; expected fragment {fragment!r}")
+if capability != expected_capability:
+    raise SystemExit(
+        f"unexpected compute capability for {model!r}: {capability!r}; expected {expected_capability!r}"
+    )
 PY
 arch_digits=$(printf '%s' "$capability" | tr -d '.')
 expected_compute="compute_${arch_digits}"
 expected_sm="sm_${arch_digits}"
+if [ "$expected_sm" != "$EXPECTED_PROFILE_SM" ]; then
+  printf 'profile native SM mismatch: discovered %s, registry expects %s\n' "$expected_sm" "$EXPECTED_PROFILE_SM" >&2
+  exit 4
+fi
 printf '%s\n' "$model" > "$root/SELECTED_GPU_MODEL.txt"
 printf '%s\n' "$capability" > "$root/EXPECTED_COMPUTE_CAPABILITY.txt"
 printf '%s\n' "$expected_sm" > "$root/EXPECTED_SM.txt"
+printf '%s\n' "$EXPECTED_PROFILE_CC" > "$root/PROFILE_EXPECTED_COMPUTE_CAPABILITY.txt"
+printf '%s\n' "$EXPECTED_PROFILE_SM" > "$root/PROFILE_EXPECTED_SM.txt"
+printf '%s\n' "$ARCHITECTURE_FAMILY" > "$root/ARCHITECTURE_FAMILY.txt"
 printf '0\n' > "$root/SELECTED_DEVICES.txt"
 printf '%s\n' "$PROFILE" > "$root/PROFILE.txt"
 nvcc --version | tee "$root/NVCC.txt"
