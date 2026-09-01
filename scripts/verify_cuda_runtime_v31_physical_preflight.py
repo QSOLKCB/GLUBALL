@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
 import subprocess
 from io import StringIO
@@ -17,6 +18,7 @@ from typing import Any
 _SCHEMA = "gluball-cuda-runtime-v31-physical-preflight/1"
 _PROFILE_SCHEMA = "gluball-cuda-runtime-v31-architecture-profiles/1"
 _LADDER_SCHEMA = "gluball-cuda-runtime-v31-architecture-ladder/1"
+_REQUIRED_VISIBLE_GPU_COUNT = 1
 
 
 def load_object(path: Path, schema: str, label: str) -> dict[str, Any]:
@@ -32,16 +34,24 @@ def parse_decimal(name: str, raw: str) -> int:
     return int(raw)
 
 
-def safe_mig_query() -> tuple[int, str, str | None]:
+def run_smi(fields: str) -> tuple[int, str, str | None]:
     command = [
         "nvidia-smi",
-        "-i",
-        "0",
-        "--query-gpu=index,name,compute_cap,memory.total,mig.mode.current",
+        f"--query-gpu={fields}",
         "--format=csv,noheader,nounits",
     ]
     completed = subprocess.run(command, text=True, capture_output=True, check=False)
     return completed.returncode, completed.stdout.strip(), completed.stderr.strip() or None
+
+
+def parse_rows(text: str, width: int) -> list[list[str]]:
+    rows = list(csv.reader(StringIO(text))) if text else []
+    normalized: list[list[str]] = []
+    for row in rows:
+        if len(row) != width:
+            return []
+        normalized.append([field.strip() for field in row])
+    return normalized
 
 
 def main() -> int:
@@ -105,34 +115,61 @@ def main() -> int:
     }
     canonical_workload_match = observed_workload == expected_workload
 
-    query_status, query_output, query_error = safe_mig_query()
+    # The canonical architecture ladder is deliberately a one-GPU experiment.
+    # Requiring exactly one NVIDIA-SMI-visible physical GPU makes CUDA ordinal 0
+    # unambiguous even when CUDA_VISIBLE_DEVICES is present or ordinal ordering
+    # would otherwise differ from NVIDIA-SMI ordering. Multi-GPU/remapped hosts
+    # must use a different campaign rather than silently entering this ladder.
+    full_status, full_output, full_error = run_smi(
+        "index,name,compute_cap,memory.total,mig.mode.current"
+    )
+    full_rows = parse_rows(full_output, 5) if full_status == 0 else []
+
+    identity_status = full_status
+    identity_error = full_error
+    if full_rows:
+        identity_rows = [row[:4] for row in full_rows]
+    else:
+        identity_status, identity_output, identity_error = run_smi(
+            "index,name,compute_cap,memory.total"
+        )
+        identity_rows = parse_rows(identity_output, 4) if identity_status == 0 else []
+
+    visible_gpu_count = len(identity_rows)
+    single_visible_gpu_verified = visible_gpu_count == _REQUIRED_VISIBLE_GPU_COUNT
+    cuda_ordinal_zero_mapping_unambiguous = single_visible_gpu_verified
+    cuda_visible_devices_set = "CUDA_VISIBLE_DEVICES" in os.environ
+
     inventory: dict[str, Any] | None = None
     mig_mode: str | None = None
-    mig_query_supported = query_status == 0 and bool(query_output)
+    mig_query_supported = False
     mig_partition_observed = False
     model_match = False
     capability_match = False
+    selected_nvidia_smi_index: int | None = None
 
-    if mig_query_supported:
-        rows = list(csv.reader(StringIO(query_output)))
-        if len(rows) == 1 and len(rows[0]) == 5:
-            index, model, capability, memory_total, mode = (field.strip() for field in rows[0])
-            mig_mode = mode
-            inventory = {
-                "index": index,
-                "name": model,
-                "compute_capability": capability,
-                "memory_total_mib": memory_total,
-                "mig_mode_current": mode,
-            }
-            try:
-                model_match = re.fullmatch(model_pattern, model, flags=re.IGNORECASE) is not None
-            except re.error as exc:
-                raise SystemExit(f"invalid profile model regex: {exc}") from exc
-            capability_match = capability == expected_cc
-            mig_partition_observed = "mig" in model.casefold()
-        else:
-            mig_query_supported = False
+    if single_visible_gpu_verified:
+        index, model, capability, memory_total = identity_rows[0]
+        try:
+            selected_nvidia_smi_index = int(index)
+        except ValueError:
+            selected_nvidia_smi_index = None
+        inventory = {
+            "index": selected_nvidia_smi_index,
+            "name": model,
+            "compute_capability": capability,
+            "memory_total_mib": memory_total,
+        }
+        try:
+            model_match = re.fullmatch(model_pattern, model, flags=re.IGNORECASE) is not None
+        except re.error as exc:
+            raise SystemExit(f"invalid profile model regex: {exc}") from exc
+        capability_match = capability == expected_cc
+        mig_partition_observed = "mig" in model.casefold()
+
+        if full_rows and len(full_rows) == 1:
+            mig_mode = full_rows[0][4]
+            mig_query_supported = True
 
     cc_major = int(expected_cc.split(".", 1)[0]) if expected_cc.split(".", 1)[0].isdigit() else 0
     mig_capable_profile = cc_major >= 8
@@ -146,13 +183,14 @@ def main() -> int:
     else:
         mig_mode_acceptable = not mig_capable_profile
         if not mig_capable_profile:
-            model_match = True
-            capability_match = True
             mig_mode = "not-applicable-query-unavailable"
 
     status = "PASS" if all((
         canonical_workload_match,
         required_full_gpu,
+        single_visible_gpu_verified,
+        cuda_ordinal_zero_mapping_unambiguous,
+        selected_nvidia_smi_index is not None,
         mig_mode_acceptable,
         not mig_enabled,
         not mig_partition_observed,
@@ -168,10 +206,20 @@ def main() -> int:
         "canonical_workload_observed": observed_workload,
         "canonical_workload_match": canonical_workload_match,
         "full_gpu_required": required_full_gpu,
+        "required_nvidia_smi_visible_gpu_count": _REQUIRED_VISIBLE_GPU_COUNT,
+        "nvidia_smi_visible_gpu_count": visible_gpu_count,
+        "single_visible_gpu_verified": single_visible_gpu_verified,
+        "cuda_device_ordinal": 0,
+        "cuda_ordinal_zero_mapping_unambiguous": cuda_ordinal_zero_mapping_unambiguous,
+        "selected_nvidia_smi_index": selected_nvidia_smi_index,
+        "cuda_visible_devices_set": cuda_visible_devices_set,
+        "cuda_visible_devices_value_published": False,
         "mig_capable_profile": mig_capable_profile,
         "mig_query_supported": mig_query_supported,
-        "mig_query_exit_code": query_status,
-        "mig_query_error": query_error,
+        "mig_query_exit_code": full_status,
+        "mig_query_error": full_error,
+        "identity_query_exit_code": identity_status,
+        "identity_query_error": identity_error,
         "mig_mode_current": mig_mode,
         "mig_mode_acceptable": mig_mode_acceptable,
         "mig_enabled": mig_enabled,
@@ -182,6 +230,7 @@ def main() -> int:
         "performance_observation_only": True,
         "geometry_receipt_authority": False,
         "universal_speedup_claim": False,
+        "raw_device_uuid_queried": False,
         "raw_device_uuid_published": False,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
