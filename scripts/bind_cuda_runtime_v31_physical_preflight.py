@@ -33,16 +33,32 @@ def load_json(path: Path) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def valid_receipt(payload: dict[str, Any] | None) -> bool:
+def valid_receipt(payload: dict[str, Any] | None, expected_profile: str | None) -> bool:
     if not isinstance(payload, dict):
+        return False
+    inventory = payload.get("safe_gpu_inventory")
+    if not isinstance(inventory, dict):
+        return False
+    selected_index = payload.get("selected_nvidia_smi_index")
+    if not isinstance(selected_index, int) or isinstance(selected_index, bool) or selected_index < 0:
         return False
     checks = (
         payload.get("schema") == _SCHEMA,
         payload.get("status") == "PASS",
+        isinstance(expected_profile, str) and payload.get("profile") == expected_profile,
         payload.get("canonical_workload_expected") == _CANONICAL,
         payload.get("canonical_workload_observed") == _CANONICAL,
         payload.get("canonical_workload_match") is True,
         payload.get("full_gpu_required") is True,
+        payload.get("required_nvidia_smi_visible_gpu_count") == 1,
+        payload.get("nvidia_smi_visible_gpu_count") == 1,
+        payload.get("single_visible_gpu_verified") is True,
+        payload.get("cuda_device_ordinal") == 0,
+        payload.get("cuda_ordinal_zero_mapping_unambiguous") is True,
+        inventory.get("index") == selected_index,
+        isinstance(inventory.get("name"), str) and bool(inventory.get("name")),
+        isinstance(inventory.get("compute_capability"), str) and bool(inventory.get("compute_capability")),
+        payload.get("cuda_visible_devices_value_published") is False,
         payload.get("mig_mode_acceptable") is True,
         payload.get("mig_enabled") is False,
         payload.get("mig_partition_observed") is False,
@@ -50,6 +66,7 @@ def valid_receipt(payload: dict[str, Any] | None) -> bool:
         payload.get("profile_compute_capability_match") is True,
         payload.get("geometry_receipt_authority") is False,
         payload.get("universal_speedup_claim") is False,
+        payload.get("raw_device_uuid_queried") is False,
         payload.get("raw_device_uuid_published") is False,
     )
     return all(checks)
@@ -119,7 +136,14 @@ def main() -> int:
     root = args.root
     root.mkdir(parents=True, exist_ok=True)
     receipt = load_json(args.receipt)
-    valid = valid_receipt(receipt)
+    architecture_result = load_json(root / "ARCHITECTURE_RESULT.json")
+    validation_status = load_json(root / "VALIDATION_STATUS.json")
+    expected_profile = None
+    if isinstance(architecture_result, dict):
+        expected_profile = architecture_result.get("profile")
+    if not isinstance(expected_profile, str) and isinstance(validation_status, dict):
+        expected_profile = validation_status.get("profile")
+    valid = valid_receipt(receipt, expected_profile if isinstance(expected_profile, str) else None)
 
     archived = root / "PHYSICAL_PREFLIGHT_VALIDATION.json"
     if receipt is not None:
