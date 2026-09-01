@@ -118,15 +118,21 @@ jobs:
           PY
 
       - name: Verify full-GPU and canonical-workload preflight
+        env:
+          U: ${{ inputs.u_segments }}
+          V: ${{ inputs.v_segments }}
+          WARMUP: ${{ inputs.warmup_iterations }}
+          ITERATIONS: ${{ inputs.measured_iterations }}
+          TRIALS: ${{ inputs.trials }}
         run: |
           set -eu
           python3 scripts/verify_cuda_runtime_v31_physical_preflight.py \
             --profile "$PROFILE" \
-            --u '${{ inputs.u_segments }}' \
-            --v '${{ inputs.v_segments }}' \
-            --warmup '${{ inputs.warmup_iterations }}' \
-            --iterations '${{ inputs.measured_iterations }}' \
-            --trials '${{ inputs.trials }}' \
+            --u "$U" \
+            --v "$V" \
+            --warmup "$WARMUP" \
+            --iterations "$ITERATIONS" \
+            --trials "$TRIALS" \
             --output "$PHYSICAL_PREFLIGHT_RECEIPT"
 
       - name: Verify frozen measured Runtime build inputs
