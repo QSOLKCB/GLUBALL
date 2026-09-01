@@ -23,6 +23,8 @@ on:
       - "scripts/compare_cuda_runtime_v31_architecture_results.py"
       - "scripts/verify_cuda_runtime_v31_frozen_build_inputs.py"
       - "scripts/bind_cuda_runtime_v31_frozen_build_inputs.py"
+      - "scripts/verify_cuda_runtime_v31_physical_preflight.py"
+      - "scripts/bind_cuda_runtime_v31_physical_preflight.py"
       - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
@@ -47,6 +49,8 @@ on:
       - "tests/cuda-runtime-v31-workflow.mjs"
       - "tests/cuda-runtime-v31-architecture-ladder.mjs"
       - "tests/cuda-runtime-v31-architecture-review-hardening.mjs"
+      - "tests/cuda-runtime-v31-physical-preflight.mjs"
+      - "tests/cuda-runtime-v31-receipt-boundary-hardening.mjs"
       - "tests/phase5c-multigpu-actions.mjs"
       - ".github/workflows/physical-cuda-v31-efficiency.yml"
       - ".github/workflows/physical-cuda-v31-architecture-ladder.yml"
@@ -73,6 +77,8 @@ on:
       - "scripts/compare_cuda_runtime_v31_architecture_results.py"
       - "scripts/verify_cuda_runtime_v31_frozen_build_inputs.py"
       - "scripts/bind_cuda_runtime_v31_frozen_build_inputs.py"
+      - "scripts/verify_cuda_runtime_v31_physical_preflight.py"
+      - "scripts/bind_cuda_runtime_v31_physical_preflight.py"
       - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
@@ -97,6 +103,8 @@ on:
       - "tests/cuda-runtime-v31-workflow.mjs"
       - "tests/cuda-runtime-v31-architecture-ladder.mjs"
       - "tests/cuda-runtime-v31-architecture-review-hardening.mjs"
+      - "tests/cuda-runtime-v31-physical-preflight.mjs"
+      - "tests/cuda-runtime-v31-receipt-boundary-hardening.mjs"
       - "tests/phase5c-multigpu-actions.mjs"
       - ".github/workflows/physical-cuda-v31-efficiency.yml"
       - ".github/workflows/physical-cuda-v31-architecture-ladder.yml"
@@ -159,6 +167,8 @@ jobs:
           node tests/cuda-runtime-v31-workflow.mjs
           node tests/cuda-runtime-v31-architecture-ladder.mjs
           node tests/cuda-runtime-v31-architecture-review-hardening.mjs
+          node tests/cuda-runtime-v31-physical-preflight.mjs
+          node tests/cuda-runtime-v31-receipt-boundary-hardening.mjs
           node tests/phase5c-multigpu-actions.mjs
       - name: Host script syntax
         run: |
@@ -178,6 +188,8 @@ jobs:
           python3 -m py_compile scripts/compare_cuda_runtime_v31_architecture_results.py
           python3 -m py_compile scripts/verify_cuda_runtime_v31_frozen_build_inputs.py
           python3 -m py_compile scripts/bind_cuda_runtime_v31_frozen_build_inputs.py
+          python3 -m py_compile scripts/verify_cuda_runtime_v31_physical_preflight.py
+          python3 -m py_compile scripts/bind_cuda_runtime_v31_physical_preflight.py
       - name: Frozen and post-v1 runtime checks
         run: |
           cargo test --all-targets
