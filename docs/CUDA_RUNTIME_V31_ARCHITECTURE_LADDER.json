@@ -1,8 +1,9 @@
 {
   "schema": "gluball-cuda-runtime-v31-architecture-ladder/1",
   "contract": "GLUBALL-CUDA-RUNTIME-V3.1-ARCHITECTURE-LADDER",
-  "status": "post-pascal-graduation-cross-generation-physical-research",
+  "status": "cross-generation-physical-measurement-ladder",
   "source_runtime_contract": "GLUBALL-CUDA-RUNTIME-V3.1",
+  "profile_registry": "docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json",
   "canonical_workload": {
     "u_segments": 16384,
     "v_segments": 128,
@@ -13,6 +14,18 @@
     "fixed_across_profiles": true
   },
   "runner_label": "gluball-vast-v31-architecture",
+  "frozen_runtime_source_blobs": {
+    "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
+  "frozen_measured_build_inputs": {
+    "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+    "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+    "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
   "completed_baseline": {
     "profile": "gtx-1080-ti",
     "status": "PASS",
@@ -32,25 +45,70 @@
       "observed_v31_break_even_iterations_vs_matched_v3": 6
     }
   },
-  "next_profiles": [
-    {
-      "profile": "titan-xp",
-      "expected_model_fragment_case_insensitive": "TITAN Xp",
-      "device_class": "consumer/prosumer",
-      "architecture_family": "Pascal",
-      "compute_capability_discovered_at_runtime": true,
-      "status": "pending-physical-run"
+  "completed_pascal_followup": {
+    "profile": "titan-xp",
+    "status": "PASS",
+    "physical_run_id": 33462064226,
+    "source_commit": "93f8eaab5485725ef18d7bb2b21e75121b27fdab",
+    "model": "NVIDIA TITAN Xp",
+    "compute_capability": "6.1",
+    "compiled_cuda_arch_code": 610,
+    "artifact_id": 9783551996,
+    "artifact_sha256": "4461c245997982a576707e1e33f36d530798173758f5bbb42aa0a67cd18de4ea",
+    "best_observed_candidate": {
+      "block_size": 256,
+      "cuda_graphs": "off",
+      "reduction_mode": "atomic",
+      "observed_wall_milliseconds_median_of_trials": 0.096857,
+      "observed_matched_v3_over_v31_wall_ratio": 1.0173967808212108,
+      "observed_v31_break_even_iterations_vs_matched_v3": 0
     },
-    {
-      "profile": "h200",
-      "expected_model_fragment_case_insensitive": "H200",
-      "device_class": "datacenter",
-      "architecture_family": "Hopper",
-      "compute_capability_discovered_at_runtime": true,
-      "status": "pending-physical-run"
+    "diagnostic_digest_relationship": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a",
+      "v2_v3_digest_equality_required": false,
+      "v3_v31_digest_equality_required": true
     }
+  },
+  "post_pr20_measurement_profiles": [
+    "v100",
+    "t4",
+    "a100",
+    "h200",
+    "b200"
   ],
+  "post_pr20_expected_sm_ladder": [
+    "sm_70",
+    "sm_75",
+    "sm_80",
+    "sm_90",
+    "sm_100"
+  ],
+  "measurement_source_policy": {
+    "run_all_post_pr20_profiles_from_same_merged_main_commit": true,
+    "physical_dispatch_ref_required": "refs/heads/main",
+    "workflow_rejects_non_main_dispatch_ref_before_checkout": true,
+    "modify_runtime_source_between_profiles": false,
+    "physical_runner_recomputes_frozen_git_blob_ids": true,
+    "physical_runner_requires_contract_frozen_map_match": true,
+    "frozen_source_validation_is_graduation_gate": true,
+    "frozen_source_validation_receipt_semantically_validated_by_finalizer": true,
+    "workflow_verifies_complete_measured_build_input_map_before_campaign": true,
+    "measured_build_input_receipt_bound_into_uploaded_bundle": true,
+    "measured_build_input_validation_is_workflow_graduation_gate": true,
+    "physical_preflight_receipt_required": true,
+    "full_gpu_profiles_reject_mig_enabled_or_partitioned_devices": true,
+    "mig_partition_profiles_supported": false,
+    "canonical_workload_exact_match_required_for_graduation": true,
+    "dispatcher_overrides_outside_canonical_workload_rejected": true,
+    "reason": "preserve exact-source, exact build-input, full-GPU, merged-main campaign machinery and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
+  },
   "required_per_profile_stages": [
+    "profile_definition",
+    "frozen_runtime_sources",
+    "frozen_measured_build_inputs",
+    "physical_preflight",
     "host_validation",
     "v1_validation",
     "atomic_equivalence",
@@ -66,6 +124,13 @@
   "comparison_boundary": {
     "same_source_commit_required_for_cross_profile_summary": true,
     "same_canonical_workload_required_for_cross_profile_summary": true,
+    "exact_declared_canonical_workload_required": true,
+    "full_gpu_profile_required": true,
+    "profile_registry_identity_validation_required": true,
+    "profile_lifecycle_status_schema_validation_required": true,
+    "profile_lifecycle_status_is_identity": false,
+    "physical_preflight_validation_required_for_cross_profile_summary": true,
+    "frozen_measured_build_input_validation_required_for_cross_profile_summary": true,
     "cross_device_digest_equality_required": false,
     "within_device_v3_v31_digest_equality_required": true,
     "cross_hardware_timing_ratio_is_diagnostic_only": true,

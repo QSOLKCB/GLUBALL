@@ -14,7 +14,48 @@ from typing import Any
 
 _SHA40 = re.compile(r"[0-9a-fA-F]{40}")
 _HEX64 = re.compile(r"[0-9a-fA-F]{16}")
-_ALLOWED_PROFILES = {"titan-xp", "h200"}
+_PREFLIGHT_SCHEMA = "gluball-cuda-runtime-v31-physical-preflight/1"
+_BUILD_INPUT_SCHEMA = "gluball-cuda-runtime-v31-frozen-build-input-validation/1"
+_PROFILE_REGISTRY = (
+    Path(__file__).resolve().parents[1] / "docs" / "CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
+)
+_PROFILE_IDENTITY_FIELDS = (
+    "expected_model_regex_case_insensitive",
+    "expected_compute_capability",
+    "expected_sm",
+    "architecture_family",
+    "device_class",
+    "measurement_role",
+)
+_CANONICAL_WORKLOAD = {
+    "u_segments": 16384,
+    "v_segments": 128,
+    "repeats": 1,
+    "warmup_iterations": 20,
+    "measured_iterations": 1000,
+    "trials_per_candidate": 3,
+    "fixed_across_profiles": True,
+}
+_FROZEN_BUILD_INPUTS = {
+    "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+    "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+    "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874",
+}
+
+
+def load_profile_registry() -> dict[str, dict[str, Any]]:
+    payload = json.loads(_PROFILE_REGISTRY.read_text())
+    if payload.get("schema") != "gluball-cuda-runtime-v31-architecture-profiles/1":
+        raise SystemExit("architecture profile registry has unexpected schema")
+    profiles = payload.get("profiles")
+    if not isinstance(profiles, dict) or not profiles:
+        raise SystemExit("architecture profile registry has no profiles")
+    return profiles
+
+
+_PROFILE_DEFINITIONS = load_profile_registry()
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -28,11 +69,136 @@ def load(path: Path) -> dict[str, Any]:
     return value
 
 
+def immutable_profile_identity(definition: Any, label: str) -> dict[str, Any]:
+    if not isinstance(definition, dict):
+        raise SystemExit(f"{label}: profile definition missing")
+    status = definition.get("status")
+    if not isinstance(status, str) or not status:
+        raise SystemExit(f"{label}: profile lifecycle status missing or invalid")
+    if definition.get("requires_full_gpu") is not True:
+        raise SystemExit(f"{label}: profile must require a full GPU")
+    identity: dict[str, Any] = {}
+    for key in _PROFILE_IDENTITY_FIELDS:
+        value = definition.get(key)
+        if not isinstance(value, str) or not value:
+            raise SystemExit(f"{label}: profile identity field missing or invalid: {key}")
+        identity[key] = value
+    return identity
+
+
 def profile(payload: dict[str, Any], label: str) -> str:
     value = payload.get("profile")
-    if value not in _ALLOWED_PROFILES:
+    if not isinstance(value, str) or value not in _PROFILE_DEFINITIONS:
         raise SystemExit(f"{label}: invalid or missing architecture profile")
+    definition = _PROFILE_DEFINITIONS[value]
+    gpu = payload.get("gpu")
+    if not isinstance(gpu, dict):
+        raise SystemExit(f"{label}: gpu identity object missing")
+    model = gpu.get("model")
+    capability = gpu.get("compute_capability")
+    expected_sm = gpu.get("expected_sm")
+    model_pattern = definition.get("expected_model_regex_case_insensitive")
+    registry_capability = definition.get("expected_compute_capability")
+    registry_sm = definition.get("expected_sm")
+    if not isinstance(model, str) or not isinstance(model_pattern, str) or not model_pattern:
+        raise SystemExit(f"{label}: GPU model/profile pattern missing")
+    try:
+        model_matches = re.fullmatch(model_pattern, model, flags=re.IGNORECASE) is not None
+    except re.error as exc:
+        raise SystemExit(f"{label}: invalid model regex in profile registry: {exc}") from exc
+    if not model_matches:
+        raise SystemExit(f"{label}: GPU model does not match profile registry")
+    if capability != registry_capability:
+        raise SystemExit(f"{label}: compute capability does not match profile registry")
+    if expected_sm != registry_sm:
+        raise SystemExit(f"{label}: native SM does not match profile registry")
+
+    embedded_identity = immutable_profile_identity(
+        payload.get("profile_definition"), f"{label}: embedded"
+    )
+    registry_identity = immutable_profile_identity(definition, f"{label}: registry")
+    if embedded_identity != registry_identity:
+        raise SystemExit(f"{label}: embedded profile definition does not match profile registry")
     return value
+
+
+def physical_preflight(payload: dict[str, Any], label: str, expected_profile: str) -> dict[str, Any]:
+    stages = payload.get("required_stages")
+    if not isinstance(stages, dict) or stages.get("physical_preflight") is not True:
+        raise SystemExit(f"{label}: physical preflight graduation stage missing")
+    receipt = payload.get("physical_preflight_validation")
+    if not isinstance(receipt, dict):
+        raise SystemExit(f"{label}: physical preflight receipt missing")
+    inventory = receipt.get("safe_gpu_inventory")
+    if not isinstance(inventory, dict):
+        raise SystemExit(f"{label}: physical preflight safe GPU inventory missing")
+    selected_index = receipt.get("selected_nvidia_smi_index")
+    if not isinstance(selected_index, int) or isinstance(selected_index, bool) or selected_index < 0:
+        raise SystemExit(f"{label}: invalid selected NVIDIA-SMI index in preflight")
+    result_gpu = payload.get("gpu")
+    if not isinstance(result_gpu, dict):
+        raise SystemExit(f"{label}: result GPU identity missing")
+    checks = {
+        "schema": receipt.get("schema") == _PREFLIGHT_SCHEMA,
+        "status": receipt.get("status") == "PASS",
+        "profile": receipt.get("profile") == expected_profile,
+        "canonical_expected": receipt.get("canonical_workload_expected") == _CANONICAL_WORKLOAD,
+        "canonical_observed": receipt.get("canonical_workload_observed") == _CANONICAL_WORKLOAD,
+        "canonical_match": receipt.get("canonical_workload_match") is True,
+        "full_gpu_required": receipt.get("full_gpu_required") is True,
+        "required_visible_count": receipt.get("required_nvidia_smi_visible_gpu_count") == 1,
+        "visible_count": receipt.get("nvidia_smi_visible_gpu_count") == 1,
+        "single_visible_gpu": receipt.get("single_visible_gpu_verified") is True,
+        "cuda_ordinal": receipt.get("cuda_device_ordinal") == 0,
+        "mapping": receipt.get("cuda_ordinal_zero_mapping_unambiguous") is True,
+        "inventory_index": inventory.get("index") == selected_index,
+        "inventory_model": inventory.get("name") == result_gpu.get("model"),
+        "inventory_cc": inventory.get("compute_capability") == result_gpu.get("compute_capability"),
+        "cuda_visible_value_private": receipt.get("cuda_visible_devices_value_published") is False,
+        "mig_acceptable": receipt.get("mig_mode_acceptable") is True,
+        "mig_disabled": receipt.get("mig_enabled") is False,
+        "not_partition": receipt.get("mig_partition_observed") is False,
+        "profile_model_match": receipt.get("profile_model_match") is True,
+        "profile_cc_match": receipt.get("profile_compute_capability_match") is True,
+        "performance_observation_only": receipt.get("performance_observation_only") is True,
+        "geometry_authority": receipt.get("geometry_receipt_authority") is False,
+        "universal_speedup": receipt.get("universal_speedup_claim") is False,
+        "uuid_not_queried": receipt.get("raw_device_uuid_queried") is False,
+        "uuid_not_published": receipt.get("raw_device_uuid_published") is False,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise SystemExit(f"{label}: invalid physical preflight receipt fields: {', '.join(failed)}")
+    return receipt
+
+
+def frozen_build_inputs(payload: dict[str, Any], label: str) -> dict[str, Any]:
+    stages = payload.get("required_stages")
+    if not isinstance(stages, dict) or stages.get("frozen_measured_build_inputs") is not True:
+        raise SystemExit(f"{label}: frozen measured build-input graduation stage missing")
+    receipt = payload.get("frozen_measured_build_input_validation")
+    if not isinstance(receipt, dict):
+        raise SystemExit(f"{label}: frozen measured build-input receipt missing")
+    checks = {
+        "schema": receipt.get("schema") == _BUILD_INPUT_SCHEMA,
+        "status": receipt.get("status") == "PASS",
+        "contract_map": receipt.get("contract_matches_frozen_expected_map") is True,
+        "expected_map": receipt.get("expected_git_blob_ids") == _FROZEN_BUILD_INPUTS,
+        "observed_map": receipt.get("observed_git_blob_ids") == _FROZEN_BUILD_INPUTS,
+        "match_flags": receipt.get("build_input_matches_expected") == {
+            key: True for key in _FROZEN_BUILD_INPUTS
+        },
+        "cmake_included": receipt.get("includes_cuda_cmake_target_definition") is True,
+        "event_header_included": receipt.get("includes_event_timing_compat_header") is True,
+        "inputs_frozen": receipt.get("measured_build_inputs_frozen_during_measurement") is True,
+        "performance_observation_only": receipt.get("performance_observation_only") is True,
+        "geometry_authority": receipt.get("geometry_receipt_authority") is False,
+        "universal_speedup": receipt.get("universal_speedup_claim") is False,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise SystemExit(f"{label}: invalid frozen measured build-input receipt fields: {', '.join(failed)}")
+    return receipt
 
 
 def source_commit(payload: dict[str, Any], label: str) -> str:
@@ -62,6 +228,8 @@ def canonical_workload(payload: dict[str, Any], label: str) -> dict[str, Any]:
     failed = [name for name, passed in checks.items() if not passed]
     if failed:
         raise SystemExit(f"{label}: incomplete/invalid canonical_workload fields: {', '.join(failed)}")
+    if value != _CANONICAL_WORKLOAD:
+        raise SystemExit(f"{label}: architecture result does not use the declared canonical workload")
     return value
 
 
@@ -118,6 +286,11 @@ def main() -> int:
     if left_profile == right_profile:
         raise SystemExit("architecture profiles must differ")
 
+    left_preflight = physical_preflight(left, "left", left_profile)
+    right_preflight = physical_preflight(right, "right", right_profile)
+    frozen_build_inputs(left, "left")
+    frozen_build_inputs(right, "right")
+
     left_commit = source_commit(left, "left")
     right_commit = source_commit(right, "right")
     if left_commit != right_commit:
@@ -140,15 +313,24 @@ def main() -> int:
         "status": "PASS",
         "source_commit": left_commit,
         "canonical_workload": left_workload,
+        "canonical_workload_required": True,
+        "full_gpu_profiles_required": True,
+        "physical_preflight_required": True,
+        "frozen_measured_build_inputs_required": True,
+        "cuda_ordinal_zero_mapping_must_be_unambiguous": True,
+        "profile_identity_fields": list(_PROFILE_IDENTITY_FIELDS),
+        "profile_lifecycle_status_is_identity": False,
         "left": {
             "profile": left_profile,
             "gpu": left.get("gpu"),
+            "physical_preflight_selected_nvidia_smi_index": left_preflight.get("selected_nvidia_smi_index"),
             "best_observed_candidate": left_best,
             "v31_diagnostic_digest": left_digest,
         },
         "right": {
             "profile": right_profile,
             "gpu": right.get("gpu"),
+            "physical_preflight_selected_nvidia_smi_index": right_preflight.get("selected_nvidia_smi_index"),
             "best_observed_candidate": right_best,
             "v31_diagnostic_digest": right_digest,
         },
