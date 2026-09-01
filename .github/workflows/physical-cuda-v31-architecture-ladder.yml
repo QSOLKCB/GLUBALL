@@ -1,0 +1,115 @@
+name: GLUBALL Runtime V3.1 architecture ladder
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_profile:
+        description: "Physical GPU profile"
+        required: true
+        default: "titan-xp"
+        type: choice
+        options:
+          - titan-xp
+          - h200
+      u_segments:
+        description: "Canonical comparison/tuning U segments"
+        required: true
+        default: "16384"
+        type: string
+      v_segments:
+        description: "Canonical comparison/tuning V segments"
+        required: true
+        default: "128"
+        type: string
+      warmup_iterations:
+        description: "Warmup iterations per process"
+        required: true
+        default: "20"
+        type: string
+      measured_iterations:
+        description: "Measured iterations per process"
+        required: true
+        default: "1000"
+        type: string
+      trials:
+        description: "Independent process trials per tuner candidate"
+        required: true
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gluball-runtime-v31-architecture-${{ inputs.target_profile }}
+  cancel-in-progress: false
+
+jobs:
+  physical-architecture:
+    runs-on: [self-hosted, linux, x64, gluball-vast-v31-architecture]
+    timeout-minutes: 240
+    env:
+      PROFILE: ${{ inputs.target_profile }}
+      EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout exact workflow ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Expose rented-host toolchains
+        run: |
+          set -eu
+          printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
+
+      - name: Resolve architecture profile
+        run: |
+          set -eu
+          case "$PROFILE" in
+            titan-xp) printf '%s\n' 'MODEL_FRAGMENT=TITAN Xp' >> "$GITHUB_ENV" ;;
+            h200) printf '%s\n' 'MODEL_FRAGMENT=H200' >> "$GITHUB_ENV" ;;
+            *) printf 'unsupported target profile: %s\n' "$PROFILE" >&2; exit 2 ;;
+          esac
+
+      - name: Run Runtime V3.1 architecture profile
+        id: campaign
+        continue-on-error: true
+        env:
+          U: ${{ inputs.u_segments }}
+          V: ${{ inputs.v_segments }}
+          WARMUP: ${{ inputs.warmup_iterations }}
+          ITERATIONS: ${{ inputs.measured_iterations }}
+          TRIALS: ${{ inputs.trials }}
+        run: sh scripts/run_cuda_runtime_v31_architecture_profile.sh
+
+      - name: Upload architecture evidence bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gluball-v31-architecture-${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_ROOT }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Require final PASS
+        if: always()
+        env:
+          CAMPAIGN_OUTCOME: ${{ steps.campaign.outcome }}
+        run: |
+          set -eu
+          if [ "$CAMPAIGN_OUTCOME" != "success" ]; then
+            printf 'architecture campaign step outcome: %s\n' "$CAMPAIGN_OUTCOME" >&2
+            exit 1
+          fi
+          test -s "$EVIDENCE_ROOT/BUNDLE_SHA256SUMS.txt"
+          (cd "$EVIDENCE_ROOT" && sha256sum -c BUNDLE_SHA256SUMS.txt)
+          python3 - "$EVIDENCE_ROOT/VALIDATION_STATUS.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          path = Path(sys.argv[1])
+          if not path.exists():
+              raise SystemExit("architecture campaign did not produce VALIDATION_STATUS.json")
+          payload = json.loads(path.read_text())
+          if payload.get("status") != "PASS":
+              raise SystemExit("Runtime V3.1 architecture campaign did not reach PASS")
+          PY

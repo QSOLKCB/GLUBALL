@@ -1,0 +1,81 @@
+{
+  "schema": "gluball-cuda-runtime-v31-architecture-ladder/1",
+  "contract": "GLUBALL-CUDA-RUNTIME-V3.1-ARCHITECTURE-LADDER",
+  "status": "post-pascal-graduation-cross-generation-physical-research",
+  "source_runtime_contract": "GLUBALL-CUDA-RUNTIME-V3.1",
+  "canonical_workload": {
+    "u_segments": 16384,
+    "v_segments": 128,
+    "repeats": 1,
+    "warmup_iterations": 20,
+    "measured_iterations": 1000,
+    "trials_per_candidate": 3,
+    "fixed_across_profiles": true
+  },
+  "runner_label": "gluball-vast-v31-architecture",
+  "completed_baseline": {
+    "profile": "gtx-1080-ti",
+    "status": "PASS",
+    "physical_run_id": 33453555600,
+    "source_commit": "32f2e74f83e8ea1d3abe6338486effe4895006f0",
+    "model": "NVIDIA GeForce GTX 1080 Ti",
+    "compute_capability": "6.1",
+    "compiled_cuda_arch_code": 610,
+    "artifact_id": 9780653297,
+    "artifact_sha256": "5d02e119e3fb4e32957a0c4c7492dcb839ccc782dcdcb851cb4a44fdb7e7a5be",
+    "best_observed_candidate": {
+      "block_size": 512,
+      "cuda_graphs": "off",
+      "reduction_mode": "two-stage",
+      "observed_wall_milliseconds_median_of_trials": 0.115679,
+      "observed_matched_v3_over_v31_wall_ratio": 1.0353305267161714,
+      "observed_v31_break_even_iterations_vs_matched_v3": 6
+    }
+  },
+  "next_profiles": [
+    {
+      "profile": "titan-xp",
+      "expected_model_fragment_case_insensitive": "TITAN Xp",
+      "device_class": "consumer/prosumer",
+      "architecture_family": "Pascal",
+      "compute_capability_discovered_at_runtime": true,
+      "status": "pending-physical-run"
+    },
+    {
+      "profile": "h200",
+      "expected_model_fragment_case_insensitive": "H200",
+      "device_class": "datacenter",
+      "architecture_family": "Hopper",
+      "compute_capability_discovered_at_runtime": true,
+      "status": "pending-physical-run"
+    }
+  ],
+  "required_per_profile_stages": [
+    "host_validation",
+    "v1_validation",
+    "atomic_equivalence",
+    "two_stage_equivalence",
+    "bounded_tuning",
+    "v31_sanitizer"
+  ],
+  "compiler_resource_telemetry": {
+    "ptxas_verbose_capture_attempted": true,
+    "graduation_gate": false,
+    "reason": "compiler resource-report formatting may vary by toolkit; the transcript is diagnostic evidence only"
+  },
+  "comparison_boundary": {
+    "same_source_commit_required_for_cross_profile_summary": true,
+    "same_canonical_workload_required_for_cross_profile_summary": true,
+    "cross_device_digest_equality_required": false,
+    "within_device_v3_v31_digest_equality_required": true,
+    "cross_hardware_timing_ratio_is_diagnostic_only": true,
+    "raw_float_bit_digest_is_geometry_authority": false
+  },
+  "claim_boundary": {
+    "performance_observation_only": true,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "raw_device_uuid_published": false,
+    "cross_device_portability_claim": false
+  }
+}
