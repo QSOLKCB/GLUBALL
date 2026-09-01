@@ -15,6 +15,7 @@ from typing import Any
 _SHA40 = re.compile(r"[0-9a-fA-F]{40}")
 _HEX64 = re.compile(r"[0-9a-fA-F]{16}")
 _PREFLIGHT_SCHEMA = "gluball-cuda-runtime-v31-physical-preflight/1"
+_BUILD_INPUT_SCHEMA = "gluball-cuda-runtime-v31-frozen-build-input-validation/1"
 _PROFILE_REGISTRY = (
     Path(__file__).resolve().parents[1] / "docs" / "CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
 )
@@ -34,6 +35,13 @@ _CANONICAL_WORKLOAD = {
     "measured_iterations": 1000,
     "trials_per_candidate": 3,
     "fixed_across_profiles": True,
+}
+_FROZEN_BUILD_INPUTS = {
+    "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+    "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+    "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874",
 }
 
 
@@ -163,6 +171,35 @@ def physical_preflight(payload: dict[str, Any], label: str, expected_profile: st
     return receipt
 
 
+def frozen_build_inputs(payload: dict[str, Any], label: str) -> dict[str, Any]:
+    stages = payload.get("required_stages")
+    if not isinstance(stages, dict) or stages.get("frozen_measured_build_inputs") is not True:
+        raise SystemExit(f"{label}: frozen measured build-input graduation stage missing")
+    receipt = payload.get("frozen_measured_build_input_validation")
+    if not isinstance(receipt, dict):
+        raise SystemExit(f"{label}: frozen measured build-input receipt missing")
+    checks = {
+        "schema": receipt.get("schema") == _BUILD_INPUT_SCHEMA,
+        "status": receipt.get("status") == "PASS",
+        "contract_map": receipt.get("contract_matches_frozen_expected_map") is True,
+        "expected_map": receipt.get("expected_git_blob_ids") == _FROZEN_BUILD_INPUTS,
+        "observed_map": receipt.get("observed_git_blob_ids") == _FROZEN_BUILD_INPUTS,
+        "match_flags": receipt.get("build_input_matches_expected") == {
+            key: True for key in _FROZEN_BUILD_INPUTS
+        },
+        "cmake_included": receipt.get("includes_cuda_cmake_target_definition") is True,
+        "event_header_included": receipt.get("includes_event_timing_compat_header") is True,
+        "inputs_frozen": receipt.get("measured_build_inputs_frozen_during_measurement") is True,
+        "performance_observation_only": receipt.get("performance_observation_only") is True,
+        "geometry_authority": receipt.get("geometry_receipt_authority") is False,
+        "universal_speedup": receipt.get("universal_speedup_claim") is False,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise SystemExit(f"{label}: invalid frozen measured build-input receipt fields: {', '.join(failed)}")
+    return receipt
+
+
 def source_commit(payload: dict[str, Any], label: str) -> str:
     value = payload.get("source_commit")
     if not isinstance(value, str) or _SHA40.fullmatch(value) is None:
@@ -250,6 +287,8 @@ def main() -> int:
 
     left_preflight = physical_preflight(left, "left", left_profile)
     right_preflight = physical_preflight(right, "right", right_profile)
+    frozen_build_inputs(left, "left")
+    frozen_build_inputs(right, "right")
 
     left_commit = source_commit(left, "left")
     right_commit = source_commit(right, "right")
@@ -276,6 +315,7 @@ def main() -> int:
         "canonical_workload_required": True,
         "full_gpu_profiles_required": True,
         "physical_preflight_required": True,
+        "frozen_measured_build_inputs_required": True,
         "cuda_ordinal_zero_mapping_must_be_unambiguous": True,
         "profile_identity_fields": list(_PROFILE_IDENTITY_FIELDS),
         "profile_lifecycle_status_is_identity": False,
