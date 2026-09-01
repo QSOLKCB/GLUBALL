@@ -21,6 +21,8 @@ on:
       - "scripts/verify_cuda_v1_campaign.py"
       - "scripts/finalize_cuda_runtime_v31_architecture.py"
       - "scripts/compare_cuda_runtime_v31_architecture_results.py"
+      - "scripts/verify_cuda_runtime_v31_frozen_build_inputs.py"
+      - "scripts/bind_cuda_runtime_v31_frozen_build_inputs.py"
       - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
@@ -44,6 +46,7 @@ on:
       - "tests/cuda-runtime-v31.mjs"
       - "tests/cuda-runtime-v31-workflow.mjs"
       - "tests/cuda-runtime-v31-architecture-ladder.mjs"
+      - "tests/cuda-runtime-v31-architecture-review-hardening.mjs"
       - "tests/phase5c-multigpu-actions.mjs"
       - ".github/workflows/physical-cuda-v31-efficiency.yml"
       - ".github/workflows/physical-cuda-v31-architecture-ladder.yml"
@@ -68,6 +71,8 @@ on:
       - "scripts/verify_cuda_v1_campaign.py"
       - "scripts/finalize_cuda_runtime_v31_architecture.py"
       - "scripts/compare_cuda_runtime_v31_architecture_results.py"
+      - "scripts/verify_cuda_runtime_v31_frozen_build_inputs.py"
+      - "scripts/bind_cuda_runtime_v31_frozen_build_inputs.py"
       - "scripts/run_phase5c_multigpu_scaling.sh"
       - "runtime/vast/**"
       - "research/glueball/**"
@@ -91,6 +96,7 @@ on:
       - "tests/cuda-runtime-v31.mjs"
       - "tests/cuda-runtime-v31-workflow.mjs"
       - "tests/cuda-runtime-v31-architecture-ladder.mjs"
+      - "tests/cuda-runtime-v31-architecture-review-hardening.mjs"
       - "tests/phase5c-multigpu-actions.mjs"
       - ".github/workflows/physical-cuda-v31-efficiency.yml"
       - ".github/workflows/physical-cuda-v31-architecture-ladder.yml"
@@ -126,6 +132,7 @@ jobs:
           test -s native/cuda/gluball_runtime_v2.cu
           test -s native/cuda/gluball_runtime_v3.cu
           test -s native/cuda/gluball_runtime_v31.cu
+          test -s native/cuda/gluball_runtime_v2_event_compat.cuh
           grep -q 'GLUBALL-MULTI-DEVICE-CUDA-V1' native/cuda/gluball_multi_device.cu
           grep -q 'cudaGetDeviceCount' native/cuda/gluball_multi_device.cu
           grep -q 'cudaStreamCreateWithFlags' native/cuda/gluball_multi_device.cu
@@ -138,6 +145,7 @@ jobs:
           ! grep -q '"device_uuid"' native/cuda/gluball_multi_device.cu
           grep -q 'GLUBALL-CUDA-F32LE-XYZR-V1' native/cuda/gluball_evidence.cu
           grep -q 'gluball-cuda-evidence' native/cuda/CMakeLists.txt
+          grep -q 'gluball_runtime_v2_event_compat.cuh' native/cuda/CMakeLists.txt
           grep -q 'reference_residual_checked\\\": false' native/cuda/gluball_evidence.cu
           grep -q 'conformance_acceptance\\\": false' native/cuda/gluball_evidence.cu
           grep -q 'GLUBALL-CUDA-ACCEPTANCE-V1' runtime/rust/cuda_accept.rs
@@ -150,6 +158,7 @@ jobs:
           node tests/cuda-runtime-v31.mjs
           node tests/cuda-runtime-v31-workflow.mjs
           node tests/cuda-runtime-v31-architecture-ladder.mjs
+          node tests/cuda-runtime-v31-architecture-review-hardening.mjs
           node tests/phase5c-multigpu-actions.mjs
       - name: Host script syntax
         run: |
@@ -167,6 +176,8 @@ jobs:
           python3 -m py_compile scripts/verify_cuda_v1_campaign.py
           python3 -m py_compile scripts/finalize_cuda_runtime_v31_architecture.py
           python3 -m py_compile scripts/compare_cuda_runtime_v31_architecture_results.py
+          python3 -m py_compile scripts/verify_cuda_runtime_v31_frozen_build_inputs.py
+          python3 -m py_compile scripts/bind_cuda_runtime_v31_frozen_build_inputs.py
       - name: Frozen and post-v1 runtime checks
         run: |
           cargo test --all-targets
