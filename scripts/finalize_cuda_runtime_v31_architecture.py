@@ -6,8 +6,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
+
+
+_PROFILE_SCHEMA = "gluball-cuda-runtime-v31-architecture-profile-definition/1"
+_CC_PATTERN = re.compile(r"[0-9]+\.[0-9]+")
+_SM_PATTERN = re.compile(r"sm_[0-9]+")
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -26,6 +32,38 @@ def read_text(path: Path) -> str | None:
     return path.read_text(errors="replace").strip()
 
 
+def validated_profile_definition(payload: dict[str, Any] | None, profile: str) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("schema") != _PROFILE_SCHEMA or payload.get("profile") != profile:
+        return None
+    definition = payload.get("definition")
+    if not isinstance(definition, dict):
+        return None
+    required_strings = (
+        "expected_model_regex_case_insensitive",
+        "expected_compute_capability",
+        "expected_sm",
+        "architecture_family",
+        "device_class",
+        "measurement_role",
+        "status",
+    )
+    if any(not isinstance(definition.get(key), str) or not definition[key] for key in required_strings):
+        return None
+    try:
+        re.compile(definition["expected_model_regex_case_insensitive"], flags=re.IGNORECASE)
+    except re.error:
+        return None
+    capability = definition["expected_compute_capability"]
+    expected_sm = definition["expected_sm"]
+    if _CC_PATTERN.fullmatch(capability) is None or _SM_PATTERN.fullmatch(expected_sm) is None:
+        return None
+    if expected_sm != f"sm_{capability.replace('.', '')}":
+        return None
+    return definition
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
@@ -40,8 +78,11 @@ def main() -> int:
     root = args.root
     root.mkdir(parents=True, exist_ok=True)
 
-    markers = {
-        "profile_definition": root / "PROFILE_DEFINITION.json",
+    profile_payload = load_json(root / "PROFILE_DEFINITION.json")
+    profile_definition = validated_profile_definition(profile_payload, args.profile)
+
+    marker_paths = {
+        "frozen_runtime_sources": root / "FROZEN_RUNTIME_SOURCES.ok",
         "host_validation": root / "HOST_VALIDATION.ok",
         "v1_validation": root / "V1_VALIDATION.ok",
         "atomic_equivalence": root / "ab-atomic" / "EQUIVALENCE.json",
@@ -49,23 +90,18 @@ def main() -> int:
         "bounded_tuning": root / "tuning" / "TUNING_RESULT.json",
         "v31_sanitizer": root / "V31_SANITIZER.ok",
     }
-    required = {key: path.exists() for key, path in markers.items()}
+    required = {"profile_definition": profile_definition is not None}
+    required.update({key: path.exists() for key, path in marker_paths.items()})
     status = "PASS" if all(required.values()) else "FAIL"
     completed = [key for key, present in required.items() if present]
     first_incomplete = next((key for key, present in required.items() if not present), None)
-
-    profile_payload = load_json(root / "PROFILE_DEFINITION.json")
-    profile_definition = (
-        profile_payload.get("definition") if isinstance(profile_payload, dict) else None
-    )
-    if not isinstance(profile_definition, dict):
-        profile_definition = None
 
     v1 = load_json(root / "v1-acceptance" / "V1_VALIDATION.json")
     atomic = load_json(root / "ab-atomic" / "EQUIVALENCE.json")
     two_stage = load_json(root / "ab-two-stage" / "EQUIVALENCE.json")
     tuning = load_json(root / "tuning" / "TUNING_RESULT.json")
     resource = load_json(root / "compiler-resources" / "RESOURCE_CAPTURE_STATUS.json")
+    frozen_sources = load_json(root / "FROZEN_RUNTIME_SOURCE_VALIDATION.json")
 
     model = read_text(root / "SELECTED_GPU_MODEL.txt")
     capability = read_text(root / "EXPECTED_COMPUTE_CAPABILITY.txt")
@@ -82,6 +118,7 @@ def main() -> int:
         "profile": args.profile,
         "profile_definition": profile_definition,
         "source_commit": source_commit,
+        "frozen_runtime_source_validation": frozen_sources,
         "gpu": {
             "model": model,
             "compute_capability": capability,
@@ -161,7 +198,9 @@ def main() -> int:
         "schema": "gluball-runtime-v31-architecture-status/1",
         "status": status,
         "profile": args.profile,
-        "profile_definition_present": profile_definition is not None,
+        "profile_definition_present": profile_payload is not None,
+        "profile_definition_valid": profile_definition is not None,
+        "frozen_runtime_source_validation_present": frozen_sources is not None,
         "required_markers": required,
         "completed_required_stages": completed,
         "first_incomplete_required_stage": first_incomplete,
