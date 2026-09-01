@@ -129,6 +129,8 @@ assert.match(comparator, /GPU model does not match profile registry/);
 assert.match(comparator, /embedded profile definition does not match profile registry/);
 assert.match(comparator, /compute capability does not match profile registry/);
 assert.match(comparator, /native SM does not match profile registry/);
+assert.match(comparator, /physical preflight graduation stage missing/);
+assert.match(comparator, /physical preflight receipt missing/);
 assert.match(comparator, /same source commit/);
 assert.match(comparator, /source_commit must be a 40-hex commit identifier/);
 assert.match(comparator, /same canonical workload/);
@@ -201,6 +203,57 @@ assert.match(docs, /Marketplace instance IDs, prices and availability are extern
 assert.match(docs, /cross_device_digest_equality_required:\s+false/);
 assert.match(docs, /within_device_v3_v31_digest_equality:\s+required/);
 
+const canonicalWorkload = {
+  u_segments: 16384,
+  v_segments: 128,
+  repeats: 1,
+  warmup_iterations: 20,
+  measured_iterations: 1000,
+  trials_per_candidate: 3,
+  fixed_across_profiles: true,
+};
+
+const makePreflight = (profile, model, cc, index = 0) => ({
+  schema: "gluball-cuda-runtime-v31-physical-preflight/1",
+  status: "PASS",
+  profile,
+  canonical_workload_expected: { ...canonicalWorkload },
+  canonical_workload_observed: { ...canonicalWorkload },
+  canonical_workload_match: true,
+  full_gpu_required: true,
+  required_nvidia_smi_visible_gpu_count: 1,
+  nvidia_smi_visible_gpu_count: 1,
+  single_visible_gpu_verified: true,
+  cuda_device_ordinal: 0,
+  cuda_ordinal_zero_mapping_unambiguous: true,
+  selected_nvidia_smi_index: index,
+  cuda_visible_devices_set: false,
+  cuda_visible_devices_value_published: false,
+  mig_capable_profile: Number(cc.split(".")[0]) >= 8,
+  mig_query_supported: Number(cc.split(".")[0]) >= 8,
+  mig_query_exit_code: 0,
+  mig_query_error: null,
+  identity_query_exit_code: 0,
+  identity_query_error: null,
+  mig_mode_current: Number(cc.split(".")[0]) >= 8 ? "Disabled" : "not-applicable-query-unavailable",
+  mig_mode_acceptable: true,
+  mig_enabled: false,
+  mig_partition_observed: false,
+  safe_gpu_inventory: {
+    index,
+    name: model,
+    compute_capability: cc,
+    memory_total_mib: "16384",
+  },
+  profile_model_match: true,
+  profile_compute_capability_match: true,
+  performance_observation_only: true,
+  geometry_receipt_authority: false,
+  universal_speedup_claim: false,
+  raw_device_uuid_queried: false,
+  raw_device_uuid_published: false,
+});
+
 const temp = await mkdtemp(join(tmpdir(), "gluball-v31-arch-"));
 try {
   const base = {
@@ -210,15 +263,9 @@ try {
     profile_definition: profiles.profiles.v100,
     source_commit: "a".repeat(40),
     gpu: { model: "NVIDIA Tesla V100-PCIE-16GB", compute_capability: "7.0", expected_sm: "sm_70" },
-    canonical_workload: {
-      u_segments: 16384,
-      v_segments: 128,
-      repeats: 1,
-      warmup_iterations: 20,
-      measured_iterations: 1000,
-      trials_per_candidate: 3,
-      fixed_across_profiles: true,
-    },
+    canonical_workload: { ...canonicalWorkload },
+    required_stages: { physical_preflight: true },
+    physical_preflight_validation: makePreflight("v100", "NVIDIA Tesla V100-PCIE-16GB", "7.0"),
     bounded_tuning: {
       status: "PASS",
       best_observed_candidate_within_declared_set: {
@@ -236,6 +283,7 @@ try {
   right.profile = "h200";
   right.profile_definition = profiles.profiles.h200;
   right.gpu = { model: "NVIDIA H200 NVL", compute_capability: "9.0", expected_sm: "sm_90" };
+  right.physical_preflight_validation = makePreflight("h200", "NVIDIA H200 NVL", "9.0");
   right.atomic_equivalence.diagnostic_digests.v31 = "fedcba9876543210";
   right.bounded_tuning.best_observed_candidate_within_declared_set.observed_wall_milliseconds_median_of_trials = 0.01;
 
@@ -252,6 +300,19 @@ try {
   const compared = JSON.parse(good.stdout);
   assert.equal(compared.cross_device_digest_match_observed, false);
   assert.equal(compared.cross_device_digest_observation_available, true);
+  assert.equal(compared.physical_preflight_required, true);
+
+  const missingPreflight = JSON.parse(JSON.stringify(base));
+  delete missingPreflight.physical_preflight_validation;
+  assert.notEqual((await runComparator(missingPreflight, right)).status, 0);
+
+  const missingPreflightStage = JSON.parse(JSON.stringify(base));
+  delete missingPreflightStage.required_stages.physical_preflight;
+  assert.notEqual((await runComparator(missingPreflightStage, right)).status, 0);
+
+  const mismatchedPreflightModel = JSON.parse(JSON.stringify(base));
+  mismatchedPreflightModel.physical_preflight_validation.safe_gpu_inventory.name = "NVIDIA Tesla T4";
+  assert.notEqual((await runComparator(mismatchedPreflightModel, right)).status, 0);
 
   const gv100 = JSON.parse(JSON.stringify(base));
   gv100.gpu.model = "NVIDIA Quadro GV100";
