@@ -14,7 +14,22 @@ from typing import Any
 
 _SHA40 = re.compile(r"[0-9a-fA-F]{40}")
 _HEX64 = re.compile(r"[0-9a-fA-F]{16}")
-_ALLOWED_PROFILES = {"titan-xp", "h200"}
+_PROFILE_REGISTRY = (
+    Path(__file__).resolve().parents[1] / "docs" / "CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
+)
+
+
+def load_profile_registry() -> dict[str, dict[str, Any]]:
+    payload = json.loads(_PROFILE_REGISTRY.read_text())
+    if payload.get("schema") != "gluball-cuda-runtime-v31-architecture-profiles/1":
+        raise SystemExit("architecture profile registry has unexpected schema")
+    profiles = payload.get("profiles")
+    if not isinstance(profiles, dict) or not profiles:
+        raise SystemExit("architecture profile registry has no profiles")
+    return profiles
+
+
+_PROFILE_DEFINITIONS = load_profile_registry()
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -30,8 +45,24 @@ def load(path: Path) -> dict[str, Any]:
 
 def profile(payload: dict[str, Any], label: str) -> str:
     value = payload.get("profile")
-    if value not in _ALLOWED_PROFILES:
+    if not isinstance(value, str) or value not in _PROFILE_DEFINITIONS:
         raise SystemExit(f"{label}: invalid or missing architecture profile")
+    definition = _PROFILE_DEFINITIONS[value]
+    gpu = payload.get("gpu")
+    if not isinstance(gpu, dict):
+        raise SystemExit(f"{label}: gpu identity object missing")
+    model = gpu.get("model")
+    capability = gpu.get("compute_capability")
+    expected_sm = gpu.get("expected_sm")
+    fragment = definition.get("expected_model_fragment_case_insensitive")
+    registry_capability = definition.get("expected_compute_capability")
+    registry_sm = definition.get("expected_sm")
+    if not isinstance(model, str) or not isinstance(fragment, str) or fragment.casefold() not in model.casefold():
+        raise SystemExit(f"{label}: GPU model does not match profile registry")
+    if capability != registry_capability:
+        raise SystemExit(f"{label}: compute capability does not match profile registry")
+    if expected_sm != registry_sm:
+        raise SystemExit(f"{label}: native SM does not match profile registry")
     return value
 
 
