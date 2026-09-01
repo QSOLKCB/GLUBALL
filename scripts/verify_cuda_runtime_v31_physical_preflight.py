@@ -19,6 +19,7 @@ _SCHEMA = "gluball-cuda-runtime-v31-physical-preflight/1"
 _PROFILE_SCHEMA = "gluball-cuda-runtime-v31-architecture-profiles/1"
 _LADDER_SCHEMA = "gluball-cuda-runtime-v31-architecture-ladder/1"
 _REQUIRED_VISIBLE_GPU_COUNT = 1
+_CC_PATTERN = re.compile(r"[0-9]+\.[0-9]+")
 
 
 def load_object(path: Path, schema: str, label: str) -> dict[str, Any]:
@@ -40,7 +41,10 @@ def run_smi(fields: str) -> tuple[int, str, str | None]:
         f"--query-gpu={fields}",
         "--format=csv,noheader,nounits",
     ]
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    try:
+        completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    except OSError as exc:
+        return 127, "", f"nvidia-smi unavailable: {exc}"
     return completed.returncode, completed.stdout.strip(), completed.stderr.strip() or None
 
 
@@ -91,6 +95,10 @@ def main() -> int:
         raise SystemExit("profile model regex missing")
     if not isinstance(expected_cc, str) or not expected_cc:
         raise SystemExit("profile compute capability missing")
+    if _CC_PATTERN.fullmatch(expected_cc) is None:
+        raise SystemExit(
+            f"profile {args.profile} has malformed compute capability: {expected_cc!r}"
+        )
 
     canonical = ladder.get("canonical_workload")
     if not isinstance(canonical, dict):
@@ -171,7 +179,7 @@ def main() -> int:
             mig_mode = full_rows[0][4]
             mig_query_supported = True
 
-    cc_major = int(expected_cc.split(".", 1)[0]) if expected_cc.split(".", 1)[0].isdigit() else 0
+    cc_major = int(expected_cc.split(".", 1)[0])
     mig_capable_profile = cc_major >= 8
     normalized_mode = (mig_mode or "").strip().casefold()
     mig_enabled = normalized_mode == "enabled"
