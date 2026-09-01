@@ -30,6 +30,20 @@ No Runtime V1, V2, V3 or V3.1 CUDA implementation change belongs inside the V100
 
 The five post-PR20 measurements should be dispatched from the same merged `main` commit. That preserves both the exact-source comparator gate and the fixed-workload interpretation.
 
+Same-commit comparison is not the only source-integrity gate. Before any physical measurement begins, the runner recomputes the Git blob identity of the checked-out Runtime V2, V3 and V3.1 source files and requires the exact frozen values above. It also requires the machine-readable ladder contract to contain that same frozen map. The result is archived as:
+
+```text
+FROZEN_RUNTIME_SOURCE_VALIDATION.json
+```
+
+and successful validation creates:
+
+```text
+FROZEN_RUNTIME_SOURCES.ok
+```
+
+Frozen-source validation is a graduation gate for every post-PR20 physical run.
+
 ## Completed physical anchors
 
 The original GTX 1080 Ti Runtime V3.1 graduation remains the baseline:
@@ -72,24 +86,27 @@ docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
 
 The workflow, physical runner, tests and cross-profile comparator use this registry instead of maintaining independent model/SM tables.
 
-Current profiles are:
+Each profile contains an anchored, case-insensitive model regular expression plus its exact compute capability and native SM. In particular, the V100 rule is anchored to the V100 product name and therefore does **not** accept a Quadro GV100 simply because both devices are `sm_70`.
+
+Conceptually the registry binds:
 
 ```text
-titan-xp  -> model contains "TITAN Xp" -> 6.1  -> sm_61   Pascal
-v100      -> model contains "V100"     -> 7.0  -> sm_70   Volta
-t4        -> model contains "T4"       -> 7.5  -> sm_75   Turing
-a100      -> model contains "A100"     -> 8.0  -> sm_80   Ampere
-h200      -> model contains "H200"     -> 9.0  -> sm_90   Hopper
-b200      -> model contains "B200"     -> 10.0 -> sm_100  Blackwell
+titan-xp  -> TITAN Xp product identity -> 6.1  -> sm_61   Pascal
+v100      -> V100 product identity     -> 7.0  -> sm_70   Volta
+t4        -> T4 product identity       -> 7.5  -> sm_75   Turing
+a100      -> A100 product identity     -> 8.0  -> sm_80   Ampere
+h200      -> H200 product identity     -> 9.0  -> sm_90   Hopper
+b200      -> B200 product identity     -> 10.0 -> sm_100  Blackwell
 ```
 
-A physical campaign must satisfy all three identity checks before expensive work begins:
+A physical campaign must satisfy all identity checks before expensive work begins:
 
-1. the actual GPU model contains the registry model fragment, case-insensitively;
+1. the actual GPU model fully matches the profile's anchored case-insensitive model regex;
 2. the physical compute capability equals the registry capability;
-3. the discovered native `sm_XX` equals the registry SM and is advertised by the installed CUDA toolkit.
+3. the discovered native `sm_XX` equals the registry SM;
+4. the installed CUDA toolkit advertises both the corresponding `compute_XX` and native `sm_XX` targets.
 
-The exact profile definition used by a run is archived as `PROFILE_DEFINITION.json` inside its evidence bundle and is required for final PASS.
+The exact profile definition used by a run is archived as `PROFILE_DEFINITION.json`. Finalization parses and semantically validates that record, including schema, matching profile name, model regex, compute capability, native SM consistency and required metadata. Mere file existence is not sufficient for PASS.
 
 ## One workflow, reusable rental loop
 
@@ -158,14 +175,16 @@ The fixed workload is intentional. Architecture-specific saturation experiments 
 
 Every post-PR20 profile must complete:
 
-1. profile-definition binding and safe host/CUDA provenance;
-2. bounded V1 full-readback correctness acceptance with three repeat runs;
-3. shared V2/V3/V3.1 observations plus exact same-device V3/V3.1 digest equivalence in atomic mode;
-4. the same comparison in two-stage mode;
-5. all 24 Runtime V3.1 tuner candidates with 12 matched Runtime V3 baselines;
-6. direct Runtime V3.1 memcheck and racecheck for both reduction modes;
-7. compiler-resource telemetry capture where available;
-8. machine-readable finalization and SHA-256 bundle manifest.
+1. semantic profile-definition binding;
+2. exact frozen Runtime V2/V3/V3.1 Git-blob validation;
+3. safe host/CUDA provenance and exact GPU identity validation;
+4. bounded V1 full-readback correctness acceptance with three repeat runs;
+5. shared V2/V3/V3.1 observations plus exact same-device V3/V3.1 digest equivalence in atomic mode;
+6. the same comparison in two-stage mode;
+7. all 24 Runtime V3.1 tuner candidates with 12 matched Runtime V3 baselines;
+8. direct Runtime V3.1 memcheck and racecheck for both reduction modes;
+9. compiler-resource telemetry capture where available;
+10. machine-readable finalization and SHA-256 bundle manifest.
 
 The V1 evidence path remains the correctness authority. Runtime V2/V3/V3.1 throughput observations remain non-authoritative for geometry.
 
@@ -194,7 +213,8 @@ ARCHITECTURE_RESULT.json
 which binds:
 
 - source commit;
-- profile name and archived profile definition;
+- validated frozen Runtime V2/V3/V3.1 source identities;
+- profile name and semantically validated archived profile definition;
 - safe GPU model, compute capability and native SM;
 - canonical workload;
 - V1 repeatability summary;
@@ -221,6 +241,7 @@ The comparator requires:
 ```text
 both individual profile results PASS
 both identities valid against the checked-in profile registry
+both embedded profile definitions equal their checked-in registry definitions
 same source commit
 same canonical workload
 valid within-device V3/V3.1 diagnostic equivalence
