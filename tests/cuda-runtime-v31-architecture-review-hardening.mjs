@@ -45,21 +45,65 @@ assert.ok(
   "build-input receipt must be bound before artifact upload",
 );
 
+const canonicalWorkload = {
+  u_segments: 16384,
+  v_segments: 128,
+  repeats: 1,
+  warmup_iterations: 20,
+  measured_iterations: 1000,
+  trials_per_candidate: 3,
+  fixed_across_profiles: true,
+};
+
+const makePreflight = (profile, model, cc, index = 0) => ({
+  schema: "gluball-cuda-runtime-v31-physical-preflight/1",
+  status: "PASS",
+  profile,
+  canonical_workload_expected: { ...canonicalWorkload },
+  canonical_workload_observed: { ...canonicalWorkload },
+  canonical_workload_match: true,
+  full_gpu_required: true,
+  required_nvidia_smi_visible_gpu_count: 1,
+  nvidia_smi_visible_gpu_count: 1,
+  single_visible_gpu_verified: true,
+  cuda_device_ordinal: 0,
+  cuda_ordinal_zero_mapping_unambiguous: true,
+  selected_nvidia_smi_index: index,
+  cuda_visible_devices_set: false,
+  cuda_visible_devices_value_published: false,
+  mig_capable_profile: Number(cc.split(".")[0]) >= 8,
+  mig_query_supported: Number(cc.split(".")[0]) >= 8,
+  mig_query_exit_code: 0,
+  mig_query_error: null,
+  identity_query_exit_code: 0,
+  identity_query_error: null,
+  mig_mode_current: Number(cc.split(".")[0]) >= 8 ? "Disabled" : "not-applicable-query-unavailable",
+  mig_mode_acceptable: true,
+  mig_enabled: false,
+  mig_partition_observed: false,
+  safe_gpu_inventory: {
+    index,
+    name: model,
+    compute_capability: cc,
+    memory_total_mib: "16384",
+  },
+  profile_model_match: true,
+  profile_compute_capability_match: true,
+  performance_observation_only: true,
+  geometry_receipt_authority: false,
+  universal_speedup_claim: false,
+  raw_device_uuid_queried: false,
+  raw_device_uuid_published: false,
+});
+
 const temp = await mkdtemp(join(tmpdir(), "gluball-v31-review-hardening-"));
 try {
   const common = {
     schema: "gluball-cuda-runtime-v31-architecture-result/1",
     status: "PASS",
     source_commit: "a".repeat(40),
-    canonical_workload: {
-      u_segments: 16384,
-      v_segments: 128,
-      repeats: 1,
-      warmup_iterations: 20,
-      measured_iterations: 1000,
-      trials_per_candidate: 3,
-      fixed_across_profiles: true,
-    },
+    canonical_workload: { ...canonicalWorkload },
+    required_stages: { physical_preflight: true },
     bounded_tuning: {
       status: "PASS",
       best_observed_candidate_within_declared_set: {
@@ -78,12 +122,14 @@ try {
     profile: "v100",
     profile_definition: structuredClone(profiles.profiles.v100),
     gpu: { model: "NVIDIA Tesla V100-PCIE-16GB", compute_capability: "7.0", expected_sm: "sm_70" },
+    physical_preflight_validation: makePreflight("v100", "NVIDIA Tesla V100-PCIE-16GB", "7.0"),
   };
   const right = {
     ...structuredClone(common),
     profile: "h200",
     profile_definition: structuredClone(profiles.profiles.h200),
     gpu: { model: "NVIDIA H200 NVL", compute_capability: "9.0", expected_sm: "sm_90" },
+    physical_preflight_validation: makePreflight("h200", "NVIDIA H200 NVL", "9.0"),
   };
   right.atomic_equivalence.diagnostic_digests.v31 = "fedcba9876543210";
 
@@ -96,6 +142,14 @@ try {
   };
 
   assert.equal((await runComparator(left, right)).status, 0);
+
+  const missingPreflight = structuredClone(left);
+  delete missingPreflight.physical_preflight_validation;
+  assert.notEqual((await runComparator(missingPreflight, right)).status, 0);
+
+  const invalidPreflight = structuredClone(left);
+  invalidPreflight.physical_preflight_validation.cuda_ordinal_zero_mapping_unambiguous = false;
+  assert.notEqual((await runComparator(invalidPreflight, right)).status, 0);
 
   const changedLifecycle = structuredClone(left);
   changedLifecycle.profile_definition.status = "completed-physical-run";
