@@ -1,28 +1,97 @@
 # GLUBALL CUDA Runtime V3.1 Architecture Ladder
 
-This campaign extends the accepted Runtime V3.1 physical program from the GTX 1080 Ti baseline to two deliberately distant hardware classes:
+This campaign measures the same frozen Runtime V2/V3/V3.1 workload across a deliberately broad NVIDIA architecture ladder.
+
+The physical sequence is:
 
 ```text
-Titan Xp  -> low-cost Pascal follow-up
-H200      -> high-end Hopper datacenter follow-up
+sm_61   GTX 1080 Ti   Pascal     completed baseline
+sm_61   Titan Xp      Pascal     completed follow-up
+sm_70   V100          Volta      next measurement
+sm_75   T4            Turing     next measurement
+sm_80   A100          Ampere     next measurement
+sm_90   H200          Hopper     next measurement
+sm_100  B200          Blackwell  next measurement
 ```
 
-The purpose is not to turn two rental results into a universal GPU ranking. The purpose is to observe how the same Runtime V2/V3/V3.1 workload, reduction topology, launch shape and compiler resource footprint behave across a much wider hardware envelope.
+The purpose is not to turn rented GPU timings into a universal ranking. The purpose is to observe how one fixed Runtime V3.1 experiment behaves as execution hardware evolves from Pascal through Blackwell.
 
-## Frozen starting point
+## Frozen runtime target
 
-The architecture ladder begins after the accepted GTX 1080 Ti Runtime V3.1 campaign:
+Runtime implementation source is frozen while the post-PR20 ladder is measured:
+
+```text
+Runtime V2 blob    12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1
+Runtime V3 blob    dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0
+Runtime V3.1 blob  045fbf37725beb5d65b2332309626ccfa727f874
+```
+
+No Runtime V1, V2, V3 or V3.1 CUDA implementation change belongs inside the V100/T4/A100/H200/B200 measurement sequence.
+
+The five post-PR20 measurements should be dispatched from the same merged `main` commit. That preserves both the exact-source comparator gate and the fixed-workload interpretation.
+
+## Completed physical anchors
+
+The original GTX 1080 Ti Runtime V3.1 graduation remains the baseline:
 
 ```text
 run:       33453555600
 source:    32f2e74f83e8ea1d3abe6338486effe4895006f0
 artifact:  9780653297
 sha256:    5d02e119e3fb4e32957a0c4c7492dcb839ccc782dcdcb851cb4a44fdb7e7a5be
+winner:    block 512 / graphs off / two-stage
 ```
 
-That run established the V3.1 physical baseline, including V1 correctness acceptance, atomic/two-stage equivalence, the full 24-candidate tuner, and clean Runtime V3.1 memcheck/racecheck in both reduction modes.
+The independent Titan Xp Pascal follow-up also completed successfully:
 
-## One workflow, two profiles
+```text
+run:       33462064226
+source:    93f8eaab5485725ef18d7bb2b21e75121b27fdab
+artifact:  9783551996
+sha256:    4461c245997982a576707e1e33f36d530798173758f5bbb42aa0a67cd18de4ea
+winner:    block 256 / graphs off / atomic
+```
+
+Both Pascal specimens observed the same diagnostic relationship:
+
+```text
+V2    1e15cffd50e6f653
+V3    1e206a0f3b649b9a
+V3.1  1e206a0f3b649b9a
+```
+
+V2/V3 raw-float digest equality is not required. Exact same-device V3/V3.1 digest equality remains required.
+
+## Machine-readable profile registry
+
+The canonical profile definitions live in:
+
+```text
+docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
+```
+
+The workflow, physical runner, tests and cross-profile comparator use this registry instead of maintaining independent model/SM tables.
+
+Current profiles are:
+
+```text
+titan-xp  -> model contains "TITAN Xp" -> 6.1  -> sm_61   Pascal
+v100      -> model contains "V100"     -> 7.0  -> sm_70   Volta
+t4        -> model contains "T4"       -> 7.5  -> sm_75   Turing
+a100      -> model contains "A100"     -> 8.0  -> sm_80   Ampere
+h200      -> model contains "H200"     -> 9.0  -> sm_90   Hopper
+b200      -> model contains "B200"     -> 10.0 -> sm_100  Blackwell
+```
+
+A physical campaign must satisfy all three identity checks before expensive work begins:
+
+1. the actual GPU model contains the registry model fragment, case-insensitively;
+2. the physical compute capability equals the registry capability;
+3. the discovered native `sm_XX` equals the registry SM and is advertised by the installed CUDA toolkit.
+
+The exact profile definition used by a run is archived as `PROFILE_DEFINITION.json` inside its evidence bundle and is required for final PASS.
+
+## One workflow, reusable rental loop
 
 The manual workflow is:
 
@@ -30,33 +99,46 @@ The manual workflow is:
 GLUBALL Runtime V3.1 architecture ladder
 ```
 
-with the profile choice:
+Available profiles:
 
 ```text
 titan-xp
+v100
+t4
+a100
 h200
+b200
 ```
 
-Both use the same self-hosted runner label:
+All profiles use the same ephemeral self-hosted runner label:
 
 ```text
 gluball-vast-v31-architecture
 ```
 
-The runner is expected to be ephemeral. Register the rented machine, run one profile, preserve the uploaded artifact, then destroy the rental only after the artifact has been independently verified.
-
-The workflow validates the actual GPU model before doing expensive work. The model match is case-insensitive and intentionally narrow:
+The intended rental loop is deliberately boring:
 
 ```text
-titan-xp -> TITAN Xp
-h200     -> H200
+rent one GPU
+register ephemeral runner
+choose profile
+run canonical campaign
+download and independently verify artifact
+destroy rental
+repeat
 ```
 
-Compute capability is discovered from the physical device at runtime. The workflow then requires the installed CUDA toolkit to advertise both the matching `compute_XX` and native `sm_XX` targets before continuing.
+After PR20 merges, the preferred order is:
+
+```text
+v100 -> t4 -> a100 -> h200 -> b200
+```
+
+Do not modify Runtime V2/V3/V3.1 source between those five runs.
 
 ## Canonical cross-generation workload
 
-The default comparison surface remains fixed across profiles:
+The comparison surface remains fixed:
 
 ```text
 U                         16384
@@ -70,25 +152,26 @@ CUDA Graph modes          off,on
 reduction modes           atomic,two-stage
 ```
 
-The fixed workload is deliberate. Changing the workload per architecture would make the resulting timing ladder harder to interpret.
+The fixed workload is intentional. Architecture-specific saturation experiments can be added later, but they are a different experiment and must not replace this canonical ladder.
 
 ## Per-profile physical stages
 
-Every profile must complete:
+Every post-PR20 profile must complete:
 
-1. safe host and CUDA provenance;
+1. profile-definition binding and safe host/CUDA provenance;
 2. bounded V1 full-readback correctness acceptance with three repeat runs;
-3. exact shared V2/V3/V3.1 observations plus exact same-device V3/V3.1 digest equivalence in atomic mode;
+3. shared V2/V3/V3.1 observations plus exact same-device V3/V3.1 digest equivalence in atomic mode;
 4. the same comparison in two-stage mode;
 5. all 24 Runtime V3.1 tuner candidates with 12 matched Runtime V3 baselines;
 6. direct Runtime V3.1 memcheck and racecheck for both reduction modes;
-7. machine-readable finalization and SHA-256 bundle manifest.
+7. compiler-resource telemetry capture where available;
+8. machine-readable finalization and SHA-256 bundle manifest.
 
 The V1 evidence path remains the correctness authority. Runtime V2/V3/V3.1 throughput observations remain non-authoritative for geometry.
 
 ## Compiler resource telemetry
 
-The architecture workflow additionally performs a best-effort CUDA build with:
+Each architecture run attempts a CUDA build with:
 
 ```text
 --ptxas-options=-v
@@ -96,9 +179,9 @@ The architecture workflow additionally performs a best-effort CUDA build with:
 
 for Runtime V2, Runtime V3 and Runtime V3.1.
 
-The build transcript and a small `RESOURCE_CAPTURE_STATUS.json` are archived. This is intended to expose architecture-dependent register counts, spills, shared-memory use and other PTXAS diagnostics now that the first weak-GPU measurement has been completed.
+The transcript and `RESOURCE_CAPTURE_STATUS.json` expose architecture-dependent register counts, spills, shared-memory use and related PTXAS diagnostics.
 
-Compiler resource telemetry is **not** a graduation gate. Toolkit output formatting can change, and a telemetry-capture problem must not be confused with a CUDA correctness or equivalence failure.
+Compiler telemetry is not a graduation gate because toolkit output behavior may vary. A telemetry failure must not be confused with a CUDA correctness or equivalence failure.
 
 ## Architecture result
 
@@ -111,8 +194,8 @@ ARCHITECTURE_RESULT.json
 which binds:
 
 - source commit;
-- profile and safe GPU identity fields;
-- discovered compute capability / native SM;
+- profile name and archived profile definition;
+- safe GPU model, compute capability and native SM;
 - canonical workload;
 - V1 repeatability summary;
 - atomic and two-stage equivalence summaries;
@@ -120,34 +203,36 @@ which binds:
 - compiler resource telemetry status;
 - unchanged claim boundaries.
 
-Raw GPU UUIDs are never queried or published.
+Raw GPU UUIDs are never queried or published by the workflow provenance path.
 
 ## Cross-generation comparison
 
-After both physical artifacts have been downloaded and verified, compare their `ARCHITECTURE_RESULT.json` files with:
+After two artifacts from the post-PR20 measurement set have been downloaded and independently verified, compare their architecture results with:
 
 ```bash
 python3 scripts/compare_cuda_runtime_v31_architecture_results.py \
-  titan-xp/ARCHITECTURE_RESULT.json \
-  h200/ARCHITECTURE_RESULT.json \
-  --output TITAN_XP_VS_H200.json
+  left/ARCHITECTURE_RESULT.json \
+  right/ARCHITECTURE_RESULT.json \
+  --output LEFT_VS_RIGHT.json
 ```
 
 The comparator requires:
 
 ```text
+both individual profile results PASS
+both identities valid against the checked-in profile registry
 same source commit
 same canonical workload
-both individual profile results PASS
+valid within-device V3/V3.1 diagnostic equivalence
 ```
 
-It does **not** require cross-device raw-float digest equality. A digest is an execution diagnostic, not geometry authority, and different GPU architectures/toolchains may produce different binary32 representations while satisfying the accepted observation boundary.
+It does not require cross-device raw-float digest equality. A diagnostic digest is not geometry authority, and different architectures/toolchains may produce different binary32 representations while satisfying the accepted observation boundary.
 
-The comparator may report an observed wall-time ratio between the two physical runs, but that value is explicitly diagnostic for this workload and these specimens only.
+Any wall-time ratio is diagnostic for these specimens and this workload only.
 
 ## Claim boundary
 
-The architecture ladder never promotes performance evidence into a geometry receipt or universal hardware claim:
+The architecture ladder never promotes accelerator evidence into a geometry receipt or universal hardware claim:
 
 ```text
 performance_observation_only:              true
@@ -159,4 +244,4 @@ cross_device_digest_equality_required:     false
 within_device_v3_v31_digest_equality:      required
 ```
 
-Marketplace instance IDs, prices and availability are external rental logistics, not part of the scientific contract. Preserve them separately if useful for cost accounting, but do not bind the runtime result to a transient marketplace listing.
+Marketplace instance IDs, prices and availability are external rental logistics, not part of the scientific contract. Preserve them separately if useful for cost accounting, but do not bind a runtime result to a transient marketplace listing.
