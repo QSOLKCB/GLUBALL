@@ -34,5 +34,6 @@ jobs:
           node tests/cuda-runtime-v3-workflow.mjs
           node tests/cuda-runtime-v31.mjs
           node tests/cuda-runtime-v31-workflow.mjs
+          node tests/cuda-runtime-v31-architecture-ladder.mjs
       - name: v1.0.0 release preflight
         run: node tests/release-preflight.mjs
