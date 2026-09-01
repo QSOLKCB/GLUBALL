@@ -80,11 +80,14 @@
   ],
   "measurement_source_policy": {
     "run_all_post_pr20_profiles_from_same_merged_main_commit": true,
+    "physical_dispatch_ref_required": "refs/heads/main",
+    "workflow_rejects_non_main_dispatch_ref_before_checkout": true,
     "modify_runtime_source_between_profiles": false,
     "physical_runner_recomputes_frozen_git_blob_ids": true,
     "physical_runner_requires_contract_frozen_map_match": true,
     "frozen_source_validation_is_graduation_gate": true,
-    "reason": "preserve exact-source and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
+    "frozen_source_validation_receipt_semantically_validated_by_finalizer": true,
+    "reason": "preserve exact-source, merged-main campaign machinery and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
   },
   "required_per_profile_stages": [
     "profile_definition",
