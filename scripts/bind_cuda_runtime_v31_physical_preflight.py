@@ -64,6 +64,7 @@ def valid_receipt(payload: dict[str, Any] | None, expected_profile: str | None) 
         payload.get("mig_partition_observed") is False,
         payload.get("profile_model_match") is True,
         payload.get("profile_compute_capability_match") is True,
+        payload.get("performance_observation_only") is True,
         payload.get("geometry_receipt_authority") is False,
         payload.get("universal_speedup_claim") is False,
         payload.get("raw_device_uuid_queried") is False,
