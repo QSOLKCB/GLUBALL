@@ -16,27 +16,27 @@ on:
           - h200
           - b200
       u_segments:
-        description: "Canonical comparison/tuning U segments"
+        description: "Canonical comparison/tuning U segments (must remain 16384)"
         required: true
         default: "16384"
         type: string
       v_segments:
-        description: "Canonical comparison/tuning V segments"
+        description: "Canonical comparison/tuning V segments (must remain 128)"
         required: true
         default: "128"
         type: string
       warmup_iterations:
-        description: "Warmup iterations per process"
+        description: "Canonical warmup iterations (must remain 20)"
         required: true
         default: "20"
         type: string
       measured_iterations:
-        description: "Measured iterations per process"
+        description: "Canonical measured iterations (must remain 1000)"
         required: true
         default: "1000"
         type: string
       trials:
-        description: "Independent process trials per tuner candidate"
+        description: "Canonical independent trials/candidate (must remain 3)"
         required: true
         default: "3"
         type: string
@@ -57,6 +57,7 @@ jobs:
       PROFILE_REGISTRY: docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
       EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
       BUILD_INPUT_RECEIPT: ${{ runner.temp }}/gluball-v31-frozen-build-inputs-${{ github.run_id }}-${{ github.run_attempt }}.json
+      PHYSICAL_PREFLIGHT_RECEIPT: ${{ runner.temp }}/gluball-v31-physical-preflight-${{ github.run_id }}-${{ github.run_attempt }}.json
 
     steps:
       - name: Require merged main dispatch source
@@ -105,6 +106,8 @@ jobs:
           missing = [key for key in required if not isinstance(definition.get(key), str) or not definition[key]]
           if missing:
               raise SystemExit(f"profile {profile} missing fields: {', '.join(missing)}")
+          if definition.get("requires_full_gpu") is not True:
+              raise SystemExit(f"profile {profile} must declare requires_full_gpu: true")
           try:
               re.compile(definition["expected_model_regex_case_insensitive"], flags=re.IGNORECASE)
           except re.error as exc:
@@ -113,6 +116,18 @@ jobs:
           if definition["expected_sm"] != expected_sm:
               raise SystemExit(f"profile {profile} has inconsistent compute capability/native SM")
           PY
+
+      - name: Verify full-GPU and canonical-workload preflight
+        run: |
+          set -eu
+          python3 scripts/verify_cuda_runtime_v31_physical_preflight.py \
+            --profile "$PROFILE" \
+            --u '${{ inputs.u_segments }}' \
+            --v '${{ inputs.v_segments }}' \
+            --warmup '${{ inputs.warmup_iterations }}' \
+            --iterations '${{ inputs.measured_iterations }}' \
+            --trials '${{ inputs.trials }}' \
+            --output "$PHYSICAL_PREFLIGHT_RECEIPT"
 
       - name: Verify frozen measured Runtime build inputs
         run: |
@@ -139,6 +154,14 @@ jobs:
           python3 scripts/bind_cuda_runtime_v31_frozen_build_inputs.py \
             "$EVIDENCE_ROOT" "$BUILD_INPUT_RECEIPT"
 
+      - name: Bind physical preflight receipt
+        if: always()
+        run: |
+          set -eu
+          test -s "$PHYSICAL_PREFLIGHT_RECEIPT"
+          python3 scripts/bind_cuda_runtime_v31_physical_preflight.py \
+            "$EVIDENCE_ROOT" "$PHYSICAL_PREFLIGHT_RECEIPT"
+
       - name: Upload architecture evidence bundle
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -160,12 +183,14 @@ jobs:
           fi
           test -s "$EVIDENCE_ROOT/BUNDLE_SHA256SUMS.txt"
           test -s "$EVIDENCE_ROOT/FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json"
+          test -s "$EVIDENCE_ROOT/PHYSICAL_PREFLIGHT_VALIDATION.json"
           (cd "$EVIDENCE_ROOT" && sha256sum -c BUNDLE_SHA256SUMS.txt)
-          python3 - "$EVIDENCE_ROOT/VALIDATION_STATUS.json" "$EVIDENCE_ROOT/FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json" <<'PY'
+          python3 - "$EVIDENCE_ROOT/VALIDATION_STATUS.json" "$EVIDENCE_ROOT/FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json" "$EVIDENCE_ROOT/PHYSICAL_PREFLIGHT_VALIDATION.json" <<'PY'
           import json, sys
           from pathlib import Path
           status_path = Path(sys.argv[1])
-          receipt_path = Path(sys.argv[2])
+          build_receipt_path = Path(sys.argv[2])
+          preflight_receipt_path = Path(sys.argv[3])
           if not status_path.exists():
               raise SystemExit("architecture campaign did not produce VALIDATION_STATUS.json")
           payload = json.loads(status_path.read_text())
@@ -174,9 +199,20 @@ jobs:
           markers = payload.get("required_markers")
           if not isinstance(markers, dict) or markers.get("frozen_measured_build_inputs") is not True:
               raise SystemExit("frozen measured build-input graduation marker missing")
-          receipt = json.loads(receipt_path.read_text())
-          if receipt.get("schema") != "gluball-cuda-runtime-v31-frozen-build-input-validation/1":
+          if markers.get("physical_preflight") is not True:
+              raise SystemExit("physical preflight graduation marker missing")
+          build_receipt = json.loads(build_receipt_path.read_text())
+          if build_receipt.get("schema") != "gluball-cuda-runtime-v31-frozen-build-input-validation/1":
               raise SystemExit("unexpected frozen measured build-input receipt schema")
-          if receipt.get("status") != "PASS":
+          if build_receipt.get("status") != "PASS":
               raise SystemExit("frozen measured build-input receipt is not PASS")
+          preflight = json.loads(preflight_receipt_path.read_text())
+          if preflight.get("schema") != "gluball-cuda-runtime-v31-physical-preflight/1":
+              raise SystemExit("unexpected physical preflight receipt schema")
+          if preflight.get("status") != "PASS":
+              raise SystemExit("physical preflight receipt is not PASS")
+          if preflight.get("canonical_workload_match") is not True:
+              raise SystemExit("physical preflight workload is not canonical")
+          if preflight.get("mig_enabled") is not False or preflight.get("mig_partition_observed") is not False:
+              raise SystemExit("MIG-enabled or partitioned device cannot graduate as a full-GPU profile")
           PY
