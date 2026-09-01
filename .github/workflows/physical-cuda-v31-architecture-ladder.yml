@@ -71,7 +71,7 @@ jobs:
         run: |
           set -eu
           python3 - "$PROFILE_REGISTRY" "$PROFILE" <<'PY'
-          import json, sys
+          import json, re, sys
           from pathlib import Path
           registry_path = Path(sys.argv[1])
           profile = sys.argv[2]
@@ -83,15 +83,24 @@ jobs:
               raise SystemExit(f"unsupported architecture profile: {profile}")
           definition = profiles[profile]
           required = (
-              "expected_model_fragment_case_insensitive",
+              "expected_model_regex_case_insensitive",
               "expected_compute_capability",
               "expected_sm",
               "architecture_family",
               "device_class",
+              "measurement_role",
+              "status",
           )
           missing = [key for key in required if not isinstance(definition.get(key), str) or not definition[key]]
           if missing:
               raise SystemExit(f"profile {profile} missing fields: {', '.join(missing)}")
+          try:
+              re.compile(definition["expected_model_regex_case_insensitive"], flags=re.IGNORECASE)
+          except re.error as exc:
+              raise SystemExit(f"profile {profile} has invalid model regex: {exc}") from exc
+          expected_sm = f"sm_{definition['expected_compute_capability'].replace('.', '')}"
+          if definition["expected_sm"] != expected_sm:
+              raise SystemExit(f"profile {profile} has inconsistent compute capability/native SM")
           PY
 
       - name: Run Runtime V3.1 architecture profile
