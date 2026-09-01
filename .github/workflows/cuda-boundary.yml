@@ -36,6 +36,7 @@ on:
       - "docs/CUDA_RUNTIME_V31_CONTRACT.json"
       - "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.md"
       - "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json"
+      - "docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
       - "docs/CURRENT_STATE.json"
       - "tests/current-state.mjs"
       - "tests/cuda-runtime-v2.mjs"
@@ -82,6 +83,7 @@ on:
       - "docs/CUDA_RUNTIME_V31_CONTRACT.json"
       - "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.md"
       - "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json"
+      - "docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
       - "docs/CURRENT_STATE.json"
       - "tests/current-state.mjs"
       - "tests/cuda-runtime-v2.mjs"
@@ -112,6 +114,7 @@ jobs:
           python3 -m json.tool docs/CUDA_RUNTIME_V3_CONTRACT.json >/dev/null
           python3 -m json.tool docs/CUDA_RUNTIME_V31_CONTRACT.json >/dev/null
           python3 -m json.tool docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json >/dev/null
+          python3 -m json.tool docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json >/dev/null
           python3 -m json.tool docs/CURRENT_STATE.json >/dev/null
           python3 -m json.tool runtime/vast/market-2026-08-21.json >/dev/null
           python3 -m json.tool research/glueball/sources.json >/dev/null
