@@ -19,6 +19,13 @@
     "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
     "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874"
   },
+  "frozen_measured_build_inputs": {
+    "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+    "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+    "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
   "completed_baseline": {
     "profile": "gtx-1080-ti",
     "status": "PASS",
@@ -87,11 +94,15 @@
     "physical_runner_requires_contract_frozen_map_match": true,
     "frozen_source_validation_is_graduation_gate": true,
     "frozen_source_validation_receipt_semantically_validated_by_finalizer": true,
-    "reason": "preserve exact-source, merged-main campaign machinery and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
+    "workflow_verifies_complete_measured_build_input_map_before_campaign": true,
+    "measured_build_input_receipt_bound_into_uploaded_bundle": true,
+    "measured_build_input_validation_is_workflow_graduation_gate": true,
+    "reason": "preserve exact-source, exact build-input, merged-main campaign machinery and exact-workload comparability across Volta, Turing, Ampere, Hopper and Blackwell"
   },
   "required_per_profile_stages": [
     "profile_definition",
     "frozen_runtime_sources",
+    "frozen_measured_build_inputs",
     "host_validation",
     "v1_validation",
     "atomic_equivalence",
@@ -108,6 +119,8 @@
     "same_source_commit_required_for_cross_profile_summary": true,
     "same_canonical_workload_required_for_cross_profile_summary": true,
     "profile_registry_identity_validation_required": true,
+    "profile_lifecycle_status_schema_validation_required": true,
+    "profile_lifecycle_status_is_identity": false,
     "cross_device_digest_equality_required": false,
     "within_device_v3_v31_digest_equality_required": true,
     "cross_hardware_timing_ratio_is_diagnostic_only": true,
