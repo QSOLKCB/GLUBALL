@@ -50,6 +50,8 @@ def valid_receipt(payload: dict[str, Any] | None) -> bool:
         return False
     if payload.get("measured_build_inputs_frozen_during_measurement") is not True:
         return False
+    if payload.get("performance_observation_only") is not True:
+        return False
     if payload.get("geometry_receipt_authority") is not False:
         return False
     if payload.get("universal_speedup_claim") is not False:
