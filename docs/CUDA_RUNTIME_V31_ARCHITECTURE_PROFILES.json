@@ -12,7 +12,7 @@
   ],
   "profiles": {
     "titan-xp": {
-      "expected_model_fragment_case_insensitive": "TITAN Xp",
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?TITAN Xp$",
       "expected_compute_capability": "6.1",
       "expected_sm": "sm_61",
       "architecture_family": "Pascal",
@@ -21,7 +21,7 @@
       "status": "completed-physical-run-pr19"
     },
     "v100": {
-      "expected_model_fragment_case_insensitive": "V100",
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:Tesla )?V100(?:[- ].*)?$",
       "expected_compute_capability": "7.0",
       "expected_sm": "sm_70",
       "architecture_family": "Volta",
@@ -30,7 +30,7 @@
       "status": "pending-physical-run"
     },
     "t4": {
-      "expected_model_fragment_case_insensitive": "T4",
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:Tesla )?T4(?:[- ].*)?$",
       "expected_compute_capability": "7.5",
       "expected_sm": "sm_75",
       "architecture_family": "Turing",
@@ -39,7 +39,7 @@
       "status": "pending-physical-run"
     },
     "a100": {
-      "expected_model_fragment_case_insensitive": "A100",
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:Tesla )?A100(?:[- ].*)?$",
       "expected_compute_capability": "8.0",
       "expected_sm": "sm_80",
       "architecture_family": "Ampere",
@@ -48,7 +48,7 @@
       "status": "pending-physical-run"
     },
     "h200": {
-      "expected_model_fragment_case_insensitive": "H200",
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:Tesla )?H200(?:[- ].*)?$",
       "expected_compute_capability": "9.0",
       "expected_sm": "sm_90",
       "architecture_family": "Hopper",
@@ -57,7 +57,7 @@
       "status": "pending-physical-run"
     },
     "b200": {
-      "expected_model_fragment_case_insensitive": "B200",
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:Tesla )?B200(?:[- ].*)?$",
       "expected_compute_capability": "10.0",
       "expected_sm": "sm_100",
       "architecture_family": "Blackwell",
@@ -70,6 +70,7 @@
     "runtime_source_frozen_during_post_pr20_measurement": true,
     "same_canonical_workload_across_profiles": true,
     "same_merged_source_commit_required_for_post_pr20_comparison": true,
+    "model_regex_must_match_profile_definition": true,
     "compute_capability_must_match_profile_definition": true,
     "native_sm_must_match_profile_definition": true,
     "cross_device_digest_equality_required": false,
