@@ -70,6 +70,24 @@ const makePreflight = (profile, model, cc, index = 0) => ({
   raw_device_uuid_published: false,
 });
 
+const makeBuildReceipt = () => ({
+  schema: "gluball-cuda-runtime-v31-frozen-build-input-validation/1",
+  status: "PASS",
+  contract_path: "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+  contract_matches_frozen_expected_map: true,
+  expected_git_blob_ids: structuredClone(contract.frozen_measured_build_inputs),
+  observed_git_blob_ids: structuredClone(contract.frozen_measured_build_inputs),
+  build_input_matches_expected: Object.fromEntries(
+    Object.keys(contract.frozen_measured_build_inputs).map((key) => [key, true]),
+  ),
+  includes_cuda_cmake_target_definition: true,
+  includes_event_timing_compat_header: true,
+  measured_build_inputs_frozen_during_measurement: true,
+  performance_observation_only: true,
+  geometry_receipt_authority: false,
+  universal_speedup_claim: false,
+});
+
 const temp = await mkdtemp(join(tmpdir(), "gluball-v31-preflight-"));
 try {
   const bin = join(temp, "bin");
@@ -101,9 +119,6 @@ try {
     return { result, output };
   };
 
-  // A CUDA_VISIBLE_DEVICES selector is safe for this canonical ladder only
-  // when exactly one NVIDIA-SMI-visible physical GPU exists, making CUDA
-  // ordinal 0 unambiguous. The selector value itself is never archived.
   await writeFakeSmi("7, NVIDIA A100-SXM4-40GB, 8.0, 40960, Disabled");
   const remappedEnv = { ...baseEnv, CUDA_VISIBLE_DEVICES: "7" };
   const fullGpu = runPreflight("full", [], remappedEnv);
@@ -121,8 +136,6 @@ try {
   assert.equal(fullReceipt.mig_partition_observed, false);
   assert.equal(fullReceipt.canonical_workload_match, true);
 
-  // More than one NVIDIA-SMI-visible GPU reintroduces ordinal/remapping
-  // ambiguity and is rejected even if one row matches the requested profile.
   await writeFakeSmi([
     "0, NVIDIA Tesla T4, 7.5, 16384, N/A",
     "1, NVIDIA A100-SXM4-40GB, 8.0, 40960, Disabled",
@@ -173,8 +186,9 @@ try {
     source_commit: "a".repeat(40),
     gpu: { model, compute_capability: cc, expected_sm: sm },
     canonical_workload: { ...canonicalWorkload },
-    required_stages: { physical_preflight: true },
+    required_stages: { physical_preflight: true, frozen_measured_build_inputs: true },
     physical_preflight_validation: makePreflight(profile, model, cc),
+    frozen_measured_build_input_validation: makeBuildReceipt(),
     bounded_tuning: {
       status: "PASS",
       best_observed_candidate_within_declared_set: {
@@ -201,6 +215,11 @@ try {
   const noPreflight = JSON.parse(JSON.stringify(left));
   delete noPreflight.physical_preflight_validation;
   await writeFile(leftPath, JSON.stringify(noPreflight));
+  assert.notEqual(spawnSync("python3", [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" }).status, 0);
+
+  const noBuildReceipt = JSON.parse(JSON.stringify(left));
+  delete noBuildReceipt.frozen_measured_build_input_validation;
+  await writeFile(leftPath, JSON.stringify(noBuildReceipt));
   assert.notEqual(spawnSync("python3", [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" }).status, 0);
 
   left.canonical_workload.u_segments = 8192;
