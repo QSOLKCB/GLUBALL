@@ -14,6 +14,7 @@ from typing import Any
 
 _SHA40 = re.compile(r"[0-9a-fA-F]{40}")
 _HEX64 = re.compile(r"[0-9a-fA-F]{16}")
+_PREFLIGHT_SCHEMA = "gluball-cuda-runtime-v31-physical-preflight/1"
 _PROFILE_REGISTRY = (
     Path(__file__).resolve().parents[1] / "docs" / "CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
 )
@@ -113,6 +114,55 @@ def profile(payload: dict[str, Any], label: str) -> str:
     return value
 
 
+def physical_preflight(payload: dict[str, Any], label: str, expected_profile: str) -> dict[str, Any]:
+    stages = payload.get("required_stages")
+    if not isinstance(stages, dict) or stages.get("physical_preflight") is not True:
+        raise SystemExit(f"{label}: physical preflight graduation stage missing")
+    receipt = payload.get("physical_preflight_validation")
+    if not isinstance(receipt, dict):
+        raise SystemExit(f"{label}: physical preflight receipt missing")
+    inventory = receipt.get("safe_gpu_inventory")
+    if not isinstance(inventory, dict):
+        raise SystemExit(f"{label}: physical preflight safe GPU inventory missing")
+    selected_index = receipt.get("selected_nvidia_smi_index")
+    if not isinstance(selected_index, int) or isinstance(selected_index, bool) or selected_index < 0:
+        raise SystemExit(f"{label}: invalid selected NVIDIA-SMI index in preflight")
+    result_gpu = payload.get("gpu")
+    if not isinstance(result_gpu, dict):
+        raise SystemExit(f"{label}: result GPU identity missing")
+    checks = {
+        "schema": receipt.get("schema") == _PREFLIGHT_SCHEMA,
+        "status": receipt.get("status") == "PASS",
+        "profile": receipt.get("profile") == expected_profile,
+        "canonical_expected": receipt.get("canonical_workload_expected") == _CANONICAL_WORKLOAD,
+        "canonical_observed": receipt.get("canonical_workload_observed") == _CANONICAL_WORKLOAD,
+        "canonical_match": receipt.get("canonical_workload_match") is True,
+        "full_gpu_required": receipt.get("full_gpu_required") is True,
+        "required_visible_count": receipt.get("required_nvidia_smi_visible_gpu_count") == 1,
+        "visible_count": receipt.get("nvidia_smi_visible_gpu_count") == 1,
+        "single_visible_gpu": receipt.get("single_visible_gpu_verified") is True,
+        "cuda_ordinal": receipt.get("cuda_device_ordinal") == 0,
+        "mapping": receipt.get("cuda_ordinal_zero_mapping_unambiguous") is True,
+        "inventory_index": inventory.get("index") == selected_index,
+        "inventory_model": inventory.get("name") == result_gpu.get("model"),
+        "inventory_cc": inventory.get("compute_capability") == result_gpu.get("compute_capability"),
+        "cuda_visible_value_private": receipt.get("cuda_visible_devices_value_published") is False,
+        "mig_acceptable": receipt.get("mig_mode_acceptable") is True,
+        "mig_disabled": receipt.get("mig_enabled") is False,
+        "not_partition": receipt.get("mig_partition_observed") is False,
+        "profile_model_match": receipt.get("profile_model_match") is True,
+        "profile_cc_match": receipt.get("profile_compute_capability_match") is True,
+        "geometry_authority": receipt.get("geometry_receipt_authority") is False,
+        "universal_speedup": receipt.get("universal_speedup_claim") is False,
+        "uuid_not_queried": receipt.get("raw_device_uuid_queried") is False,
+        "uuid_not_published": receipt.get("raw_device_uuid_published") is False,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise SystemExit(f"{label}: invalid physical preflight receipt fields: {', '.join(failed)}")
+    return receipt
+
+
 def source_commit(payload: dict[str, Any], label: str) -> str:
     value = payload.get("source_commit")
     if not isinstance(value, str) or _SHA40.fullmatch(value) is None:
@@ -198,6 +248,9 @@ def main() -> int:
     if left_profile == right_profile:
         raise SystemExit("architecture profiles must differ")
 
+    left_preflight = physical_preflight(left, "left", left_profile)
+    right_preflight = physical_preflight(right, "right", right_profile)
+
     left_commit = source_commit(left, "left")
     right_commit = source_commit(right, "right")
     if left_commit != right_commit:
@@ -222,17 +275,21 @@ def main() -> int:
         "canonical_workload": left_workload,
         "canonical_workload_required": True,
         "full_gpu_profiles_required": True,
+        "physical_preflight_required": True,
+        "cuda_ordinal_zero_mapping_must_be_unambiguous": True,
         "profile_identity_fields": list(_PROFILE_IDENTITY_FIELDS),
         "profile_lifecycle_status_is_identity": False,
         "left": {
             "profile": left_profile,
             "gpu": left.get("gpu"),
+            "physical_preflight_selected_nvidia_smi_index": left_preflight.get("selected_nvidia_smi_index"),
             "best_observed_candidate": left_best,
             "v31_diagnostic_digest": left_digest,
         },
         "right": {
             "profile": right_profile,
             "gpu": right.get("gpu"),
+            "physical_preflight_selected_nvidia_smi_index": right_preflight.get("selected_nvidia_smi_index"),
             "best_observed_candidate": right_best,
             "v31_diagnostic_digest": right_digest,
         },
