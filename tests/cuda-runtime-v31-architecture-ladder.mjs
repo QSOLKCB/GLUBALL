@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,7 +8,8 @@ import { spawnSync } from "node:child_process";
 const workflow = await readFile(new URL("../.github/workflows/physical-cuda-v31-architecture-ladder.yml", import.meta.url), "utf8");
 const runner = await readFile(new URL("../scripts/run_cuda_runtime_v31_architecture_profile.sh", import.meta.url), "utf8");
 const verifier = await readFile(new URL("../scripts/verify_cuda_v1_campaign.py", import.meta.url), "utf8");
-const finalizer = await readFile(new URL("../scripts/finalize_cuda_runtime_v31_architecture.py", import.meta.url), "utf8");
+const finalizerUrl = new URL("../scripts/finalize_cuda_runtime_v31_architecture.py", import.meta.url);
+const finalizer = await readFile(finalizerUrl, "utf8");
 const comparatorUrl = new URL("../scripts/compare_cuda_runtime_v31_architecture_results.py", import.meta.url);
 const comparator = await readFile(comparatorUrl, "utf8");
 const docs = await readFile(new URL("../docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.md", import.meta.url), "utf8");
@@ -26,12 +27,12 @@ const gitBlobSha = (content) => {
 const fullProfileOrder = ["titan-xp", "v100", "t4", "a100", "h200", "b200"];
 const postPr20Profiles = ["v100", "t4", "a100", "h200", "b200"];
 const expectedDefinitions = {
-  "titan-xp": ["TITAN Xp", "6.1", "sm_61", "Pascal"],
-  v100: ["V100", "7.0", "sm_70", "Volta"],
-  t4: ["T4", "7.5", "sm_75", "Turing"],
-  a100: ["A100", "8.0", "sm_80", "Ampere"],
-  h200: ["H200", "9.0", "sm_90", "Hopper"],
-  b200: ["B200", "10.0", "sm_100", "Blackwell"],
+  "titan-xp": ["^(?:NVIDIA )?TITAN Xp$", "6.1", "sm_61", "Pascal"],
+  v100: ["^(?:NVIDIA )?(?:Tesla )?V100(?:[- ].*)?$", "7.0", "sm_70", "Volta"],
+  t4: ["^(?:NVIDIA )?(?:Tesla )?T4(?:[- ].*)?$", "7.5", "sm_75", "Turing"],
+  a100: ["^(?:NVIDIA )?(?:Tesla )?A100(?:[- ].*)?$", "8.0", "sm_80", "Ampere"],
+  h200: ["^(?:NVIDIA )?(?:Tesla )?H200(?:[- ].*)?$", "9.0", "sm_90", "Hopper"],
+  b200: ["^(?:NVIDIA )?(?:Tesla )?B200(?:[- ].*)?$", "10.0", "sm_100", "Blackwell"],
 };
 
 assert.match(workflow, /^name: GLUBALL Runtime V3\.1 architecture ladder/m);
@@ -43,6 +44,8 @@ for (const profile of fullProfileOrder) assert.match(workflow, new RegExp(`- ${p
 assert.match(workflow, /default: "v100"/);
 assert.match(workflow, /PROFILE_REGISTRY: docs\/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES\.json/);
 assert.match(workflow, /Validate architecture profile registry/);
+assert.match(workflow, /expected_model_regex_case_insensitive/);
+assert.match(workflow, /re\.compile/);
 assert.match(workflow, /gluball-vast-v31-architecture/);
 assert.doesNotMatch(workflow, /MODEL_FRAGMENT=/);
 assert.match(workflow, /continue-on-error: true/);
@@ -55,17 +58,23 @@ assert.match(workflow, /Require final PASS/);
 
 assert.match(runner, /PROFILE_REGISTRY=.*CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES\.json/);
 assert.match(runner, /profile_field\(\)/);
-assert.match(runner, /expected_model_fragment_case_insensitive/);
+assert.match(runner, /expected_model_regex_case_insensitive/);
+assert.match(runner, /re\.fullmatch\(pattern, model, flags=re\.IGNORECASE\)/);
 assert.match(runner, /expected_compute_capability/);
 assert.match(runner, /expected_sm/);
 assert.match(runner, /ARCHITECTURE_FAMILY/);
 assert.match(runner, /PROFILE_DEFINITION\.json/);
+assert.match(runner, /FROZEN_RUNTIME_SOURCE_VALIDATION\.json/);
+assert.match(runner, /FROZEN_RUNTIME_SOURCES\.ok/);
+assert.match(runner, /git", "hash-object"/);
+assert.match(runner, /12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1/);
+assert.match(runner, /dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0/);
+assert.match(runner, /045fbf37725beb5d65b2332309626ccfa727f874/);
 assert.match(runner, /unexpected compute capability/);
 assert.match(runner, /profile native SM mismatch/);
 assert.match(runner, /--query-gpu=index,name,driver_version,compute_cap,memory\.total/);
 assert.doesNotMatch(runner, /nvidia-smi\s+-L/);
 assert.doesNotMatch(runner, /--query-gpu=[^\n]*uuid/i);
-assert.match(runner, /fragment\.casefold\(\) not in model\.casefold\(\)/);
 assert.match(runner, /EVIDENCE_ROOT must be empty before a new physical campaign/);
 assert.match(runner, /find "\$root" -mindepth 1 -print -quit/);
 assert.match(runner, /nvcc --list-gpu-arch/);
@@ -100,9 +109,11 @@ assert.match(verifier, /output_repeatable_byte_identical/);
 assert.match(verifier, /geometry_receipt_authority/);
 assert.match(verifier, /universal_speedup_claim/);
 
-assert.match(finalizer, /"profile_definition": root \/ "PROFILE_DEFINITION\.json"/);
-assert.match(finalizer, /"profile_definition": profile_definition/);
-assert.match(finalizer, /profile_definition_present/);
+assert.match(finalizer, /validated_profile_definition/);
+assert.match(finalizer, /profile_definition.*profile_definition is not None/s);
+assert.match(finalizer, /profile_definition_valid/);
+assert.match(finalizer, /frozen_runtime_sources/);
+assert.match(finalizer, /FROZEN_RUNTIME_SOURCE_VALIDATION\.json/);
 assert.match(finalizer, /gluball-cuda-runtime-v31-architecture-result\/1/);
 assert.match(finalizer, /cross_device_digest_equality_required.*False/s);
 assert.match(finalizer, /within_device_v3_v31_digest_equality_required.*True/s);
@@ -113,7 +124,9 @@ assert.match(finalizer, /cross_device_portability_claim.*False/s);
 assert.match(finalizer, /compiler_resource_telemetry_is_graduation_gate.*False/s);
 
 assert.match(comparator, /CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES\.json/);
+assert.match(comparator, /re\.fullmatch\(model_pattern, model, flags=re\.IGNORECASE\)/);
 assert.match(comparator, /GPU model does not match profile registry/);
+assert.match(comparator, /embedded profile definition does not match profile registry/);
 assert.match(comparator, /compute capability does not match profile registry/);
 assert.match(comparator, /native SM does not match profile registry/);
 assert.match(comparator, /same source commit/);
@@ -131,15 +144,19 @@ assert.match(comparator, /universal_speedup_claim.*False/s);
 assert.equal(profiles.schema, "gluball-cuda-runtime-v31-architecture-profiles/1");
 assert.deepEqual(profiles.profile_order, fullProfileOrder);
 assert.deepEqual(Object.keys(profiles.profiles), fullProfileOrder);
-for (const [profile, [fragment, cc, sm, family]] of Object.entries(expectedDefinitions)) {
+for (const [profile, [pattern, cc, sm, family]] of Object.entries(expectedDefinitions)) {
   const definition = profiles.profiles[profile];
-  assert.equal(definition.expected_model_fragment_case_insensitive, fragment);
+  assert.equal(definition.expected_model_regex_case_insensitive, pattern);
   assert.equal(definition.expected_compute_capability, cc);
   assert.equal(definition.expected_sm, sm);
   assert.equal(definition.architecture_family, family);
+  assert.doesNotThrow(() => new RegExp(pattern, "i"));
 }
+assert.equal(new RegExp(profiles.profiles.v100.expected_model_regex_case_insensitive, "i").test("NVIDIA Tesla V100-PCIE-16GB"), true);
+assert.equal(new RegExp(profiles.profiles.v100.expected_model_regex_case_insensitive, "i").test("NVIDIA Quadro GV100"), false);
 assert.equal(profiles.measurement_boundary.runtime_source_frozen_during_post_pr20_measurement, true);
 assert.equal(profiles.measurement_boundary.same_merged_source_commit_required_for_post_pr20_comparison, true);
+assert.equal(profiles.measurement_boundary.model_regex_must_match_profile_definition, true);
 assert.equal(profiles.measurement_boundary.cross_device_digest_equality_required, false);
 assert.equal(profiles.measurement_boundary.within_device_v3_v31_digest_equality_required, true);
 assert.equal(profiles.measurement_boundary.raw_device_uuid_published, false);
@@ -159,6 +176,9 @@ assert.deepEqual(contract.post_pr20_measurement_profiles, postPr20Profiles);
 assert.deepEqual(contract.post_pr20_expected_sm_ladder, ["sm_70", "sm_75", "sm_80", "sm_90", "sm_100"]);
 assert.equal(contract.measurement_source_policy.run_all_post_pr20_profiles_from_same_merged_main_commit, true);
 assert.equal(contract.measurement_source_policy.modify_runtime_source_between_profiles, false);
+assert.equal(contract.measurement_source_policy.physical_runner_recomputes_frozen_git_blob_ids, true);
+assert.equal(contract.measurement_source_policy.physical_runner_requires_contract_frozen_map_match, true);
+assert.equal(contract.measurement_source_policy.frozen_source_validation_is_graduation_gate, true);
 assert.equal(contract.compiler_resource_telemetry.graduation_gate, false);
 assert.equal(contract.comparison_boundary.profile_registry_identity_validation_required, true);
 assert.equal(contract.comparison_boundary.cross_device_digest_equality_required, false);
@@ -187,8 +207,9 @@ try {
     schema: "gluball-cuda-runtime-v31-architecture-result/1",
     status: "PASS",
     profile: "v100",
+    profile_definition: profiles.profiles.v100,
     source_commit: "a".repeat(40),
-    gpu: { model: "NVIDIA Tesla V100", compute_capability: "7.0", expected_sm: "sm_70" },
+    gpu: { model: "NVIDIA Tesla V100-PCIE-16GB", compute_capability: "7.0", expected_sm: "sm_70" },
     canonical_workload: {
       u_segments: 16384,
       v_segments: 128,
@@ -213,6 +234,7 @@ try {
   };
   const right = JSON.parse(JSON.stringify(base));
   right.profile = "h200";
+  right.profile_definition = profiles.profiles.h200;
   right.gpu = { model: "NVIDIA H200 NVL", compute_capability: "9.0", expected_sm: "sm_90" };
   right.atomic_equivalence.diagnostic_digests.v31 = "fedcba9876543210";
   right.bounded_tuning.best_observed_candidate_within_declared_set.observed_wall_milliseconds_median_of_trials = 0.01;
@@ -230,6 +252,10 @@ try {
   const compared = JSON.parse(good.stdout);
   assert.equal(compared.cross_device_digest_match_observed, false);
   assert.equal(compared.cross_device_digest_observation_available, true);
+
+  const gv100 = JSON.parse(JSON.stringify(base));
+  gv100.gpu.model = "NVIDIA Quadro GV100";
+  assert.notEqual((await runComparator(gv100, right)).status, 0);
 
   const missingCommit = JSON.parse(JSON.stringify(base));
   delete missingCommit.source_commit;
@@ -250,6 +276,41 @@ try {
   const wrongSm = JSON.parse(JSON.stringify(base));
   wrongSm.gpu.expected_sm = "sm_75";
   assert.notEqual((await runComparator(wrongSm, right)).status, 0);
+
+  const wrongDefinition = JSON.parse(JSON.stringify(base));
+  wrongDefinition.profile_definition.expected_sm = "sm_75";
+  assert.notEqual((await runComparator(wrongDefinition, right)).status, 0);
+
+  const finalizerRoot = join(temp, "finalizer-invalid-profile");
+  await mkdir(join(finalizerRoot, "ab-atomic"), { recursive: true });
+  await mkdir(join(finalizerRoot, "ab-two-stage"), { recursive: true });
+  await mkdir(join(finalizerRoot, "tuning"), { recursive: true });
+  for (const file of ["FROZEN_RUNTIME_SOURCES.ok", "HOST_VALIDATION.ok", "V1_VALIDATION.ok", "V31_SANITIZER.ok"]) {
+    await writeFile(join(finalizerRoot, file), "ok\n");
+  }
+  await writeFile(join(finalizerRoot, "ab-atomic", "EQUIVALENCE.json"), "{}\n");
+  await writeFile(join(finalizerRoot, "ab-two-stage", "EQUIVALENCE.json"), "{}\n");
+  await writeFile(join(finalizerRoot, "tuning", "TUNING_RESULT.json"), "{}\n");
+  await writeFile(join(finalizerRoot, "PROFILE_DEFINITION.json"), JSON.stringify({
+    schema: "gluball-cuda-runtime-v31-architecture-profile-definition/1",
+    profile: "v100",
+    definition: { expected_compute_capability: "7.0" },
+  }));
+  const finalized = spawnSync("python3", [
+    finalizerUrl.pathname,
+    finalizerRoot,
+    "--profile", "v100",
+    "--u", "16384",
+    "--v", "128",
+    "--warmup", "20",
+    "--iterations", "1000",
+    "--trials", "3",
+  ], { encoding: "utf8" });
+  assert.notEqual(finalized.status, 0);
+  const invalidStatus = JSON.parse(await readFile(join(finalizerRoot, "VALIDATION_STATUS.json"), "utf8"));
+  assert.equal(invalidStatus.status, "FAIL");
+  assert.equal(invalidStatus.profile_definition_valid, false);
+  assert.equal(invalidStatus.required_markers.profile_definition, false);
 } finally {
   await rm(temp, { recursive: true, force: true });
 }
