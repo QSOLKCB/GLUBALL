@@ -58,6 +58,16 @@ jobs:
       EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      - name: Require merged main dispatch source
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+        run: |
+          set -eu
+          if [ "$DISPATCH_REF" != "refs/heads/main" ]; then
+            printf 'architecture ladder physical runs must be dispatched from refs/heads/main; got %s\n' "$DISPATCH_REF" >&2
+            exit 2
+          fi
+
       - name: Checkout exact workflow ref
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
