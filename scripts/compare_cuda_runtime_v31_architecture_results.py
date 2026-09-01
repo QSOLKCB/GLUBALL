@@ -160,6 +160,7 @@ def physical_preflight(payload: dict[str, Any], label: str, expected_profile: st
         "not_partition": receipt.get("mig_partition_observed") is False,
         "profile_model_match": receipt.get("profile_model_match") is True,
         "profile_cc_match": receipt.get("profile_compute_capability_match") is True,
+        "performance_observation_only": receipt.get("performance_observation_only") is True,
         "geometry_authority": receipt.get("geometry_receipt_authority") is False,
         "universal_speedup": receipt.get("universal_speedup_claim") is False,
         "uuid_not_queried": receipt.get("raw_device_uuid_queried") is False,
