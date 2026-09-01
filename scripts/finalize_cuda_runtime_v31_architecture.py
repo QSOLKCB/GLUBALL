@@ -57,6 +57,8 @@ def validated_profile_definition(payload: dict[str, Any] | None, profile: str) -
     )
     if any(not isinstance(definition.get(key), str) or not definition[key] for key in required_strings):
         return None
+    if definition.get("requires_full_gpu") is not True:
+        return None
     try:
         re.compile(definition["expected_model_regex_case_insensitive"], flags=re.IGNORECASE)
     except re.error:
@@ -85,6 +87,8 @@ def validated_frozen_source_receipt(payload: dict[str, Any] | None) -> dict[str,
     if payload.get("source_matches_expected") != expected_matches:
         return None
     if payload.get("runtime_source_frozen_during_measurement") is not True:
+        return None
+    if payload.get("performance_observation_only") is not True:
         return None
     if payload.get("geometry_receipt_authority") is not False:
         return None
