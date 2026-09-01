@@ -25,6 +25,15 @@ _PROFILE_IDENTITY_FIELDS = (
     "device_class",
     "measurement_role",
 )
+_CANONICAL_WORKLOAD = {
+    "u_segments": 16384,
+    "v_segments": 128,
+    "repeats": 1,
+    "warmup_iterations": 20,
+    "measured_iterations": 1000,
+    "trials_per_candidate": 3,
+    "fixed_across_profiles": True,
+}
 
 
 def load_profile_registry() -> dict[str, dict[str, Any]]:
@@ -57,6 +66,8 @@ def immutable_profile_identity(definition: Any, label: str) -> dict[str, Any]:
     status = definition.get("status")
     if not isinstance(status, str) or not status:
         raise SystemExit(f"{label}: profile lifecycle status missing or invalid")
+    if definition.get("requires_full_gpu") is not True:
+        raise SystemExit(f"{label}: profile must require a full GPU")
     identity: dict[str, Any] = {}
     for key in _PROFILE_IDENTITY_FIELDS:
         value = definition.get(key)
@@ -99,9 +110,6 @@ def profile(payload: dict[str, Any], label: str) -> str:
     registry_identity = immutable_profile_identity(definition, f"{label}: registry")
     if embedded_identity != registry_identity:
         raise SystemExit(f"{label}: embedded profile definition does not match profile registry")
-    # Lifecycle metadata such as profile_definition.status is schema-validated
-    # above but intentionally excluded from identity equality. A valid archived
-    # measurement must remain comparable after its lifecycle status changes.
     return value
 
 
@@ -132,6 +140,8 @@ def canonical_workload(payload: dict[str, Any], label: str) -> dict[str, Any]:
     failed = [name for name, passed in checks.items() if not passed]
     if failed:
         raise SystemExit(f"{label}: incomplete/invalid canonical_workload fields: {', '.join(failed)}")
+    if value != _CANONICAL_WORKLOAD:
+        raise SystemExit(f"{label}: architecture result does not use the declared canonical workload")
     return value
 
 
@@ -210,6 +220,8 @@ def main() -> int:
         "status": "PASS",
         "source_commit": left_commit,
         "canonical_workload": left_workload,
+        "canonical_workload_required": True,
+        "full_gpu_profiles_required": True,
         "profile_identity_fields": list(_PROFILE_IDENTITY_FIELDS),
         "profile_lifecycle_status_is_identity": False,
         "left": {
