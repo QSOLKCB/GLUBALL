@@ -56,8 +56,6 @@ jobs:
       PROFILE: ${{ inputs.target_profile }}
       PROFILE_REGISTRY: docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
       EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
-      BUILD_INPUT_RECEIPT: ${{ runner.temp }}/gluball-v31-frozen-build-inputs-${{ github.run_id }}-${{ github.run_attempt }}.json
-      PHYSICAL_PREFLIGHT_RECEIPT: ${{ runner.temp }}/gluball-v31-physical-preflight-${{ github.run_id }}-${{ github.run_attempt }}.json
 
     steps:
       - name: Require merged main dispatch source
@@ -72,6 +70,16 @@ jobs:
 
       - name: Checkout exact workflow ref
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Define evidence receipt paths
+        run: |
+          set -eu
+          printf 'BUILD_INPUT_RECEIPT=%s\n' \
+            "$RUNNER_TEMP/gluball-v31-frozen-build-inputs-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json" \
+            >> "$GITHUB_ENV"
+          printf 'PHYSICAL_PREFLIGHT_RECEIPT=%s\n' \
+            "$RUNNER_TEMP/gluball-v31-physical-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json" \
+            >> "$GITHUB_ENV"
 
       - name: Expose rented-host toolchains
         run: |
