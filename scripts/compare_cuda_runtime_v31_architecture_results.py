@@ -17,6 +17,14 @@ _HEX64 = re.compile(r"[0-9a-fA-F]{16}")
 _PROFILE_REGISTRY = (
     Path(__file__).resolve().parents[1] / "docs" / "CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
 )
+_PROFILE_IDENTITY_FIELDS = (
+    "expected_model_regex_case_insensitive",
+    "expected_compute_capability",
+    "expected_sm",
+    "architecture_family",
+    "device_class",
+    "measurement_role",
+)
 
 
 def load_profile_registry() -> dict[str, dict[str, Any]]:
@@ -41,6 +49,18 @@ def load(path: Path) -> dict[str, Any]:
     if value.get("status") != "PASS":
         raise SystemExit(f"{path}: architecture result must be PASS")
     return value
+
+
+def immutable_profile_identity(definition: Any) -> dict[str, Any] | None:
+    if not isinstance(definition, dict):
+        return None
+    identity: dict[str, Any] = {}
+    for key in _PROFILE_IDENTITY_FIELDS:
+        value = definition.get(key)
+        if not isinstance(value, str) or not value:
+            return None
+        identity[key] = value
+    return identity
 
 
 def profile(payload: dict[str, Any], label: str) -> str:
@@ -69,8 +89,14 @@ def profile(payload: dict[str, Any], label: str) -> str:
         raise SystemExit(f"{label}: compute capability does not match profile registry")
     if expected_sm != registry_sm:
         raise SystemExit(f"{label}: native SM does not match profile registry")
-    if payload.get("profile_definition") != definition:
+
+    embedded_identity = immutable_profile_identity(payload.get("profile_definition"))
+    registry_identity = immutable_profile_identity(definition)
+    if embedded_identity is None or registry_identity is None or embedded_identity != registry_identity:
         raise SystemExit(f"{label}: embedded profile definition does not match profile registry")
+    # Lifecycle metadata such as profile_definition.status is intentionally not
+    # part of identity. A valid archived measurement must remain comparable
+    # after the registry records that its formerly pending profile completed.
     return value
 
 
@@ -179,6 +205,8 @@ def main() -> int:
         "status": "PASS",
         "source_commit": left_commit,
         "canonical_workload": left_workload,
+        "profile_identity_fields": list(_PROFILE_IDENTITY_FIELDS),
+        "profile_lifecycle_status_is_identity": False,
         "left": {
             "profile": left_profile,
             "gpu": left.get("gpu"),
