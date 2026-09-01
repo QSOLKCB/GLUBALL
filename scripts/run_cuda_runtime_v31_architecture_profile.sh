@@ -27,7 +27,50 @@ for name, raw, (lo, hi) in zip(names, sys.argv[1:], limits):
 PY
 
 root=$EVIDENCE_ROOT
+if [ -e "$root" ] && [ ! -d "$root" ]; then
+  printf 'EVIDENCE_ROOT exists and is not a directory: %s\n' "$root" >&2
+  exit 3
+fi
+if [ -d "$root" ] && find "$root" -mindepth 1 -print -quit | grep -q .; then
+  printf 'EVIDENCE_ROOT must be empty before a new physical campaign: %s\n' "$root" >&2
+  exit 3
+fi
 mkdir -p "$root"
+
+mark_manifest_failure() {
+  python3 - "$root" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+for name, marker_key in (
+    ("VALIDATION_STATUS.json", "required_markers"),
+    ("ARCHITECTURE_RESULT.json", "required_stages"),
+):
+    path = root / name
+    if not path.exists():
+        continue
+    try:
+        payload = json.loads(path.read_text())
+    except Exception:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    payload["status"] = "FAIL"
+    payload["bundle_manifest_generated"] = False
+    payload["bundle_manifest_error"] = "BUNDLE_SHA256SUMS.txt generation failed"
+    markers = payload.get(marker_key)
+    if isinstance(markers, dict):
+        markers["bundle_manifest"] = False
+    completed = payload.get("completed_required_stages")
+    if isinstance(completed, list):
+        payload["completed_required_stages"] = [x for x in completed if x != "bundle_manifest"]
+    if payload.get("first_incomplete_required_stage") is None:
+        payload["first_incomplete_required_stage"] = "bundle_manifest"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+PY
+}
 
 finalize() {
   original_status=$?
@@ -37,13 +80,50 @@ finalize() {
     "$root" --profile "$PROFILE" --u "$U" --v "$V" \
     --warmup "$WARMUP" --iterations "$ITERATIONS" --trials "$TRIALS"
   finalizer_status=$?
+
+  manifest_status=1
   if [ -d "$root" ]; then
-    (cd "$root" && find . -type f ! -name BUNDLE_SHA256SUMS.txt -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > BUNDLE_SHA256SUMS.txt)
+    python3 - "$root" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+output = root / "BUNDLE_SHA256SUMS.txt"
+temporary = root / "BUNDLE_SHA256SUMS.txt.tmp"
+excluded = {output.name, temporary.name}
+lines = []
+for path in sorted(
+    (p for p in root.rglob("*") if p.is_file() and p.name not in excluded),
+    key=lambda p: p.relative_to(root).as_posix(),
+):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    rel = path.relative_to(root).as_posix()
+    lines.append(f"{digest.hexdigest()}  ./{rel}\n")
+temporary.write_text("".join(lines))
+temporary.replace(output)
+PY
+    manifest_status=$?
   fi
+
+  if [ "$manifest_status" -ne 0 ]; then
+    rm -f "$root/BUNDLE_SHA256SUMS.txt" "$root/BUNDLE_SHA256SUMS.txt.tmp" 2>/dev/null
+    mark_manifest_failure
+  fi
+
   if [ "$original_status" -ne 0 ]; then
     exit "$original_status"
   fi
-  exit "$finalizer_status"
+  if [ "$finalizer_status" -ne 0 ]; then
+    exit "$finalizer_status"
+  fi
+  exit "$manifest_status"
 }
 trap finalize EXIT
 
@@ -75,7 +155,16 @@ nvcc --list-gpu-arch | tee "$root/NVCC_GPU_ARCHS.txt"
 nvcc --list-gpu-code | tee "$root/NVCC_GPU_CODE.txt"
 grep -Fxq "$expected_compute" "$root/NVCC_GPU_ARCHS.txt"
 grep -Fxq "$expected_sm" "$root/NVCC_GPU_CODE.txt"
-if command -v ptxas >/dev/null 2>&1; then ptxas --version > "$root/PTXAS_VERSION.txt" 2>&1; fi
+ptxas_probe_status=127
+if command -v ptxas >/dev/null 2>&1; then
+  set +e
+  ptxas --version > "$root/PTXAS_VERSION.txt" 2>&1
+  ptxas_probe_status=$?
+  set -e
+else
+  printf '%s\n' 'ptxas not found on PATH' > "$root/PTXAS_VERSION.txt"
+fi
+printf '%s\n' "$ptxas_probe_status" > "$root/PTXAS_VERSION_EXIT_STATUS.txt"
 rustc --version | tee "$root/RUSTC.txt"
 cargo --version | tee "$root/CARGO.txt"
 cmake --version | tee "$root/CMAKE.txt"
@@ -105,14 +194,15 @@ fi
 set -e
 ptxas_info_seen=false
 if grep -Fq 'ptxas info' "$resource_root/build.txt"; then ptxas_info_seen=true; fi
-python3 - "$resource_root/RESOURCE_CAPTURE_STATUS.json" "$resource_configure_status" "$resource_build_status" "$ptxas_info_seen" <<'PY'
+python3 - "$resource_root/RESOURCE_CAPTURE_STATUS.json" "$resource_configure_status" "$resource_build_status" "$ptxas_info_seen" "$ptxas_probe_status" <<'PY'
 import json, sys
 from pathlib import Path
-out, configure, build, seen = sys.argv[1:]
+out, configure, build, seen, probe = sys.argv[1:]
 payload = {
     "schema": "gluball-cuda-runtime-v31-compiler-resource-capture/1",
     "capture_attempted": True,
     "graduation_gate": False,
+    "ptxas_version_probe_exit_code": int(probe),
     "configure_exit_code": int(configure),
     "build_exit_code": int(build),
     "ptxas_info_seen": seen == "true",
