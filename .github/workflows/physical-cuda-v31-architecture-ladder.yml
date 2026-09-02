@@ -6,7 +6,7 @@ on:
       target_profile:
         description: "Physical GPU profile"
         required: true
-        default: "v100"
+        default: "a100"
         type: choice
         options:
           - titan-xp

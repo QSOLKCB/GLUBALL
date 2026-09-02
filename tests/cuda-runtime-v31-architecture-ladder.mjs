@@ -41,7 +41,7 @@ assert.doesNotMatch(workflow, /^\s+push:/m);
 assert.doesNotMatch(workflow, /^\s+pull_request:/m);
 assert.match(workflow, /target_profile:/);
 for (const profile of fullProfileOrder) assert.match(workflow, new RegExp(`- ${profile.replace("-", "\\-")}`));
-assert.match(workflow, /default: "v100"/);
+assert.match(workflow, /default: "a100"/);
 assert.match(workflow, /PROFILE_REGISTRY: docs\/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES\.json/);
 assert.match(workflow, /Validate architecture profile registry/);
 assert.match(workflow, /expected_model_regex_case_insensitive/);
