@@ -71,6 +71,35 @@
       "v3_v31_digest_equality_required": true
     }
   },
+  "completed_turing_specimen": {
+    "profile": "gtx-1650",
+    "status": "PASS",
+    "physical_run_id": 33630241971,
+    "source_commit": "73a32f28c6472d3f2bc3a73e30e4f47af5633490",
+    "model": "NVIDIA GeForce GTX 1650",
+    "compute_capability": "7.5",
+    "compiled_cuda_arch_code": 750,
+    "artifact_id": 9846555505,
+    "artifact_sha256": "ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a",
+    "accepted_artifact_record": "docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json",
+    "best_observed_candidate": {
+      "block_size": 128,
+      "cuda_graphs": "off",
+      "reduction_mode": "atomic",
+      "observed_wall_milliseconds_median_of_trials": 0.137519,
+      "observed_matched_v3_over_v31_wall_ratio": 1.031181145878024,
+      "observed_v31_break_even_iterations_vs_matched_v3": 876
+    },
+    "diagnostic_digest_relationship": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a",
+      "v2_v3_digest_equality_required": false,
+      "v3_v31_digest_equality_required": true
+    },
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false
+  },
   "post_pr20_measurement_profiles": [
     "v100",
     "gtx-1650",
@@ -90,6 +119,22 @@
     "optional_datacenter_reference_profile": "t4",
     "profiles_are_interchangeable_evidence": false,
     "reason": "the final five-rung campaign records the available GTX 1650 as an explicit consumer Turing sm_75 specimen; a future T4 run, if available, remains separately identified T4 evidence"
+  },
+  "supplemental_profile_policy": {
+    "rtx-3050": {
+      "architecture_family": "Ampere",
+      "expected_sm": "sm_86",
+      "role": "same-host consumer Ampere follow-up",
+      "replaces_a100_rung": false,
+      "is_a100_evidence": false,
+      "same_source_required_for_direct_cross_profile_comparison": true
+    }
+  },
+  "profile_extension_source_policy": {
+    "accepted_gtx1650_run_remains_valid_standalone_evidence": true,
+    "profile_registry_extension_changes_merged_main_source_commit": true,
+    "pre_extension_gtx1650_run_is_automatically_same_source_with_post_extension_runs": false,
+    "rerun_required_for_strict_same_source_comparison_after_profile_extension_merge": true
   },
   "measurement_source_policy": {
     "run_all_post_pr20_profiles_from_same_merged_main_commit": true,
