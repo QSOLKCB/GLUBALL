@@ -11,7 +11,25 @@
     "zip_sha256": "ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a",
     "bundle_sha256s_manifest_sha256": "fdb45a763a62edb2804bb4f070781dd8ba1bbed6846d7a9acdc845a15582401b",
     "bundle_manifest_entry_count": 179,
-    "independently_verified_after_download": true
+    "independently_verified_after_download": true,
+    "actions_artifact_is_transient": true,
+    "durable_receipt_directory": "docs/physical-evidence/gtx-1650-33630241971",
+    "durable_bundle_manifest_parts": [
+      "BUNDLE_SHA256SUMS.part01.txt",
+      "BUNDLE_SHA256SUMS.part02.txt",
+      "BUNDLE_SHA256SUMS.part03.txt",
+      "BUNDLE_SHA256SUMS.part04.txt",
+      "BUNDLE_SHA256SUMS.part05.txt"
+    ],
+    "durable_supporting_receipts": [
+      "ARCHITECTURE_RESULT.json",
+      "VALIDATION_STATUS.json",
+      "PHYSICAL_PREFLIGHT_VALIDATION.json",
+      "FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json",
+      "v1-acceptance/V1_VALIDATION.json",
+      "v31-sanitizer/SANITIZER_EXIT_STATUS.txt"
+    ],
+    "durable_core_independent_of_actions_retention": true
   },
   "source_commit": "73a32f28c6472d3f2bc3a73e30e4f47af5633490",
   "gpu": {
