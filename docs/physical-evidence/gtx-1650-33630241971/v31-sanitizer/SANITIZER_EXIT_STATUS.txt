@@ -1,0 +1,4 @@
+memcheck_atomic=0
+racecheck_atomic=0
+memcheck_two_stage=0
+racecheck_two_stage=0

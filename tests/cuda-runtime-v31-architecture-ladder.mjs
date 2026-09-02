@@ -15,6 +15,7 @@ const comparator = await readFile(comparatorUrl, "utf8");
 const docs = await readFile(new URL("../docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.md", import.meta.url), "utf8");
 const contract = JSON.parse(await readFile(new URL("../docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json", import.meta.url), "utf8"));
 const profiles = JSON.parse(await readFile(new URL("../docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json", import.meta.url), "utf8"));
+const acceptedGtx1650 = JSON.parse(await readFile(new URL("../docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json", import.meta.url), "utf8"));
 const runtimeV2 = await readFile(new URL("../native/cuda/gluball_runtime_v2.cu", import.meta.url));
 const runtimeV3 = await readFile(new URL("../native/cuda/gluball_runtime_v3.cu", import.meta.url));
 const runtimeV31 = await readFile(new URL("../native/cuda/gluball_runtime_v31.cu", import.meta.url));
@@ -24,13 +25,14 @@ const gitBlobSha = (content) => {
   return createHash("sha1").update(Buffer.concat([header, content])).digest("hex");
 };
 
-const fullProfileOrder = ["titan-xp", "v100", "t4", "gtx-1650", "a100", "h200", "b200"];
+const fullProfileOrder = ["titan-xp", "v100", "t4", "gtx-1650", "rtx-3050", "a100", "h200", "b200"];
 const postPr20Profiles = ["v100", "gtx-1650", "a100", "h200", "b200"];
 const expectedDefinitions = {
   "titan-xp": ["^(?:NVIDIA )?TITAN Xp$", "6.1", "sm_61", "Pascal"],
   v100: ["^(?:NVIDIA )?(?:Tesla )?V100(?:[- ].*)?$", "7.0", "sm_70", "Volta"],
   t4: ["^(?:NVIDIA )?(?:Tesla )?T4(?:[- ].*)?$", "7.5", "sm_75", "Turing"],
   "gtx-1650": ["^(?:NVIDIA )?(?:GeForce )?GTX 1650$", "7.5", "sm_75", "Turing"],
+  "rtx-3050": ["^(?:NVIDIA )?(?:GeForce )?RTX 3050$", "8.6", "sm_86", "Ampere"],
   a100: ["^(?:NVIDIA )?(?:Tesla )?A100(?:[- ].*)?$", "8.0", "sm_80", "Ampere"],
   h200: ["^(?:NVIDIA )?(?:Tesla )?H200(?:[- ].*)?$", "9.0", "sm_90", "Hopper"],
   b200: ["^(?:NVIDIA )?(?:Tesla )?B200(?:[- ].*)?$", "10.0", "sm_100", "Blackwell"],
@@ -162,6 +164,10 @@ assert.equal(new RegExp(profiles.profiles.v100.expected_model_regex_case_insensi
 assert.equal(new RegExp(profiles.profiles["gtx-1650"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce GTX 1650"), true);
 assert.equal(new RegExp(profiles.profiles["gtx-1650"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce GTX 1650 SUPER"), false);
 assert.equal(new RegExp(profiles.profiles.t4.expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce GTX 1650"), false);
+assert.equal(new RegExp(profiles.profiles["rtx-3050"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce RTX 3050"), true);
+assert.equal(new RegExp(profiles.profiles["rtx-3050"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce RTX 3050 Laptop GPU"), false);
+assert.equal(new RegExp(profiles.profiles["rtx-3050"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce RTX 3050 Ti Laptop GPU"), false);
+assert.equal(new RegExp(profiles.profiles.a100.expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce RTX 3050"), false);
 assert.equal(profiles.measurement_boundary.runtime_source_frozen_during_post_pr20_measurement, true);
 assert.equal(profiles.measurement_boundary.same_merged_source_commit_required_for_post_pr20_comparison, true);
 assert.equal(profiles.measurement_boundary.model_regex_must_match_profile_definition, true);
@@ -180,11 +186,23 @@ assert.equal(contract.completed_pascal_followup.artifact_id, 9783551996);
 assert.equal(contract.completed_pascal_followup.best_observed_candidate.block_size, 256);
 assert.equal(contract.completed_pascal_followup.best_observed_candidate.cuda_graphs, "off");
 assert.equal(contract.completed_pascal_followup.best_observed_candidate.reduction_mode, "atomic");
+assert.equal(contract.completed_turing_specimen.profile, "gtx-1650");
+assert.equal(contract.completed_turing_specimen.physical_run_id, 33630241971);
+assert.equal(contract.completed_turing_specimen.artifact_id, 9846555505);
+assert.equal(contract.completed_turing_specimen.artifact_sha256, "ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a");
+assert.equal(contract.completed_turing_specimen.source_commit, "73a32f28c6472d3f2bc3a73e30e4f47af5633490");
+assert.equal(contract.completed_turing_specimen.accepted_artifact_record, "docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json");
 assert.deepEqual(contract.post_pr20_measurement_profiles, postPr20Profiles);
 assert.deepEqual(contract.post_pr20_expected_sm_ladder, ["sm_70", "sm_75", "sm_80", "sm_90", "sm_100"]);
 assert.equal(contract.turing_measurement_policy.selected_profile, "gtx-1650");
 assert.equal(contract.turing_measurement_policy.optional_datacenter_reference_profile, "t4");
 assert.equal(contract.turing_measurement_policy.profiles_are_interchangeable_evidence, false);
+assert.equal(contract.supplemental_profile_policy["rtx-3050"].expected_sm, "sm_86");
+assert.equal(contract.supplemental_profile_policy["rtx-3050"].replaces_a100_rung, false);
+assert.equal(contract.supplemental_profile_policy["rtx-3050"].is_a100_evidence, false);
+assert.equal(contract.profile_extension_source_policy.accepted_gtx1650_run_remains_valid_standalone_evidence, true);
+assert.equal(contract.profile_extension_source_policy.pre_extension_gtx1650_run_is_automatically_same_source_with_post_extension_runs, false);
+assert.equal(contract.profile_extension_source_policy.rerun_required_for_strict_same_source_comparison_after_profile_extension_merge, true);
 assert.equal(contract.measurement_source_policy.run_all_post_pr20_profiles_from_same_merged_main_commit, true);
 assert.equal(contract.measurement_source_policy.modify_runtime_source_between_profiles, false);
 assert.equal(contract.measurement_source_policy.physical_runner_recomputes_frozen_git_blob_ids, true);
@@ -198,6 +216,25 @@ assert.equal(contract.claim_boundary.geometry_receipt_authority, false);
 assert.equal(contract.claim_boundary.universal_speedup_claim, false);
 assert.equal(contract.claim_boundary.raw_device_uuid_published, false);
 
+assert.equal(acceptedGtx1650.schema, "gluball-cuda-runtime-v31-accepted-artifact/1");
+assert.equal(acceptedGtx1650.status, "PASS");
+assert.equal(acceptedGtx1650.profile, "gtx-1650");
+assert.equal(acceptedGtx1650.physical_run_id, 33630241971);
+assert.equal(acceptedGtx1650.artifact.id, 9846555505);
+assert.equal(acceptedGtx1650.artifact.zip_sha256, "ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a");
+assert.equal(acceptedGtx1650.source_commit, "73a32f28c6472d3f2bc3a73e30e4f47af5633490");
+assert.equal(acceptedGtx1650.gpu.model, "NVIDIA GeForce GTX 1650");
+assert.equal(acceptedGtx1650.gpu.compute_capability, "7.5");
+assert.equal(acceptedGtx1650.gpu.expected_sm, "sm_75");
+assert.equal(acceptedGtx1650.physical_preflight.raw_device_uuid_queried, false);
+assert.equal(acceptedGtx1650.physical_preflight.raw_device_uuid_published, false);
+assert.equal(acceptedGtx1650.v1_validation.output_repeatable_byte_identical, true);
+assert.equal(acceptedGtx1650.atomic_equivalence.v3_v31_exact_digest_equivalence, true);
+assert.equal(acceptedGtx1650.two_stage_equivalence.v3_v31_exact_digest_equivalence, true);
+assert.equal(acceptedGtx1650.bounded_tuning.best_observed_candidate_within_declared_set.block_size, 128);
+assert.equal(acceptedGtx1650.claim_boundary.geometry_receipt_authority, false);
+assert.equal(acceptedGtx1650.claim_boundary.universal_speedup_claim, false);
+
 assert.equal(gitBlobSha(runtimeV2), contract.frozen_runtime_source_blobs.runtime_v2);
 assert.equal(gitBlobSha(runtimeV3), contract.frozen_runtime_source_blobs.runtime_v3);
 assert.equal(gitBlobSha(runtimeV31), contract.frozen_runtime_source_blobs.runtime_v31);
@@ -205,11 +242,15 @@ assert.equal(gitBlobSha(runtimeV31), contract.frozen_runtime_source_blobs.runtim
 assert.match(docs, /sm_70\s+V100/);
 assert.match(docs, /sm_75\s+GTX 1650/);
 assert.match(docs, /T4.*optional/);
+assert.match(docs, /RTX 3050.*supplemental/);
 assert.match(docs, /sm_80\s+A100/);
 assert.match(docs, /sm_90\s+H200/);
 assert.match(docs, /sm_100\s+B200/);
 assert.match(docs, /v100 -> gtx-1650 -> a100 -> h200 -> b200/);
 assert.match(docs, /not interchangeable with the GTX 1650 specimen/);
+assert.match(docs, /33630241971/);
+assert.match(docs, /9846555505/);
+assert.match(docs, /ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a/);
 assert.match(docs, /Marketplace instance IDs, prices and availability are external rental logistics/);
 assert.match(docs, /cross_device_digest_equality_required:\s+false/);
 assert.match(docs, /within_device_v3_v31_digest_equality:\s+required/);
