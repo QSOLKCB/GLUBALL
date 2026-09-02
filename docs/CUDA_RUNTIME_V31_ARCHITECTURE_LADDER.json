@@ -82,6 +82,8 @@
     "artifact_id": 9846555505,
     "artifact_sha256": "ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a",
     "accepted_artifact_record": "docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json",
+    "durable_receipt_directory": "docs/physical-evidence/gtx-1650-33630241971",
+    "bundle_manifest_parts": 5,
     "best_observed_candidate": {
       "block_size": 128,
       "cuda_graphs": "off",
@@ -124,9 +126,11 @@
     "rtx-3050": {
       "architecture_family": "Ampere",
       "expected_sm": "sm_86",
-      "role": "same-host consumer Ampere follow-up",
+      "role": "supplemental consumer Ampere observation",
       "replaces_a100_rung": false,
       "is_a100_evidence": false,
+      "same_host_claim_enforced": false,
+      "host_identity_bound_by_workflow": false,
       "same_source_required_for_direct_cross_profile_comparison": true
     }
   },
