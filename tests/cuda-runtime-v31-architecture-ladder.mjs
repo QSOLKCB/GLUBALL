@@ -24,12 +24,13 @@ const gitBlobSha = (content) => {
   return createHash("sha1").update(Buffer.concat([header, content])).digest("hex");
 };
 
-const fullProfileOrder = ["titan-xp", "v100", "t4", "a100", "h200", "b200"];
-const postPr20Profiles = ["v100", "t4", "a100", "h200", "b200"];
+const fullProfileOrder = ["titan-xp", "v100", "t4", "gtx-1650", "a100", "h200", "b200"];
+const postPr20Profiles = ["v100", "gtx-1650", "a100", "h200", "b200"];
 const expectedDefinitions = {
   "titan-xp": ["^(?:NVIDIA )?TITAN Xp$", "6.1", "sm_61", "Pascal"],
   v100: ["^(?:NVIDIA )?(?:Tesla )?V100(?:[- ].*)?$", "7.0", "sm_70", "Volta"],
   t4: ["^(?:NVIDIA )?(?:Tesla )?T4(?:[- ].*)?$", "7.5", "sm_75", "Turing"],
+  "gtx-1650": ["^(?:NVIDIA )?(?:GeForce )?GTX 1650$", "7.5", "sm_75", "Turing"],
   a100: ["^(?:NVIDIA )?(?:Tesla )?A100(?:[- ].*)?$", "8.0", "sm_80", "Ampere"],
   h200: ["^(?:NVIDIA )?(?:Tesla )?H200(?:[- ].*)?$", "9.0", "sm_90", "Hopper"],
   b200: ["^(?:NVIDIA )?(?:Tesla )?B200(?:[- ].*)?$", "10.0", "sm_100", "Blackwell"],
@@ -158,6 +159,9 @@ for (const [profile, [pattern, cc, sm, family]] of Object.entries(expectedDefini
 }
 assert.equal(new RegExp(profiles.profiles.v100.expected_model_regex_case_insensitive, "i").test("NVIDIA Tesla V100-PCIE-16GB"), true);
 assert.equal(new RegExp(profiles.profiles.v100.expected_model_regex_case_insensitive, "i").test("NVIDIA Quadro GV100"), false);
+assert.equal(new RegExp(profiles.profiles["gtx-1650"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce GTX 1650"), true);
+assert.equal(new RegExp(profiles.profiles["gtx-1650"].expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce GTX 1650 SUPER"), false);
+assert.equal(new RegExp(profiles.profiles.t4.expected_model_regex_case_insensitive, "i").test("NVIDIA GeForce GTX 1650"), false);
 assert.equal(profiles.measurement_boundary.runtime_source_frozen_during_post_pr20_measurement, true);
 assert.equal(profiles.measurement_boundary.same_merged_source_commit_required_for_post_pr20_comparison, true);
 assert.equal(profiles.measurement_boundary.model_regex_must_match_profile_definition, true);
@@ -178,6 +182,9 @@ assert.equal(contract.completed_pascal_followup.best_observed_candidate.cuda_gra
 assert.equal(contract.completed_pascal_followup.best_observed_candidate.reduction_mode, "atomic");
 assert.deepEqual(contract.post_pr20_measurement_profiles, postPr20Profiles);
 assert.deepEqual(contract.post_pr20_expected_sm_ladder, ["sm_70", "sm_75", "sm_80", "sm_90", "sm_100"]);
+assert.equal(contract.turing_measurement_policy.selected_profile, "gtx-1650");
+assert.equal(contract.turing_measurement_policy.optional_datacenter_reference_profile, "t4");
+assert.equal(contract.turing_measurement_policy.profiles_are_interchangeable_evidence, false);
 assert.equal(contract.measurement_source_policy.run_all_post_pr20_profiles_from_same_merged_main_commit, true);
 assert.equal(contract.measurement_source_policy.modify_runtime_source_between_profiles, false);
 assert.equal(contract.measurement_source_policy.physical_runner_recomputes_frozen_git_blob_ids, true);
@@ -196,11 +203,13 @@ assert.equal(gitBlobSha(runtimeV3), contract.frozen_runtime_source_blobs.runtime
 assert.equal(gitBlobSha(runtimeV31), contract.frozen_runtime_source_blobs.runtime_v31);
 
 assert.match(docs, /sm_70\s+V100/);
-assert.match(docs, /sm_75\s+T4/);
+assert.match(docs, /sm_75\s+GTX 1650/);
+assert.match(docs, /T4.*optional/);
 assert.match(docs, /sm_80\s+A100/);
 assert.match(docs, /sm_90\s+H200/);
 assert.match(docs, /sm_100\s+B200/);
-assert.match(docs, /v100 -> t4 -> a100 -> h200 -> b200/);
+assert.match(docs, /v100 -> gtx-1650 -> a100 -> h200 -> b200/);
+assert.match(docs, /not interchangeable with the GTX 1650 specimen/);
 assert.match(docs, /Marketplace instance IDs, prices and availability are external rental logistics/);
 assert.match(docs, /cross_device_digest_equality_required:\s+false/);
 assert.match(docs, /within_device_v3_v31_digest_equality:\s+required/);
