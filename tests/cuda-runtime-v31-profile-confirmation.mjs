@@ -10,14 +10,18 @@ assert.match(
   workflow,
   /target_profile:\r?\n[ \t]+description: "Physical GPU profile"\r?\n[ \t]+required: true\r?\n[ \t]+default: "a100"\r?\n[ \t]+type: choice/,
 );
+
+const confirmStart = workflow.indexOf("      confirm_target_profile:");
+const confirmEnd = workflow.indexOf("      u_segments:", confirmStart);
+assert.notEqual(confirmStart, -1, "confirm_target_profile input must exist");
+assert.notEqual(confirmEnd, -1, "u_segments input must follow confirmation input");
+const confirmBlock = workflow.slice(confirmStart, confirmEnd);
 assert.match(
-  workflow,
+  confirmBlock,
   /confirm_target_profile:\r?\n[ \t]+description: "Type the selected physical GPU profile exactly to confirm"\r?\n[ \t]+required: true\r?\n[ \t]+type: string/,
 );
-assert.doesNotMatch(
-  workflow,
-  /confirm_target_profile:\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+default:/,
-);
+assert.doesNotMatch(confirmBlock, /default:/);
+
 assert.match(workflow, /PROFILE_CONFIRMATION: \$\{\{ inputs\.confirm_target_profile \}\}/);
 assert.match(workflow, /- name: Require explicit profile confirmation/);
 assert.match(workflow, /if \[ "\$PROFILE_CONFIRMATION" != "\$PROFILE" \]; then/);
