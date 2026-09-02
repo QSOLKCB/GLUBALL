@@ -6,6 +6,7 @@
     "titan-xp",
     "v100",
     "t4",
+    "gtx-1650",
     "a100",
     "h200",
     "b200"
@@ -37,6 +38,16 @@
       "expected_sm": "sm_75",
       "architecture_family": "Turing",
       "device_class": "datacenter",
+      "measurement_role": "optional-turing-datacenter-reference",
+      "requires_full_gpu": true,
+      "status": "pending-physical-run"
+    },
+    "gtx-1650": {
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:GeForce )?GTX 1650$",
+      "expected_compute_capability": "7.5",
+      "expected_sm": "sm_75",
+      "architecture_family": "Turing",
+      "device_class": "consumer",
       "measurement_role": "post-pr20-generation-ladder",
       "requires_full_gpu": true,
       "status": "pending-physical-run"

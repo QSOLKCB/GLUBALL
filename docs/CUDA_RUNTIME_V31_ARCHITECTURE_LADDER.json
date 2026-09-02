@@ -73,7 +73,7 @@
   },
   "post_pr20_measurement_profiles": [
     "v100",
-    "t4",
+    "gtx-1650",
     "a100",
     "h200",
     "b200"
@@ -85,6 +85,12 @@
     "sm_90",
     "sm_100"
   ],
+  "turing_measurement_policy": {
+    "selected_profile": "gtx-1650",
+    "optional_datacenter_reference_profile": "t4",
+    "profiles_are_interchangeable_evidence": false,
+    "reason": "the final five-rung campaign records the available GTX 1650 as an explicit consumer Turing sm_75 specimen; a future T4 run, if available, remains separately identified T4 evidence"
+  },
   "measurement_source_policy": {
     "run_all_post_pr20_profiles_from_same_merged_main_commit": true,
     "physical_dispatch_ref_required": "refs/heads/main",
