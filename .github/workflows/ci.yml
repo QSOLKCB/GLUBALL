@@ -40,6 +40,7 @@ jobs:
           node tests/cuda-runtime-v31.mjs
           node tests/cuda-runtime-v31-workflow.mjs
           node tests/cuda-runtime-v31-architecture-ladder.mjs
+          node tests/cuda-runtime-v31-profile-confirmation.mjs
           node tests/cuda-runtime-v31-physical-preflight.mjs
           node tests/cuda-runtime-v31-receipt-boundary-hardening.mjs
       - name: v1.0.0 release preflight
