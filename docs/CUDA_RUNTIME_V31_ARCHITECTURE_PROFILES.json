@@ -7,6 +7,7 @@
     "v100",
     "t4",
     "gtx-1650",
+    "rtx-3050",
     "a100",
     "h200",
     "b200"
@@ -49,6 +50,16 @@
       "architecture_family": "Turing",
       "device_class": "consumer",
       "measurement_role": "post-pr20-generation-ladder",
+      "requires_full_gpu": true,
+      "status": "completed-physical-run-33630241971"
+    },
+    "rtx-3050": {
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:GeForce )?RTX 3050$",
+      "expected_compute_capability": "8.6",
+      "expected_sm": "sm_86",
+      "architecture_family": "Ampere",
+      "device_class": "consumer",
+      "measurement_role": "supplemental-same-host-ampere-observation",
       "requires_full_gpu": true,
       "status": "pending-physical-run"
     },
