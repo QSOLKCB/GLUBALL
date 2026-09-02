@@ -7,12 +7,14 @@ The physical sequence is:
 ```text
 sm_61   GTX 1080 Ti   Pascal     completed baseline
 sm_61   Titan Xp      Pascal     completed follow-up
-sm_70   V100          Volta      next measurement
-sm_75   T4            Turing     next measurement
-sm_80   A100          Ampere     next measurement
-sm_90   H200          Hopper     next measurement
-sm_100  B200          Blackwell  next measurement
+sm_70   V100          Volta      post-PR20 rung
+sm_75   GTX 1650      Turing     post-PR20 rung
+sm_80   A100          Ampere     post-PR20 rung
+sm_90   H200          Hopper     post-PR20 rung
+sm_100  B200          Blackwell  post-PR20 rung
 ```
+
+The T4 remains a separately registered optional Turing/datacenter profile. A GTX 1650 result is never labelled as T4 evidence: the selected five-rung campaign records the available consumer GTX 1650 explicitly as its Turing `sm_75` specimen, while any future T4 observation would remain a distinct hardware result.
 
 The purpose is not to turn rented GPU timings into a universal ranking. The purpose is to observe how one fixed Runtime V3.1 experiment behaves as execution hardware evolves from Pascal through Blackwell.
 
@@ -26,7 +28,7 @@ Runtime V3 blob    dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0
 Runtime V3.1 blob  045fbf37725beb5d65b2332309626ccfa727f874
 ```
 
-No Runtime V1, V2, V3 or V3.1 CUDA implementation change belongs inside the V100/T4/A100/H200/B200 measurement sequence.
+No Runtime V1, V2, V3 or V3.1 CUDA implementation change belongs inside the V100/GTX-1650/A100/H200/B200 measurement sequence.
 
 The five post-PR20 measurements should be dispatched from the same merged `main` commit. That preserves both the exact-source comparator gate and the fixed-workload interpretation.
 
@@ -86,17 +88,18 @@ docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
 
 The workflow, physical runner, tests and cross-profile comparator use this registry instead of maintaining independent model/SM tables.
 
-Each profile contains an anchored, case-insensitive model regular expression plus its exact compute capability and native SM. In particular, the V100 rule is anchored to the V100 product name and therefore does **not** accept a Quadro GV100 simply because both devices are `sm_70`.
+Each profile contains an anchored, case-insensitive model regular expression plus its exact compute capability and native SM. In particular, the V100 rule is anchored to the V100 product name and therefore does **not** accept a Quadro GV100 simply because both devices are `sm_70`. The GTX 1650 rule is likewise anchored to the plain GTX 1650 product identity and does not silently convert another Turing product into GTX 1650 evidence.
 
 Conceptually the registry binds:
 
 ```text
-titan-xp  -> TITAN Xp product identity -> 6.1  -> sm_61   Pascal
-v100      -> V100 product identity     -> 7.0  -> sm_70   Volta
-t4        -> T4 product identity       -> 7.5  -> sm_75   Turing
-a100      -> A100 product identity     -> 8.0  -> sm_80   Ampere
-h200      -> H200 product identity     -> 9.0  -> sm_90   Hopper
-b200      -> B200 product identity     -> 10.0 -> sm_100  Blackwell
+titan-xp  -> TITAN Xp product identity    -> 6.1  -> sm_61   Pascal
+v100      -> V100 product identity        -> 7.0  -> sm_70   Volta
+t4        -> T4 product identity          -> 7.5  -> sm_75   Turing (optional reference)
+gtx-1650  -> GTX 1650 product identity    -> 7.5  -> sm_75   Turing (selected rung)
+a100      -> A100 product identity        -> 8.0  -> sm_80   Ampere
+h200      -> H200 product identity        -> 9.0  -> sm_90   Hopper
+b200      -> B200 product identity        -> 10.0 -> sm_100  Blackwell
 ```
 
 A physical campaign must satisfy all identity checks before expensive work begins:
@@ -108,7 +111,7 @@ A physical campaign must satisfy all identity checks before expensive work begin
 
 The exact profile definition used by a run is archived as `PROFILE_DEFINITION.json`. Finalization parses and semantically validates that record, including schema, matching profile name, model regex, compute capability, native SM consistency and required metadata. Mere file existence is not sufficient for PASS.
 
-## One workflow, reusable rental loop
+## One workflow, reusable rental/local loop
 
 The manual workflow is:
 
@@ -122,36 +125,39 @@ Available profiles:
 titan-xp
 v100
 t4
+gtx-1650
 a100
 h200
 b200
 ```
 
-All profiles use the same ephemeral self-hosted runner label:
+All profiles use the same self-hosted runner label:
 
 ```text
 gluball-vast-v31-architecture
 ```
 
-The intended rental loop is deliberately boring:
+The intended loop is deliberately boring:
 
 ```text
-rent one GPU
+prepare one physical GPU host
 register ephemeral runner
-choose profile
+choose the exact hardware profile
 run canonical campaign
 download and independently verify artifact
-destroy rental
+retire/destroy the runner or rental
 repeat
 ```
 
-After PR20 merges, the preferred order is:
+The selected five-rung post-PR20 order is:
 
 ```text
-v100 -> t4 -> a100 -> h200 -> b200
+v100 -> gtx-1650 -> a100 -> h200 -> b200
 ```
 
-Do not modify Runtime V2/V3/V3.1 source between those five runs.
+A later T4 run may be collected as an additional Turing/datacenter observation, but it must remain identified as `t4` and is not interchangeable with the GTX 1650 specimen.
+
+Do not modify Runtime V2/V3/V3.1 source between those five selected runs.
 
 ## Canonical cross-generation workload
 
