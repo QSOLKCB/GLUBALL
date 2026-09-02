@@ -22,7 +22,7 @@ An RTX 3050 is also registered as a supplemental consumer Ampere profile:
 rtx-3050  -> GeForce RTX 3050 product identity -> 8.6 -> sm_86 -> Ampere
 ```
 
-It is a same-host consumer Ampere follow-up, not an A100 substitute and never A100 evidence. Because adding a profile changes the merged `main` source commit, a run collected before that profile-extension merge remains valid standalone physical evidence but is not automatically eligible for strict same-source comparison against runs collected afterward.
+It is supplemental consumer Ampere evidence, not an A100 substitute and never A100 evidence. The workflow does not bind or compare a stable host identity, so the profile itself makes no same-host claim. If an operator deliberately swaps GPUs in one machine, that fact belongs in separate host-provenance evidence rather than being inferred from the shared runner label. Because adding a profile changes the merged `main` source commit, a run collected before that profile-extension merge remains valid standalone physical evidence but is not automatically eligible for strict same-source comparison against runs collected afterward.
 
 The purpose is not to turn GPU timings into a universal ranking. The purpose is to observe how one fixed Runtime V3.1 experiment behaves as execution hardware changes while keeping claim boundaries explicit.
 
@@ -95,7 +95,13 @@ Its accepted machine-readable artifact record is checked in at:
 docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json
 ```
 
-That record binds the workflow run, artifact ID and ZIP SHA-256, canonical workload, safe GPU identity, V1 repeatability and residual fields, frozen measured build-input identities, A/B equivalence summaries, tuner winner, required stages and unchanged claim boundaries. The full transient Actions bundle remains identified by its artifact ID and hash; the checked-in record preserves the scientific core without committing the generated binary bundle to Git history.
+The durable supporting receipt directory is:
+
+```text
+docs/physical-evidence/gtx-1650-33630241971/
+```
+
+The original 179-entry `BUNDLE_SHA256SUMS.txt` is preserved losslessly as five ordered parts named `BUNDLE_SHA256SUMS.part01.txt` through `part05.txt`; concatenating them in numeric order reconstructs the original manifest. The directory also preserves the exact `ARCHITECTURE_RESULT.json`, `VALIDATION_STATUS.json`, physical-preflight receipt, frozen measured-build-input receipt, V1 validation receipt, and Runtime V3.1 sanitizer exit-status receipt. This keeps the core acceptance evidence independently inspectable after the transient 90-day Actions artifact expires. The generated binary point outputs themselves are not committed; their SHA-256 identities remain bound in the preserved V1 validation and original bundle manifest.
 
 The accepted GTX 1650 artifact observed the familiar diagnostic relationship:
 
@@ -117,7 +123,7 @@ docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
 
 The workflow, physical runner, tests and cross-profile comparator use this registry instead of maintaining independent model/SM tables.
 
-Each profile contains an anchored, case-insensitive model regular expression plus its exact compute capability and native SM. In particular, the V100 rule is anchored to the V100 product name and therefore does **not** accept a Quadro GV100 simply because both devices are `sm_70`. The GTX 1650 rule is likewise anchored to the plain GTX 1650 product identity, and the RTX 3050 rule is anchored to the plain desktop RTX 3050 product identity.
+Each profile contains an anchored, case-insensitive model regular expression plus its exact compute capability and native SM. It also declares `mig_capable` explicitly instead of inferring MIG support from compute-capability generation. This matters for consumer Ampere devices such as the RTX 3050, which are `sm_86` but do not expose datacenter MIG functionality.
 
 Conceptually the registry binds:
 
@@ -137,7 +143,8 @@ A physical campaign must satisfy all identity checks before expensive work begin
 1. the actual GPU model fully matches the profile's anchored case-insensitive model regex;
 2. the physical compute capability equals the registry capability;
 3. the discovered native `sm_XX` equals the registry SM;
-4. the installed CUDA toolkit advertises both the corresponding `compute_XX` and native `sm_XX` targets.
+4. the installed CUDA toolkit advertises both the corresponding `compute_XX` and native `sm_XX` targets;
+5. MIG handling follows the profile's explicit `mig_capable` declaration, while all profiles still reject an observed MIG partition.
 
 The exact profile definition used by a run is archived as `PROFILE_DEFINITION.json`. Finalization parses and semantically validates that record, including schema, matching profile name, model regex, compute capability, native SM consistency and required metadata. Mere file existence is not sufficient for PASS.
 
@@ -225,40 +232,9 @@ Every physical architecture profile must complete:
 
 The V1 evidence path remains the correctness authority. Runtime V2/V3/V3.1 throughput observations remain non-authoritative for geometry.
 
-## Compiler resource telemetry
-
-Each architecture run attempts a CUDA build with:
-
-```text
---ptxas-options=-v
-```
-
-for Runtime V2, Runtime V3 and Runtime V3.1.
-
-The transcript and `RESOURCE_CAPTURE_STATUS.json` expose architecture-dependent register counts, spills, shared-memory use and related PTXAS diagnostics.
-
-Compiler telemetry is not a graduation gate because toolkit output behavior may vary. A telemetry failure must not be confused with a CUDA correctness or equivalence failure.
-
 ## Architecture result
 
-Each successful profile emits:
-
-```text
-ARCHITECTURE_RESULT.json
-```
-
-which binds:
-
-- source commit;
-- validated frozen Runtime V2/V3/V3.1 source identities;
-- profile name and semantically validated archived profile definition;
-- safe GPU model, compute capability and native SM;
-- canonical workload;
-- V1 repeatability summary;
-- atomic and two-stage equivalence summaries;
-- tuner winner and candidate counts;
-- compiler resource telemetry status;
-- unchanged claim boundaries.
+Each successful profile emits `ARCHITECTURE_RESULT.json`, which binds source commit, validated frozen sources/build inputs, profile definition, safe GPU identity, canonical workload, V1 repeatability, atomic/two-stage equivalence, bounded tuner winner, compiler telemetry status, and unchanged claim boundaries.
 
 Raw GPU UUIDs are never queried or published by the workflow provenance path.
 
@@ -273,16 +249,7 @@ python3 scripts/compare_cuda_runtime_v31_architecture_results.py \
   --output LEFT_VS_RIGHT.json
 ```
 
-The comparator requires:
-
-```text
-both individual profile results PASS
-both identities valid against the checked-in profile registry
-both embedded profile definitions equal their checked-in registry definitions
-same source commit
-same canonical workload
-valid within-device V3/V3.1 diagnostic equivalence
-```
+The comparator requires both individual profile results PASS, identities valid against the checked-in registry, embedded definitions equal the registry definitions, the same source commit, the same canonical workload, valid physical/frozen-input receipts, and within-device V3/V3.1 diagnostic equivalence.
 
 It does not require cross-device raw-float digest equality. A diagnostic digest is not geometry authority, and different architectures/toolchains may produce different binary32 representations while satisfying the accepted observation boundary.
 
