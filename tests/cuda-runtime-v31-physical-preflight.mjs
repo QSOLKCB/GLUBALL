@@ -18,9 +18,11 @@ assert.ok(python3.length > 0);
 for (const definition of Object.values(profiles.profiles)) {
   assert.equal(definition.requires_full_gpu, true);
   assert.match(definition.expected_compute_capability, /^[0-9]+\.[0-9]+$/);
+  assert.equal(typeof definition.mig_capable, "boolean");
 }
 assert.equal(profiles.measurement_boundary.full_gpu_profiles_reject_mig_enabled_or_partitioned_devices, true);
 assert.equal(profiles.measurement_boundary.mig_partition_profiles_supported, false);
+assert.equal(profiles.measurement_boundary.mig_capability_must_match_profile_definition, true);
 assert.equal(contract.measurement_source_policy.physical_preflight_receipt_required, true);
 assert.equal(contract.measurement_source_policy.canonical_workload_exact_match_required_for_graduation, true);
 assert.equal(contract.measurement_source_policy.full_gpu_profiles_reject_mig_enabled_or_partitioned_devices, true);
@@ -57,46 +59,49 @@ const canonicalWorkload = {
   fixed_across_profiles: true,
 };
 
-const makePreflight = (profile, model, cc, index = 0) => ({
-  schema: "gluball-cuda-runtime-v31-physical-preflight/1",
-  status: "PASS",
-  profile,
-  canonical_workload_expected: { ...canonicalWorkload },
-  canonical_workload_observed: { ...canonicalWorkload },
-  canonical_workload_match: true,
-  full_gpu_required: true,
-  required_nvidia_smi_visible_gpu_count: 1,
-  nvidia_smi_visible_gpu_count: 1,
-  single_visible_gpu_verified: true,
-  cuda_device_ordinal: 0,
-  cuda_ordinal_zero_mapping_unambiguous: true,
-  selected_nvidia_smi_index: index,
-  cuda_visible_devices_set: false,
-  cuda_visible_devices_value_published: false,
-  mig_capable_profile: Number(cc.split(".")[0]) >= 8,
-  mig_query_supported: Number(cc.split(".")[0]) >= 8,
-  mig_query_exit_code: 0,
-  mig_query_error: null,
-  identity_query_exit_code: 0,
-  identity_query_error: null,
-  mig_mode_current: Number(cc.split(".")[0]) >= 8 ? "Disabled" : "not-applicable-query-unavailable",
-  mig_mode_acceptable: true,
-  mig_enabled: false,
-  mig_partition_observed: false,
-  safe_gpu_inventory: {
-    index,
-    name: model,
-    compute_capability: cc,
-    memory_total_mib: "16384",
-  },
-  profile_model_match: true,
-  profile_compute_capability_match: true,
-  performance_observation_only: true,
-  geometry_receipt_authority: false,
-  universal_speedup_claim: false,
-  raw_device_uuid_queried: false,
-  raw_device_uuid_published: false,
-});
+const makePreflight = (profile, model, cc, index = 0) => {
+  const migCapable = profiles.profiles[profile]?.mig_capable === true;
+  return {
+    schema: "gluball-cuda-runtime-v31-physical-preflight/1",
+    status: "PASS",
+    profile,
+    canonical_workload_expected: { ...canonicalWorkload },
+    canonical_workload_observed: { ...canonicalWorkload },
+    canonical_workload_match: true,
+    full_gpu_required: true,
+    required_nvidia_smi_visible_gpu_count: 1,
+    nvidia_smi_visible_gpu_count: 1,
+    single_visible_gpu_verified: true,
+    cuda_device_ordinal: 0,
+    cuda_ordinal_zero_mapping_unambiguous: true,
+    selected_nvidia_smi_index: index,
+    cuda_visible_devices_set: false,
+    cuda_visible_devices_value_published: false,
+    mig_capable_profile: migCapable,
+    mig_query_supported: migCapable,
+    mig_query_exit_code: 0,
+    mig_query_error: null,
+    identity_query_exit_code: 0,
+    identity_query_error: null,
+    mig_mode_current: migCapable ? "Disabled" : "not-applicable-query-unavailable",
+    mig_mode_acceptable: true,
+    mig_enabled: false,
+    mig_partition_observed: false,
+    safe_gpu_inventory: {
+      index,
+      name: model,
+      compute_capability: cc,
+      memory_total_mib: "16384",
+    },
+    profile_model_match: true,
+    profile_compute_capability_match: true,
+    performance_observation_only: true,
+    geometry_receipt_authority: false,
+    universal_speedup_claim: false,
+    raw_device_uuid_queried: false,
+    raw_device_uuid_published: false,
+  };
+};
 
 const makeBuildReceipt = () => ({
   schema: "gluball-cuda-runtime-v31-frozen-build-input-validation/1",
@@ -247,8 +252,8 @@ esac
   assert.equal(migQueryUnsupportedReceipt.single_visible_gpu_verified, true);
   assert.equal(migQueryUnsupportedReceipt.mig_query_exit_code, 6);
 
-  // The same fallback is acceptable for pre-Ampere profiles, and known N/A
-  // spellings from older devices must remain accepted.
+  // The same fallback is acceptable for non-MIG profiles, and known N/A
+  // spellings from devices without MIG support must remain accepted.
   await writeFakeSmiSplit({
     fullQuery: `echo 'Field "mig.mode.current" is not a valid field to query.' >&2; exit 6`,
     identityQuery: `printf '%s\\n' '0, Tesla V100-PCIE-16GB, 7.0, 16384'`,
@@ -265,7 +270,7 @@ esac
   for (const [suffix, spelling] of [["na-bracket", "[N/A]"], ["na-plain", "N/A"], ["na-notsupported", "Not Supported"]]) {
     await writeFakeSmi(`0, Tesla V100-PCIE-16GB, 7.0, 16384, ${spelling}`);
     const naRun = runPreflightProfile(`preampere-${suffix}`, "v100");
-    assert.equal(naRun.result.status, 0, `pre-Ampere MIG spelling ${spelling}: ${naRun.result.stderr}`);
+    assert.equal(naRun.result.status, 0, `non-MIG spelling ${spelling}: ${naRun.result.stderr}`);
     const naReceipt = JSON.parse(await readFile(naRun.output, "utf8"));
     assert.equal(naReceipt.status, "PASS");
     assert.equal(naReceipt.mig_enabled, false);
@@ -387,11 +392,12 @@ esac
   const doctoredReceiptWritten = await access(doctoredOutput).then(() => true, () => false);
   assert.equal(doctoredReceiptWritten, false);
 
-  // A valid >=8 CC still drives the strict MIG gate independent of profile name.
+  // Explicit MIG capability drives the strict gate independent of profile name.
   {
     const promotedRegistry = structuredClone(profiles);
     promotedRegistry.profiles.t4.expected_compute_capability = "8.0";
     promotedRegistry.profiles.t4.expected_sm = "sm_80";
+    promotedRegistry.profiles.t4.mig_capable = true;
     const promotedPath = join(temp, "promoted-t4-profiles.json");
     await writeFile(promotedPath, JSON.stringify(promotedRegistry));
     await writeFakeSmiSplit({
