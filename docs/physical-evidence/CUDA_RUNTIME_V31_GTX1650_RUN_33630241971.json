@@ -1,0 +1,159 @@
+{
+  "schema": "gluball-cuda-runtime-v31-accepted-artifact/1",
+  "contract": "GLUBALL-CUDA-RUNTIME-V3.1-ARCHITECTURE-LADDER",
+  "status": "PASS",
+  "profile": "gtx-1650",
+  "physical_run_id": 33630241971,
+  "artifact": {
+    "id": 9846555505,
+    "name": "gluball-v31-architecture-gtx-1650-33630241971-1",
+    "zip_size_bytes": 867282,
+    "zip_sha256": "ef8cbbe2622638df1629d626e0b8b7c568e53ad711aaa9050fe09f29bfcee16a",
+    "bundle_sha256s_manifest_sha256": "fdb45a763a62edb2804bb4f070781dd8ba1bbed6846d7a9acdc845a15582401b",
+    "bundle_manifest_entry_count": 179,
+    "independently_verified_after_download": true
+  },
+  "source_commit": "73a32f28c6472d3f2bc3a73e30e4f47af5633490",
+  "gpu": {
+    "compute_capability": "7.5",
+    "expected_sm": "sm_75",
+    "model": "NVIDIA GeForce GTX 1650",
+    "raw_device_uuid_published": false
+  },
+  "canonical_workload": {
+    "fixed_across_profiles": true,
+    "measured_iterations": 1000,
+    "repeats": 1,
+    "trials_per_candidate": 3,
+    "u_segments": 16384,
+    "v_segments": 128,
+    "warmup_iterations": 20
+  },
+  "v1_validation": {
+    "status": "PASS",
+    "acceptance_record_count": 3,
+    "output_repeatable_byte_identical": true,
+    "output_sha256": [
+      "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+      "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+      "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb"
+    ],
+    "stable_acceptance_fields": {
+      "checked_points": 16384,
+      "evidence_artifact_fnv1a64": "0fd0b3ab807341fe",
+      "max_component_residual": 2.583210810591652e-06,
+      "max_euclidean_residual": 3.1237784588949408e-06,
+      "max_reported_tube_radius_error": 1.7881393432617188e-07,
+      "total_points": 16384,
+      "worst_linear_index": 15742
+    },
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false
+  },
+  "physical_preflight": {
+    "status": "PASS",
+    "single_visible_gpu_verified": true,
+    "safe_gpu_inventory": {
+      "compute_capability": "7.5",
+      "index": 0,
+      "memory_total_mib": "4096",
+      "name": "NVIDIA GeForce GTX 1650"
+    },
+    "canonical_workload_match": true,
+    "raw_device_uuid_queried": false,
+    "raw_device_uuid_published": false,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false
+  },
+  "frozen_measured_build_inputs": {
+    "status": "PASS",
+    "contract_matches_frozen_expected_map": true,
+    "observed_git_blob_ids": {
+      "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+      "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+      "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+      "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+      "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+    }
+  },
+  "atomic_equivalence": {
+    "status": "PASS",
+    "v2_wall_milliseconds_median": 0.690525,
+    "v3_wall_milliseconds_median": 0.142753,
+    "v31_wall_milliseconds_median": 0.139444,
+    "observed_v3_over_v31_wall_ratio": 1.0237299561114137,
+    "diagnostic_digests": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a"
+    },
+    "shared_observation_equivalence": true,
+    "v3_v31_exact_digest_equivalence": true
+  },
+  "two_stage_equivalence": {
+    "status": "PASS",
+    "v2_wall_milliseconds_median": 0.691054,
+    "v3_wall_milliseconds_median": 0.141176,
+    "v31_wall_milliseconds_median": 0.141916,
+    "observed_v3_over_v31_wall_ratio": 0.9947856478480228,
+    "diagnostic_digests": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a"
+    },
+    "shared_observation_equivalence": true,
+    "v3_v31_exact_digest_equivalence": true
+  },
+  "bounded_tuning": {
+    "best_observed_candidate_within_declared_set": {
+      "block_size": 128,
+      "cuda_graphs": "off",
+      "exact_matched_v3_v31_digest_equivalence": true,
+      "matched_v3_max_device_kernel_milliseconds_median_of_trials": 0.11929599940776825,
+      "matched_v3_setup_milliseconds_median_of_trials": 157.375597,
+      "matched_v3_wall_milliseconds_median_of_trials": 0.141807,
+      "observed_matched_v3_minus_v31_wall_milliseconds_per_iteration": 0.004287999999999986,
+      "observed_matched_v3_over_v31_wall_ratio": 1.031181145878024,
+      "observed_max_device_kernel_milliseconds_median_of_trials": 0.11935999989509583,
+      "observed_setup_milliseconds_median_of_trials": 161.129436,
+      "observed_v2_over_v31_wall_ratio": 5.0529672263469045,
+      "observed_v31_break_even_iterations_vs_matched_v3": 876,
+      "observed_v31_minus_matched_v3_setup_milliseconds": 3.7538389999999993,
+      "observed_wall_milliseconds_median_of_trials": 0.137519,
+      "reduction_mode": "atomic",
+      "shared_v2_observation_equivalence": true,
+      "trial_count": 3,
+      "trial_wall_milliseconds_median_values": [
+        0.137485,
+        0.137731,
+        0.137519
+      ],
+      "v2_v31_digest_match": false
+    },
+    "candidate_count": 24,
+    "matched_v3_baseline_configuration_count": 12,
+    "rigorous_global_optimum_claim": false,
+    "status": "PASS"
+  },
+  "required_stages": {
+    "atomic_equivalence": true,
+    "bounded_tuning": true,
+    "frozen_measured_build_inputs": true,
+    "frozen_runtime_sources": true,
+    "host_validation": true,
+    "physical_preflight": true,
+    "profile_definition": true,
+    "two_stage_equivalence": true,
+    "v1_validation": true,
+    "v31_sanitizer": true
+  },
+  "claim_boundary": {
+    "cached_complete_observation_enabled": false,
+    "cross_device_portability_claim": false,
+    "full_point_cache_enabled": false,
+    "geometry_receipt_authority": false,
+    "performance_observation_only": true,
+    "raw_device_uuid_published": false,
+    "universal_speedup_claim": false
+  }
+}
