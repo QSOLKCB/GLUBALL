@@ -18,7 +18,6 @@ on:
       confirm_target_profile:
         description: "Type the selected physical GPU profile exactly to confirm"
         required: true
-        default: "type-selected-profile"
         type: string
       u_segments:
         description: "Canonical comparison/tuning U segments (must remain 16384)"
@@ -86,6 +85,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Define evidence receipt paths
+        id: receipt_paths
         run: |
           set -eu
           printf 'BUILD_INPUT_RECEIPT=%s\n' \
@@ -140,6 +140,7 @@ jobs:
           PY
 
       - name: Verify full-GPU and canonical-workload preflight
+        id: physical_preflight
         env:
           U: ${{ inputs.u_segments }}
           V: ${{ inputs.v_segments }}
@@ -158,6 +159,7 @@ jobs:
             --output "$PHYSICAL_PREFLIGHT_RECEIPT"
 
       - name: Verify frozen measured Runtime build inputs
+        id: frozen_build_inputs
         run: |
           set -eu
           python3 scripts/verify_cuda_runtime_v31_frozen_build_inputs.py \
@@ -175,7 +177,7 @@ jobs:
         run: sh scripts/run_cuda_runtime_v31_architecture_profile.sh
 
       - name: Bind frozen measured build-input receipt
-        if: always()
+        if: always() && steps.receipt_paths.outcome == 'success' && steps.frozen_build_inputs.outcome != 'skipped'
         run: |
           set -eu
           test -s "$BUILD_INPUT_RECEIPT"
@@ -183,7 +185,7 @@ jobs:
             "$EVIDENCE_ROOT" "$BUILD_INPUT_RECEIPT"
 
       - name: Bind physical preflight receipt
-        if: always()
+        if: always() && steps.receipt_paths.outcome == 'success' && steps.physical_preflight.outcome != 'skipped'
         run: |
           set -eu
           test -s "$PHYSICAL_PREFLIGHT_RECEIPT"
@@ -191,7 +193,7 @@ jobs:
             "$EVIDENCE_ROOT" "$PHYSICAL_PREFLIGHT_RECEIPT"
 
       - name: Upload architecture evidence bundle
-        if: always()
+        if: always() && steps.receipt_paths.outcome == 'success' && steps.physical_preflight.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: gluball-v31-architecture-${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -200,7 +202,7 @@ jobs:
           retention-days: 90
 
       - name: Require final PASS
-        if: always()
+        if: always() && steps.campaign.outcome != 'skipped'
         env:
           CAMPAIGN_OUTCOME: ${{ steps.campaign.outcome }}
         run: |
