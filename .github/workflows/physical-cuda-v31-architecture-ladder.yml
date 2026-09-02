@@ -6,7 +6,7 @@ on:
       target_profile:
         description: "Physical GPU profile"
         required: true
-        default: "v100"
+        default: "a100"
         type: choice
         options:
           - titan-xp
@@ -15,6 +15,11 @@ on:
           - a100
           - h200
           - b200
+      confirm_target_profile:
+        description: "Type the selected physical GPU profile exactly to confirm"
+        required: true
+        default: "type-selected-profile"
+        type: string
       u_segments:
         description: "Canonical comparison/tuning U segments (must remain 16384)"
         required: true
@@ -54,10 +59,19 @@ jobs:
     timeout-minutes: 240
     env:
       PROFILE: ${{ inputs.target_profile }}
+      PROFILE_CONFIRMATION: ${{ inputs.confirm_target_profile }}
       PROFILE_REGISTRY: docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
       EVIDENCE_ROOT: physical-evidence/runtime-v31-architecture/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      - name: Require explicit profile confirmation
+        run: |
+          set -eu
+          if [ "$PROFILE_CONFIRMATION" != "$PROFILE" ]; then
+            printf 'target_profile must be explicitly confirmed; selected profile is %s and confirmation did not match\n' "$PROFILE" >&2
+            exit 2
+          fi
+
       - name: Require merged main dispatch source
         env:
           DISPATCH_REF: ${{ github.ref }}
