@@ -12,7 +12,11 @@ assert.match(
 );
 assert.match(
   workflow,
-  /confirm_target_profile:\r?\n[ \t]+description: "Type the selected physical GPU profile exactly to confirm"\r?\n[ \t]+required: true\r?\n[ \t]+default: "type-selected-profile"\r?\n[ \t]+type: string/,
+  /confirm_target_profile:\r?\n[ \t]+description: "Type the selected physical GPU profile exactly to confirm"\r?\n[ \t]+required: true\r?\n[ \t]+type: string/,
+);
+assert.doesNotMatch(
+  workflow,
+  /confirm_target_profile:\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+default:/,
 );
 assert.match(workflow, /PROFILE_CONFIRMATION: \$\{\{ inputs\.confirm_target_profile \}\}/);
 assert.match(workflow, /- name: Require explicit profile confirmation/);
@@ -22,6 +26,26 @@ assert.ok(
   workflow.indexOf("- name: Require explicit profile confirmation") <
     workflow.indexOf("- name: Checkout exact workflow ref"),
   "profile confirmation must fail before checkout/evidence work",
+);
+
+assert.match(workflow, /- name: Define evidence receipt paths\r?\n[ \t]+id: receipt_paths/);
+assert.match(workflow, /- name: Verify full-GPU and canonical-workload preflight\r?\n[ \t]+id: physical_preflight/);
+assert.match(workflow, /- name: Verify frozen measured Runtime build inputs\r?\n[ \t]+id: frozen_build_inputs/);
+assert.match(
+  workflow,
+  /Bind frozen measured build-input receipt[\s\S]*?if: always\(\) && steps\.receipt_paths\.outcome == 'success' && steps\.frozen_build_inputs\.outcome != 'skipped'/,
+);
+assert.match(
+  workflow,
+  /Bind physical preflight receipt[\s\S]*?if: always\(\) && steps\.receipt_paths\.outcome == 'success' && steps\.physical_preflight\.outcome != 'skipped'/,
+);
+assert.match(
+  workflow,
+  /Upload architecture evidence bundle[\s\S]*?if: always\(\) && steps\.receipt_paths\.outcome == 'success' && steps\.physical_preflight\.outcome != 'skipped'/,
+);
+assert.match(
+  workflow,
+  /Require final PASS[\s\S]*?if: always\(\) && steps\.campaign\.outcome != 'skipped'/,
 );
 
 console.log("GLUBALL Runtime V3.1 explicit profile confirmation: PASS");
