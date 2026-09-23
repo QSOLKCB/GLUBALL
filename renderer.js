@@ -71,12 +71,12 @@
     if (!gl) throw new Error("WebGL unavailable");
     const vertexSource = `attribute vec3 position; attribute vec3 normal;
       uniform mat3 rotation; uniform vec2 scale; uniform float perspective;
-      varying vec3 n; varying vec3 p;
+      varying mediump vec3 n; varying mediump vec3 p;
       void main() { p = rotation * position; n = rotation * normal;
         float w = mix(8.2, 8.2 - p.z, perspective);
         gl_Position = vec4(p.xy * scale, (8.2 - p.z - 8.0) * 0.3, w); }`;
     const fragmentSource = `precision mediump float;
-      varying vec3 n; varying vec3 p; uniform vec4 color; uniform float lit;
+      varying mediump vec3 n; varying mediump vec3 p; uniform vec4 color; uniform float lit;
       void main() { vec3 N = normalize(n); vec3 V = normalize(vec3(0.,0.,8.2)-p);
         vec3 L = normalize(vec3(-.5,.8,1.));
         float diffuse = max(dot(N,L),0.);
