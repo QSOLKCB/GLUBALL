@@ -456,6 +456,32 @@ esac
   const canonicalCompare = spawnSync(python3, [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" });
   assert.equal(canonicalCompare.status, 0, canonicalCompare.stderr);
 
+  const embeddedMigMismatch = structuredClone(right);
+  embeddedMigMismatch.profile_definition = structuredClone(embeddedMigMismatch.profile_definition);
+  embeddedMigMismatch.profile_definition.mig_capable = false;
+  await writeFile(rightPath, JSON.stringify(embeddedMigMismatch));
+  const embeddedMigCompare = spawnSync(python3, [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" });
+  assert.notEqual(embeddedMigCompare.status, 0, "embedded MIG capability mismatch must fail");
+
+  const receiptMigMismatch = structuredClone(right);
+  receiptMigMismatch.physical_preflight_validation.mig_capable_profile = false;
+  await writeFile(rightPath, JSON.stringify(receiptMigMismatch));
+  const receiptMigCompare = spawnSync(python3, [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" });
+  assert.notEqual(receiptMigCompare.status, 0, "preflight MIG capability mismatch must fail");
+
+  const unsupportedMigQuery = structuredClone(right);
+  unsupportedMigQuery.physical_preflight_validation.mig_query_supported = false;
+  unsupportedMigQuery.physical_preflight_validation.mig_query_exit_code = 6;
+  unsupportedMigQuery.physical_preflight_validation.mig_query_error = "unsupported";
+  unsupportedMigQuery.physical_preflight_validation.mig_mode_current = "not-applicable-query-unavailable";
+  unsupportedMigQuery.physical_preflight_validation.mig_mode_acceptable = true;
+  unsupportedMigQuery.physical_preflight_validation.mig_enabled = false;
+  await writeFile(rightPath, JSON.stringify(unsupportedMigQuery));
+  const unsupportedMigCompare = spawnSync(python3, [comparatorUrl.pathname, leftPath, rightPath], { encoding: "utf8" });
+  assert.notEqual(unsupportedMigCompare.status, 0, "MIG-capable profile must require a supported MIG query");
+
+  await writeFile(rightPath, JSON.stringify(right));
+
   const noPreflight = JSON.parse(JSON.stringify(left));
   delete noPreflight.physical_preflight_validation;
   await writeFile(leftPath, JSON.stringify(noPreflight));
