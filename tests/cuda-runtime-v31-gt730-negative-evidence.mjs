@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 
 const repo = new URL("../", import.meta.url);
 const evidenceRoot = new URL("docs/physical-evidence/gt-730-gf108-35863047782/", repo);
@@ -22,6 +22,7 @@ assert.equal(record.contract, "GLUBALL-CUDA-RUNTIME-V3.1-LEGACY-NEGATIVE-CONTROL
 assert.equal(record.status, "PASS");
 assert.equal(record.profile, "gt-730-gf108");
 assert.equal(record.physical_run_id, 35863047782);
+assert.equal(record.actions_run_url, `https://github.com/QSOLKCB/GLUBALL/actions/runs/${record.physical_run_id}`);
 assert.equal(record.job_id, 107187738646);
 assert.equal(record.source_commit, "69256247e6125d726f06c9735f21635d5e56bbe2");
 assert.equal(record.artifact.id, 10750992566);
@@ -50,6 +51,19 @@ const manifestMap = new Map(lines.map((line) => {
 assert.deepEqual(
   Object.fromEntries(manifestMap),
   record.artifact.receipt_sha256,
+);
+
+const durableFiles = (await readdir(evidenceRoot)).sort();
+const expectedDurableFiles = [...record.artifact.durable_supporting_receipts].sort();
+assert.deepEqual(
+  durableFiles,
+  expectedDurableFiles,
+  "durable evidence directory contains files not declared by the accepted record",
+);
+assert.deepEqual(
+  [...manifestMap.keys()].sort(),
+  expectedDurableFiles.filter((name) => name !== "BUNDLE_SHA256SUMS.txt").sort(),
+  "bundle manifest entries must cover every durable file except the manifest itself",
 );
 
 for (const [relative, expected] of manifestMap) {
@@ -124,10 +138,26 @@ assert.equal(profile.expected_kernel_driver, record.hardware.kernel_driver);
 assert.equal(profile.expected_nvcc_release, record.cuda_toolkit.observed_release);
 assert.equal(profile.expected_architecture_preflight_status, "FAIL");
 
-assert.equal(record.negative_control.architecture_preflight_status, "FAIL");
-assert.equal(record.negative_control.architecture_preflight_exit_status, 1);
-assert.equal(record.negative_control.nvidia_smi_visible_gpu_count, 0);
-assert.equal(record.negative_control.proprietary_nvidia_runtime_usable, false);
+assert.equal(record.negative_control.status, negative.status);
+assert.equal(record.negative_control.architecture_preflight_status, preflight.status);
+assert.equal(
+  record.negative_control.architecture_preflight_exit_status,
+  Number((await readFile(new URL("ARCHITECTURE_PREFLIGHT_EXIT_STATUS.txt", evidenceRoot), "utf8")).trim()),
+);
+assert.equal(record.negative_control.nvidia_smi_exit_code, negative.nvidia_runtime.nvidia_smi_exit_code);
+assert.equal(record.negative_control.nvidia_smi_exit_code, preflight.identity_query_exit_code);
+assert.equal(record.negative_control.nvidia_smi_visible_gpu_count, preflight.nvidia_smi_visible_gpu_count);
+assert.equal(record.negative_control.single_visible_gpu_verified, preflight.single_visible_gpu_verified);
+assert.deepEqual(record.negative_control.safe_gpu_inventory, preflight.safe_gpu_inventory);
+assert.deepEqual(record.negative_control.nvidia_device_nodes, negative.nvidia_runtime.device_nodes);
+assert.equal(
+  record.negative_control.proprietary_nvidia_runtime_usable,
+  negative.interpretation.proprietary_nvidia_runtime_usable,
+);
+assert.equal(
+  record.negative_control.modern_cuda_execution_expected,
+  negative.interpretation.modern_cuda_execution_expected,
+);
 assert.equal(record.claim_boundary.performance_ladder_member, false);
 assert.equal(record.claim_boundary.geometry_receipt_authority, false);
 assert.equal(record.claim_boundary.universal_speedup_claim, false);
