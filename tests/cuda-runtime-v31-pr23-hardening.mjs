@@ -9,6 +9,7 @@ const repo = new URL("../", import.meta.url);
 const profiles = JSON.parse(await readFile(new URL("docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json", repo), "utf8"));
 const ladder = JSON.parse(await readFile(new URL("docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json", repo), "utf8"));
 const evidenceRoot = new URL("docs/physical-evidence/gtx-1650-33630241971/", repo);
+const acceptedRecord = JSON.parse(await readFile(new URL("docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json", repo), "utf8"));
 const verifierUrl = new URL("scripts/verify_cuda_runtime_v31_physical_preflight.py", repo);
 
 assert.equal(profiles.profiles["rtx-3050"].expected_compute_capability, "8.6");
@@ -41,9 +42,37 @@ for (const relative of [
   "FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json",
   "v1-acceptance/V1_VALIDATION.json",
   "v31-sanitizer/SANITIZER_EXIT_STATUS.txt",
+  "ab-atomic/V2.json",
+  "ab-atomic/V3.json",
+  "ab-atomic/V31.json",
+  "ab-two-stage/V2.json",
+  "ab-two-stage/V3.json",
+  "ab-two-stage/V31.json",
 ]) {
   const bytes = await readFile(new URL(relative, evidenceRoot));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), manifestMap.get(relative), `durable receipt hash mismatch: ${relative}`);
+}
+
+for (const [section, directory] of [
+  ["atomic_equivalence", "ab-atomic"],
+  ["two_stage_equivalence", "ab-two-stage"],
+]) {
+  for (const [version, field] of [
+    ["V2", "v2_wall_milliseconds_median"],
+    ["V3", "v3_wall_milliseconds_median"],
+    ["V31", "v31_wall_milliseconds_median"],
+  ]) {
+    const receipt = JSON.parse(await readFile(new URL(`${directory}/${version}.json`, evidenceRoot), "utf8"));
+    assert.equal(
+      receipt.iteration_wall_milliseconds_median,
+      acceptedRecord[section][field],
+      `durable timing receipt mismatch: ${directory}/${version}.json`,
+    );
+    assert.ok(
+      acceptedRecord.artifact.durable_supporting_receipts.includes(`${directory}/${version}.json`),
+      `accepted record must name durable timing receipt: ${directory}/${version}.json`,
+    );
+  }
 }
 
 const pythonProbe = spawnSync("python3", ["-c", "import sys; print(sys.executable)"], { encoding: "utf8" });
