@@ -1,0 +1,165 @@
+name: GLUBALL Runtime V3.1 legacy negative control
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_profile:
+        description: "Exact legacy NVIDIA negative-control profile"
+        required: true
+        default: "gt-730-gf108"
+        type: choice
+        options:
+          - gt-730-gf108
+      confirm_target_profile:
+        description: "Type the selected legacy profile exactly to confirm"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gluball-runtime-v31-legacy-negative-${{ inputs.target_profile }}
+  cancel-in-progress: false
+
+jobs:
+  legacy-negative-control:
+    runs-on: [self-hosted, linux, x64, gluball-vast-v31-architecture]
+    timeout-minutes: 30
+    env:
+      PROFILE: ${{ inputs.target_profile }}
+      PROFILE_CONFIRMATION: ${{ inputs.confirm_target_profile }}
+      PROFILE_REGISTRY: docs/CUDA_RUNTIME_V31_LEGACY_NEGATIVE_PROFILES.json
+      EVIDENCE_ROOT: physical-evidence/runtime-v31-legacy-negative/${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Require explicit profile confirmation
+        run: |
+          set -eu
+          if [ "$PROFILE_CONFIRMATION" != "$PROFILE" ]; then
+            printf 'target_profile must be explicitly confirmed; selected profile is %s and confirmation did not match\n' "$PROFILE" >&2
+            exit 2
+          fi
+
+      - name: Require merged main dispatch source
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+        run: |
+          set -eu
+          if [ "$DISPATCH_REF" != "refs/heads/main" ]; then
+            printf 'legacy negative-control runs must be dispatched from refs/heads/main; got %s\n' "$DISPATCH_REF" >&2
+            exit 2
+          fi
+
+      - name: Checkout exact workflow ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Expose installed CUDA toolkit
+        run: |
+          set -eu
+          printf '%s\n' '/usr/local/cuda/bin' >> "$GITHUB_PATH"
+
+      - name: Prepare evidence root
+        run: |
+          set -eu
+          mkdir -p "$EVIDENCE_ROOT"
+          git rev-parse HEAD | tee "$EVIDENCE_ROOT/SOURCE_COMMIT.txt"
+          uname -a | tee "$EVIDENCE_ROOT/HOST_UNAME.txt"
+
+      - name: Verify exact legacy negative-control state
+        run: |
+          set -eu
+          python3 scripts/verify_cuda_runtime_v31_legacy_negative_control.py \
+            --profile "$PROFILE" \
+            --profile-registry "$PROFILE_REGISTRY" \
+            --output "$EVIDENCE_ROOT/LEGACY_NEGATIVE_CONTROL.json"
+
+      - name: Prove architecture preflight rejects unavailable NVIDIA runtime
+        run: |
+          set -u
+          set +e
+          python3 scripts/verify_cuda_runtime_v31_physical_preflight.py \
+            --profile "$PROFILE" \
+            --profile-registry "$PROFILE_REGISTRY" \
+            --u 16384 \
+            --v 128 \
+            --warmup 20 \
+            --iterations 1000 \
+            --trials 3 \
+            --output "$EVIDENCE_ROOT/ARCHITECTURE_PREFLIGHT_REJECTION.json"
+          preflight_status=$?
+          set -e
+          printf '%s\n' "$preflight_status" > "$EVIDENCE_ROOT/ARCHITECTURE_PREFLIGHT_EXIT_STATUS.txt"
+          if [ "$preflight_status" -ne 1 ]; then
+            printf 'expected architecture preflight to reject the legacy runtime with exit 1; got %s\n' "$preflight_status" >&2
+            exit 1
+          fi
+          python3 - "$EVIDENCE_ROOT/ARCHITECTURE_PREFLIGHT_REJECTION.json" "$PROFILE" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text())
+          profile = sys.argv[2]
+          if payload.get("schema") != "gluball-cuda-runtime-v31-physical-preflight/1":
+              raise SystemExit("unexpected physical preflight receipt schema")
+          if payload.get("status") != "FAIL" or payload.get("profile") != profile:
+              raise SystemExit("legacy negative control did not produce the expected fail-closed receipt")
+          if payload.get("nvidia_smi_visible_gpu_count") != 0:
+              raise SystemExit("legacy negative control unexpectedly exposed an NVIDIA-SMI-visible GPU")
+          if payload.get("single_visible_gpu_verified") is not False:
+              raise SystemExit("legacy negative control unexpectedly verified a CUDA-visible GPU")
+          if payload.get("safe_gpu_inventory") is not None:
+              raise SystemExit("legacy negative control unexpectedly produced CUDA GPU inventory")
+          if payload.get("identity_query_exit_code") == 0:
+              raise SystemExit("legacy negative control unexpectedly had a usable NVIDIA-SMI identity query")
+          if payload.get("raw_device_uuid_queried") is not False or payload.get("raw_device_uuid_published") is not False:
+              raise SystemExit("raw GPU UUID boundary changed")
+          PY
+
+      - name: Finalize deterministic negative-control bundle
+        run: |
+          set -eu
+          python3 - "$EVIDENCE_ROOT" <<'PY'
+          import hashlib
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          output = root / "BUNDLE_SHA256SUMS.txt"
+          lines = []
+          for path in sorted(
+              (p for p in root.rglob("*") if p.is_file() and p != output),
+              key=lambda p: p.relative_to(root).as_posix(),
+          ):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              lines.append(f"{digest}  ./{path.relative_to(root).as_posix()}\n")
+          output.write_text("".join(lines))
+          PY
+          (cd "$EVIDENCE_ROOT" && sha256sum -c BUNDLE_SHA256SUMS.txt)
+
+      - name: Upload legacy negative-control evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gluball-v31-legacy-negative-${{ inputs.target_profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_ROOT }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Require negative-control PASS
+        run: |
+          set -eu
+          python3 - "$EVIDENCE_ROOT/LEGACY_NEGATIVE_CONTROL.json" "$EVIDENCE_ROOT/ARCHITECTURE_PREFLIGHT_REJECTION.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          negative = json.loads(Path(sys.argv[1]).read_text())
+          preflight = json.loads(Path(sys.argv[2]).read_text())
+          if negative.get("status") != "PASS":
+              raise SystemExit("legacy negative-control environment did not match the declared profile")
+          if preflight.get("status") != "FAIL":
+              raise SystemExit("architecture preflight did not fail closed on the legacy control")
+          PY
+          (cd "$EVIDENCE_ROOT" && sha256sum -c BUNDLE_SHA256SUMS.txt)
