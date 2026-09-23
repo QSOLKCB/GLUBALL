@@ -2,6 +2,14 @@
 
 All notable GLUBALL release-level changes are recorded here.
 
+## Unreleased — browser presentation 1.1.0
+
+- Add buffered WebGL sculpture/atlas views, a cached Canvas fallback, and a dark observation-deck layout.
+- Add orbit, zoom, projection and host-torus controls with keyboard access and reduced-motion support.
+- Suspend idle/hidden/context-lost drawing and preserve click-time evidence-export state.
+- Keep frozen core geometry, sampling, receipts, vectors and v1.0.0 release metadata intact.
+- Add renderer/control regression tests and document performance/physical claim boundaries.
+
 ## 1.0.0 — release candidate
 
 ### Frozen contracts

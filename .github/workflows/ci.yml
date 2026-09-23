@@ -24,6 +24,10 @@ jobs:
         run: node tests/smoke.mjs
       - name: Phase 2 deterministic/evidence suite
         run: node tests/phase2.mjs
+      - name: Browser renderer and controls
+        run: |
+          node tests/renderer.mjs
+          node tests/browser-controls.mjs
       - name: AI agent contract validation
         run: node tests/agent-contract.mjs
       - name: Self-hosted CUDA workflow boundary
