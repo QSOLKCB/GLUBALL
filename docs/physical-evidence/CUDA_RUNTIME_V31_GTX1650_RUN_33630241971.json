@@ -27,7 +27,13 @@
       "PHYSICAL_PREFLIGHT_VALIDATION.json",
       "FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json",
       "v1-acceptance/V1_VALIDATION.json",
-      "v31-sanitizer/SANITIZER_EXIT_STATUS.txt"
+      "v31-sanitizer/SANITIZER_EXIT_STATUS.txt",
+      "ab-atomic/V2.json",
+      "ab-atomic/V3.json",
+      "ab-atomic/V31.json",
+      "ab-two-stage/V2.json",
+      "ab-two-stage/V3.json",
+      "ab-two-stage/V31.json"
     ],
     "durable_core_independent_of_actions_retention": true
   },
