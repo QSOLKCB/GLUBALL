@@ -1,0 +1,33 @@
+{
+  "build_input_matches_expected": {
+    "native/cuda/CMakeLists.txt": true,
+    "native/cuda/gluball_runtime_v2.cu": true,
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": true,
+    "native/cuda/gluball_runtime_v3.cu": true,
+    "native/cuda/gluball_runtime_v31.cu": true
+  },
+  "contract_matches_frozen_expected_map": true,
+  "contract_path": "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+  "expected_git_blob_ids": {
+    "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+    "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+    "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
+  "geometry_receipt_authority": false,
+  "includes_cuda_cmake_target_definition": true,
+  "includes_event_timing_compat_header": true,
+  "measured_build_inputs_frozen_during_measurement": true,
+  "observed_git_blob_ids": {
+    "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+    "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+    "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
+  "performance_observation_only": true,
+  "schema": "gluball-cuda-runtime-v31-frozen-build-input-validation/1",
+  "status": "PASS",
+  "universal_speedup_claim": false
+}

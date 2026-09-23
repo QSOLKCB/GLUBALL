@@ -1,0 +1,15 @@
+{
+  "definition": {
+    "architecture_family": "Ampere",
+    "device_class": "consumer",
+    "expected_compute_capability": "8.6",
+    "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:GeForce )?RTX 3050$",
+    "expected_sm": "sm_86",
+    "measurement_role": "supplemental-consumer-ampere-observation",
+    "mig_capable": false,
+    "requires_full_gpu": true,
+    "status": "pending-physical-run"
+  },
+  "profile": "rtx-3050",
+  "schema": "gluball-cuda-runtime-v31-architecture-profile-definition/1"
+}

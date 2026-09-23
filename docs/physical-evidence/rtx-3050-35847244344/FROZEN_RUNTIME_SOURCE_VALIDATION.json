@@ -1,0 +1,25 @@
+{
+  "contract_matches_frozen_expected_map": true,
+  "contract_path": "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+  "expected_git_blob_ids": {
+    "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
+  "geometry_receipt_authority": false,
+  "observed_git_blob_ids": {
+    "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+    "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+    "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874"
+  },
+  "performance_observation_only": true,
+  "runtime_source_frozen_during_measurement": true,
+  "schema": "gluball-cuda-runtime-v31-frozen-source-validation/1",
+  "source_matches_expected": {
+    "runtime_v2": true,
+    "runtime_v3": true,
+    "runtime_v31": true
+  },
+  "status": "PASS",
+  "universal_speedup_claim": false
+}
