@@ -131,9 +131,7 @@
       "is_a100_evidence": false,
       "same_host_claim_enforced": false,
       "host_identity_bound_by_workflow": false,
-      "same_source_required_for_direct_cross_profile_comparison": true,
-      "completed_physical_run_id": 35847244344,
-      "accepted_artifact_record": "docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json"
+      "same_source_required_for_direct_cross_profile_comparison": true
     }
   },
   "profile_extension_source_policy": {
@@ -212,8 +210,6 @@
     "artifact_sha256": "f504a890bb4575c0169daaaa86bf5213a2993c14b26cb41c85b9972058be35c3",
     "accepted_artifact_record": "docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json",
     "durable_receipt_directory": "docs/physical-evidence/rtx-3050-35847244344",
-    "bundle_manifest_parts": 5,
-    "tuning_result_parts": 8,
     "best_observed_candidate": {
       "block_size": 128,
       "cuda_graphs": "on",

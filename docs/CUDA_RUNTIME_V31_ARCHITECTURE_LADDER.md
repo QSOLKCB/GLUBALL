@@ -113,6 +113,46 @@ V3.1  1e206a0f3b649b9a
 
 V2/V3 raw-float digest equality is not required. Exact same-device V3/V3.1 digest equality remains required.
 
+## Completed supplemental RTX 3050 specimen
+
+The supplemental consumer Ampere RTX 3050 specimen completed successfully:
+
+```text
+run:       35847244344
+source:    4d327e0151b83a61c3357e0d3f72253e4a05dbb9
+artifact:  10743669801
+sha256:    f504a890bb4575c0169daaaa86bf5213a2993c14b26cb41c85b9972058be35c3
+model:     NVIDIA GeForce RTX 3050
+cc/sm:     8.6 / sm_86
+winner:    block 128 / graphs on / atomic
+V3.1:     0.108044 ms bounded-winner wall median
+```
+
+The downloaded artifact was independently verified against its published ZIP digest. Its original 179-entry `BUNDLE_SHA256SUMS.txt` also verified every archived file. V1 completed 3/3 with byte-identical outputs; V3/V3.1 diagnostic digests were exactly equal in both atomic and two-stage modes; and all four direct Runtime V3.1 memcheck/racecheck invocations exited zero.
+
+The accepted machine-readable record is:
+
+```text
+docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json
+```
+
+Durable evidence is retained under:
+
+```text
+docs/physical-evidence/rtx-3050-35847244344/
+```
+
+The original bundle manifest is preserved losslessly as five ordered parts. A deterministic compressed receipt bundle preserves exact original bytes for the architecture result, validation status, profile definition, frozen-source/build-input validations, physical preflight, six V2/V3/V3.1 timing receipts, V1 validation, sanitizer exit status and tuning result. CI reconstructs the manifest and compressed bundle, verifies their SHA-256 identities, decompresses the receipt bundle and checks every retained receipt against the original manifest before validating the committed summary values.
+
+Observed canonical A/B medians were:
+
+```text
+atomic:     V2 0.463456 ms   V3 0.111186 ms   V3.1 0.111946 ms
+two-stage:  V2 0.458956 ms   V3 0.111539 ms   V3.1 0.109211 ms
+```
+
+This remains supplemental consumer Ampere evidence only. It does not replace the A100 rung and is never A100 evidence. The archive PR itself advances `main`, so this run remains valid standalone evidence; a future strict same-source cross-profile comparison must use specimens dispatched from one common merged `main` commit.
+
 ## Machine-readable profile registry
 
 The canonical profile definitions live in:
