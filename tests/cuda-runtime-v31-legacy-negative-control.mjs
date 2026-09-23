@@ -44,7 +44,7 @@ assert.doesNotMatch(workflow, /query-gpu=[^\n]*uuid/i);
 assert.doesNotMatch(workflow, /nvidia-smi\s+-L/);
 
 assert.match(verifier, /_PCI_ADDRESS_PATTERN/);
-assert.match(verifier, /\\[0-9a-fA-F\\]\\{4\\}/);
+assert.match(verifier, /\[0-9a-fA-F\]\{4\}/);
 assert.match(verifier, /expected_opengl_vendor_regex_case_insensitive/);
 assert.match(verifier, /_NVCC_RELEASE_PATTERN/);
 assert.match(verifier, /expected_nvcc_release_match/);
@@ -58,7 +58,7 @@ assert.match(docs, /10de:0f02/);
 assert.match(docs, /compute capability 2\.1/);
 assert.match(docs, /sm_21/);
 assert.match(docs, /nouveau/);
-assert.match(docs, /CUDA 12\.8/);
+assert.match(docs, /toolkit release `12\.8`/);
 assert.match(docs, /does not confuse NVIDIA hardware presence/);
 assert.match(docs, /not every product sold as "GT 730"/);
 
