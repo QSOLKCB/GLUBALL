@@ -44,7 +44,7 @@ assert.doesNotMatch(workflow, /query-gpu=[^\n]*uuid/i);
 assert.doesNotMatch(workflow, /nvidia-smi\s+-L/);
 
 assert.match(verifier, /_PCI_ADDRESS_PATTERN/);
-assert.match(verifier, /[0-9a-fA-F]\{4\}/);
+assert.match(verifier, /\\[0-9a-fA-F\\]\\{4\\}/);
 assert.match(verifier, /expected_opengl_vendor_regex_case_insensitive/);
 assert.match(verifier, /_NVCC_RELEASE_PATTERN/);
 assert.match(verifier, /expected_nvcc_release_match/);
