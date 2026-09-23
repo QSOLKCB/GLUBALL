@@ -14,7 +14,7 @@ architecture:       Fermi
 compute capability: 2.1
 native target:      sm_21
 expected driver:    nouveau
-OpenGL vendor:      Mesa
+OpenGL vendor:      Mesa or nouveau
 OpenGL renderer:    NVC1
 ```
 
@@ -33,15 +33,15 @@ The negative control requires all of the following at once:
 NVIDIA PCI hardware present            true
 exact PCI identity 10de:0f02           true
 kernel display driver                  nouveau
-Mesa OpenGL                             usable
-nvcc                                    present
+Mesa/nouveau OpenGL                     usable
+nvcc release                            12.8
 compute_21 advertised by nvcc           false
 sm_21 advertised by nvcc                false
 nvidia-smi                              unusable
 /dev/nvidia*                            absent
 ```
 
-The presence of `libcuda`, `libcudart`, or `nvcc` is recorded diagnostically but is not treated as evidence that CUDA execution is usable.
+The verifier accepts the Mesa/Nouveau Gallium stack reporting either `Mesa` or `nouveau` as the OpenGL vendor, but still requires renderer `NVC1`. It also binds this first specimen to CUDA toolkit release `12.8`; another toolkit release is a profile mismatch even if it likewise omits Fermi targets. The presence of `libcuda`, `libcudart`, or `nvcc` is recorded diagnostically but is not treated as evidence that CUDA execution is usable.
 
 ## Fail-closed assertion
 
