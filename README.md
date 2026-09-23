@@ -24,7 +24,7 @@ Tagged source commit:
 
 ```text
 4a36736c91f69f299cb4be19beb87b15f0f5f0b3
-````
+```
 
 Formal Zenodo record:
 
@@ -34,6 +34,8 @@ Formal Zenodo record:
 `v1.1.0` is the first major post-`v1.0.0` expansion of GLUBALL.
 
 The original `v1.0.0` release froze the canonical geometry, deterministic sampling, evidence, sonification, and capture contracts. Version `v1.1.0` does **not** redefine those frozen meanings. It builds an execution, physical-validation, accelerator-research, durable-evidence, and browser-presentation laboratory around them.
+
+The frozen `v1.0.0` release inventory remains machine-readable at [`release/manifest-v1.0.0.json`](release/manifest-v1.0.0.json). After verification of the immutable `v1.0.0` tag, the formal RSH handoff target remains `RSH-GLUBALL-FORMAL-V1`.
 
 ---
 
@@ -1001,4 +1003,3 @@ and:
 Mozilla Public License 2.0.
 
 See [`LICENSE`](LICENSE).
-, with the DOI badge visible immediately.
