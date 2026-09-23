@@ -69,6 +69,34 @@ GLUBALL Runtime V3.1 legacy negative control
 profile: gt-730-gf108
 ```
 
+## Completed physical GF108 negative-control specimen
+
+The first physical legacy negative-control specimen completed successfully:
+
+```text
+run:       35863047782
+job:       107187738646
+source:    69256247e6125d726f06c9735f21635d5e56bbe2
+artifact:  10750992566
+sha256:    1e8393154f59d11303a237d6a01ac57460714ece591612d094c2da254529d5ee
+profile:   gt-730-gf108
+result:    negative-control PASS / normal architecture preflight FAIL as expected
+```
+
+The downloaded artifact was independently verified. The archived receipt manifest binds the exact negative-control receipt, the fail-closed architecture-preflight receipt, its exit status, host uname, and source commit. Durable exact-byte receipts are retained under:
+
+```text
+docs/physical-evidence/gt-730-gf108-35863047782/
+```
+
+The compact accepted record is:
+
+```text
+docs/physical-evidence/CUDA_RUNTIME_V31_GT730_NEGATIVE_RUN_35863047782.json
+```
+
+This specimen is now a durable known-hostile runtime-availability fixture: NVIDIA PCI hardware, Mesa/nouveau graphics, CUDA 12.8 userspace, and CUDA libraries are present, while the proprietary NVIDIA runtime is unusable, no NVIDIA device nodes are present, and the normal architecture-ladder preflight correctly refuses graduation. It remains outside the performance ladder and establishes no CUDA performance or portability claim.
+
 ## Claim boundary
 
 This experiment is a runtime-availability boundary test only.
