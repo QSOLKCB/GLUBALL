@@ -1,0 +1,311 @@
+name: Archive RTX 3050 accepted evidence once
+
+on:
+  push:
+    branches:
+      - agent/archive-rtx3050-run-35847244344
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout archival branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          ref: agent/archive-rtx3050-run-35847244344
+
+      - name: Download and verify accepted Actions artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact=/tmp/gluball-v31-architecture-rtx-3050-35847244344-1.zip
+          curl --fail --location --retry 3 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/10743669801/zip" \
+            -o "${artifact}"
+          echo "f504a890bb4575c0169daaaa86bf5213a2993c14b26cb41c85b9972058be35c3  ${artifact}" | sha256sum -c -
+          rm -rf /tmp/rtx3050-evidence
+          mkdir -p /tmp/rtx3050-evidence
+          unzip -q "${artifact}" -d /tmp/rtx3050-evidence
+          (
+            cd /tmp/rtx3050-evidence
+            test "$(wc -l < BUNDLE_SHA256SUMS.txt)" -eq 179
+            echo "3097753b9e9f57ae9603fea9d0bc8042a2cdfbd4d98f39ebdf4532f06b02432c  BUNDLE_SHA256SUMS.txt" | sha256sum -c -
+            echo "43ae0d3b58e57d70ee8e70b33f06c1d12fae8fd739178013163bea5b9655a765  tuning/TUNING_RESULT.json" | sha256sum -c -
+            sha256sum -c BUNDLE_SHA256SUMS.txt
+          )
+
+      - name: Build byte-preserving durable archive
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import json
+          import pathlib
+          import shutil
+
+          repo = pathlib.Path.cwd()
+          src = pathlib.Path("/tmp/rtx3050-evidence")
+          archive = repo / "docs/physical-evidence/rtx-3050-35847244344"
+          if archive.exists():
+              shutil.rmtree(archive)
+          archive.mkdir(parents=True)
+
+          def sha256(path: pathlib.Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def split_lines_exact(source: pathlib.Path, outputs: list[pathlib.Path]) -> None:
+              original = source.read_bytes()
+              lines = original.splitlines(keepends=True)
+              base, rem = divmod(len(lines), len(outputs))
+              offset = 0
+              for index, output in enumerate(outputs):
+                  count = base + (1 if index < rem else 0)
+                  output.parent.mkdir(parents=True, exist_ok=True)
+                  output.write_bytes(b"".join(lines[offset:offset + count]))
+                  offset += count
+              reconstructed = b"".join(output.read_bytes() for output in outputs)
+              assert reconstructed == original
+
+          manifest_parts = [
+              archive / f"BUNDLE_SHA256SUMS.part{index:02d}.txt"
+              for index in range(1, 6)
+          ]
+          split_lines_exact(src / "BUNDLE_SHA256SUMS.txt", manifest_parts)
+          assert hashlib.sha256(b"".join(p.read_bytes() for p in manifest_parts)).hexdigest() == "3097753b9e9f57ae9603fea9d0bc8042a2cdfbd4d98f39ebdf4532f06b02432c"
+
+          tuning_parts = [
+              archive / "tuning" / f"TUNING_RESULT.part{index:02d}.json.fragment"
+              for index in range(1, 9)
+          ]
+          split_lines_exact(src / "tuning/TUNING_RESULT.json", tuning_parts)
+          assert hashlib.sha256(b"".join(p.read_bytes() for p in tuning_parts)).hexdigest() == "43ae0d3b58e57d70ee8e70b33f06c1d12fae8fd739178013163bea5b9655a765"
+
+          receipts = [
+              "ARCHITECTURE_RESULT.json",
+              "VALIDATION_STATUS.json",
+              "PROFILE_DEFINITION.json",
+              "FROZEN_RUNTIME_SOURCE_VALIDATION.json",
+              "PHYSICAL_PREFLIGHT_VALIDATION.json",
+              "FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json",
+              "v1-acceptance/V1_VALIDATION.json",
+              "v31-sanitizer/SANITIZER_EXIT_STATUS.txt",
+              "ab-atomic/V2.json",
+              "ab-atomic/V3.json",
+              "ab-atomic/V31.json",
+              "ab-two-stage/V2.json",
+              "ab-two-stage/V3.json",
+              "ab-two-stage/V31.json",
+          ]
+          for relative in receipts:
+              destination = archive / relative
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(src / relative, destination)
+
+          manifest = {}
+          for line in (src / "BUNDLE_SHA256SUMS.txt").read_text().splitlines():
+              digest, relative = line.split("  ./", 1)
+              manifest[relative] = digest
+          assert len(manifest) == 179
+          for relative in receipts:
+              assert sha256(archive / relative) == manifest[relative], relative
+          assert manifest["tuning/TUNING_RESULT.json"] == "43ae0d3b58e57d70ee8e70b33f06c1d12fae8fd739178013163bea5b9655a765"
+
+          arch = json.loads((src / "ARCHITECTURE_RESULT.json").read_text())
+          status = json.loads((src / "VALIDATION_STATUS.json").read_text())
+          v1 = json.loads((src / "v1-acceptance/V1_VALIDATION.json").read_text())
+          preflight = json.loads((src / "PHYSICAL_PREFLIGHT_VALIDATION.json").read_text())
+          frozen_build = json.loads((src / "FROZEN_MEASURED_BUILD_INPUT_VALIDATION.json").read_text())
+
+          assert arch["schema"] == "gluball-cuda-runtime-v31-architecture-result/1"
+          assert arch["status"] == "PASS"
+          assert arch["profile"] == "rtx-3050"
+          assert arch["source_commit"] == "4d327e0151b83a61c3357e0d3f72253e4a05dbb9"
+          assert arch["gpu"] == {
+              "compute_capability": "8.6",
+              "expected_sm": "sm_86",
+              "model": "NVIDIA GeForce RTX 3050",
+              "raw_device_uuid_published": False,
+          }
+          assert status["status"] == "PASS"
+          assert status["profile"] == "rtx-3050"
+          assert status["retained_evidence_file_count"] == 176
+          assert v1["status"] == "PASS"
+          assert v1["output_repeatable_byte_identical"] is True
+          assert preflight["status"] == "PASS"
+          assert preflight["safe_gpu_inventory"]["memory_total_mib"] == "6144"
+          assert preflight["raw_device_uuid_queried"] is False
+          assert preflight["raw_device_uuid_published"] is False
+          assert frozen_build["status"] == "PASS"
+          assert frozen_build["contract_matches_frozen_expected_map"] is True
+
+          def median(relative: str) -> float:
+              return json.loads((src / relative).read_text())["iteration_wall_milliseconds_median"]
+
+          accepted = {
+              "schema": "gluball-cuda-runtime-v31-accepted-artifact/1",
+              "contract": "GLUBALL-CUDA-RUNTIME-V3.1-ARCHITECTURE-LADDER",
+              "status": "PASS",
+              "profile": "rtx-3050",
+              "physical_run_id": 35847244344,
+              "artifact": {
+                  "id": 10743669801,
+                  "name": "gluball-v31-architecture-rtx-3050-35847244344-1",
+                  "zip_size_bytes": 867172,
+                  "zip_sha256": "f504a890bb4575c0169daaaa86bf5213a2993c14b26cb41c85b9972058be35c3",
+                  "bundle_sha256s_manifest_sha256": "3097753b9e9f57ae9603fea9d0bc8042a2cdfbd4d98f39ebdf4532f06b02432c",
+                  "bundle_manifest_entry_count": 179,
+                  "tuning_result_sha256": "43ae0d3b58e57d70ee8e70b33f06c1d12fae8fd739178013163bea5b9655a765",
+                  "independently_verified_after_download": True,
+                  "actions_artifact_is_transient": True,
+                  "durable_receipt_directory": "docs/physical-evidence/rtx-3050-35847244344",
+                  "durable_bundle_manifest_parts": [p.name for p in manifest_parts],
+                  "durable_tuning_result_parts": [
+                      f"tuning/{p.name}" for p in tuning_parts
+                  ],
+                  "durable_supporting_receipts": receipts,
+                  "durable_core_independent_of_actions_retention": True,
+              },
+              "source_commit": arch["source_commit"],
+              "gpu": {
+                  "compute_capability": arch["gpu"]["compute_capability"],
+                  "expected_sm": arch["gpu"]["expected_sm"],
+                  "model": arch["gpu"]["model"],
+                  "memory_total_mib": preflight["safe_gpu_inventory"]["memory_total_mib"],
+                  "raw_device_uuid_published": False,
+              },
+              "canonical_workload": arch["canonical_workload"],
+              "v1_validation": {
+                  "status": v1["status"],
+                  "acceptance_record_count": v1["acceptance_record_count"],
+                  "output_repeatable_byte_identical": v1["output_repeatable_byte_identical"],
+                  "output_sha256": v1["output_sha256"],
+                  "stable_acceptance_fields": v1["stable_acceptance_fields"],
+                  "geometry_receipt_authority": False,
+                  "universal_speedup_claim": False,
+              },
+              "physical_preflight": {
+                  "status": preflight["status"],
+                  "single_visible_gpu_verified": preflight["single_visible_gpu_verified"],
+                  "safe_gpu_inventory": preflight["safe_gpu_inventory"],
+                  "canonical_workload_match": preflight["canonical_workload_match"],
+                  "mig_capable_profile": preflight["mig_capable_profile"],
+                  "mig_query_supported": preflight["mig_query_supported"],
+                  "mig_mode_current": preflight["mig_mode_current"],
+                  "mig_mode_acceptable": preflight["mig_mode_acceptable"],
+                  "mig_partition_observed": preflight["mig_partition_observed"],
+                  "raw_device_uuid_queried": False,
+                  "raw_device_uuid_published": False,
+                  "geometry_receipt_authority": False,
+                  "universal_speedup_claim": False,
+              },
+              "frozen_measured_build_inputs": {
+                  "status": frozen_build["status"],
+                  "contract_matches_frozen_expected_map": frozen_build["contract_matches_frozen_expected_map"],
+                  "observed_git_blob_ids": frozen_build["observed_git_blob_ids"],
+              },
+              "atomic_equivalence": {
+                  "status": arch["atomic_equivalence"]["status"],
+                  "v2_wall_milliseconds_median": median("ab-atomic/V2.json"),
+                  "v3_wall_milliseconds_median": median("ab-atomic/V3.json"),
+                  "v31_wall_milliseconds_median": median("ab-atomic/V31.json"),
+                  "observed_v3_over_v31_wall_ratio": arch["atomic_equivalence"]["observed_v3_over_v31_wall_ratio"],
+                  "diagnostic_digests": arch["atomic_equivalence"]["diagnostic_digests"],
+                  "shared_observation_equivalence": arch["atomic_equivalence"]["shared_observation_equivalence"],
+                  "v3_v31_exact_digest_equivalence": arch["atomic_equivalence"]["v3_v31_exact_digest_equivalence"],
+              },
+              "two_stage_equivalence": {
+                  "status": arch["two_stage_equivalence"]["status"],
+                  "v2_wall_milliseconds_median": median("ab-two-stage/V2.json"),
+                  "v3_wall_milliseconds_median": median("ab-two-stage/V3.json"),
+                  "v31_wall_milliseconds_median": median("ab-two-stage/V31.json"),
+                  "observed_v3_over_v31_wall_ratio": arch["two_stage_equivalence"]["observed_v3_over_v31_wall_ratio"],
+                  "diagnostic_digests": arch["two_stage_equivalence"]["diagnostic_digests"],
+                  "shared_observation_equivalence": arch["two_stage_equivalence"]["shared_observation_equivalence"],
+                  "v3_v31_exact_digest_equivalence": arch["two_stage_equivalence"]["v3_v31_exact_digest_equivalence"],
+              },
+              "bounded_tuning": arch["bounded_tuning"],
+              "required_stages": arch["required_stages"],
+              "claim_boundary": arch["claim_boundary"],
+          }
+
+          accepted_path = repo / "docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json"
+          accepted_path.write_text(json.dumps(accepted, indent=2) + "\n")
+
+          profiles_path = repo / "docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json"
+          profiles = json.loads(profiles_path.read_text())
+          profile = profiles["profiles"]["rtx-3050"]
+          captured = arch["profile_definition"]
+          for key in (
+              "expected_model_regex_case_insensitive",
+              "expected_compute_capability",
+              "expected_sm",
+              "architecture_family",
+              "device_class",
+              "measurement_role",
+              "mig_capable",
+          ):
+              assert profile[key] == captured[key], key
+          assert captured["status"] == "pending-physical-run"
+          profile["status"] = "completed-physical-run-35847244344"
+          profiles_path.write_text(json.dumps(profiles, indent=2) + "\n")
+
+          ladder_path = repo / "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json"
+          ladder = json.loads(ladder_path.read_text())
+          ladder["completed_supplemental_ampere_specimen"] = {
+              "profile": "rtx-3050",
+              "status": "PASS",
+              "physical_run_id": 35847244344,
+              "source_commit": "4d327e0151b83a61c3357e0d3f72253e4a05dbb9",
+              "model": "NVIDIA GeForce RTX 3050",
+              "compute_capability": "8.6",
+              "compiled_cuda_arch_code": 860,
+              "artifact_id": 10743669801,
+              "artifact_sha256": "f504a890bb4575c0169daaaa86bf5213a2993c14b26cb41c85b9972058be35c3",
+              "accepted_artifact_record": "docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json",
+              "durable_receipt_directory": "docs/physical-evidence/rtx-3050-35847244344",
+              "bundle_manifest_parts": 5,
+              "tuning_result_parts": 8,
+              "best_observed_candidate": {
+                  "block_size": 128,
+                  "cuda_graphs": "on",
+                  "reduction_mode": "atomic",
+                  "observed_wall_milliseconds_median_of_trials": 0.108044,
+                  "observed_matched_v3_over_v31_wall_ratio": 1.061021435711377,
+                  "observed_v31_break_even_iterations_vs_matched_v3": 0,
+              },
+              "diagnostic_digest_relationship": {
+                  "v2": "1e15cffd50e6f653",
+                  "v3": "1e206a0f3b649b9a",
+                  "v31": "1e206a0f3b649b9a",
+                  "v2_v3_digest_equality_required": False,
+                  "v3_v31_digest_equality_required": True,
+              },
+              "geometry_receipt_authority": False,
+              "universal_speedup_claim": False,
+          }
+          ladder["supplemental_profile_policy"]["rtx-3050"]["completed_physical_run_id"] = 35847244344
+          ladder["supplemental_profile_policy"]["rtx-3050"]["accepted_artifact_record"] = "docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json"
+          ladder_path.write_text(json.dumps(ladder, indent=2) + "\n")
+          PY
+
+      - name: Commit durable archive
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json
+          git add docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json
+          git add docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json
+          git add docs/physical-evidence/rtx-3050-35847244344
+          git diff --cached --check
+          git commit -m "Archive accepted RTX 3050 physical evidence"
+          git push origin HEAD:agent/archive-rtx3050-run-35847244344
