@@ -89,6 +89,7 @@ def main() -> int:
     required_full_gpu = definition.get("requires_full_gpu") is True
     model_pattern = definition.get("expected_model_regex_case_insensitive")
     expected_cc = definition.get("expected_compute_capability")
+    declared_mig_capable = definition.get("mig_capable")
     if not required_full_gpu:
         raise SystemExit(f"profile {args.profile} is not declared as a full-GPU profile")
     if not isinstance(model_pattern, str) or not model_pattern:
@@ -99,6 +100,8 @@ def main() -> int:
         raise SystemExit(
             f"profile {args.profile} has malformed compute capability: {expected_cc!r}"
         )
+    if not isinstance(declared_mig_capable, bool):
+        raise SystemExit(f"profile {args.profile} must declare boolean mig_capable")
 
     canonical = ladder.get("canonical_workload")
     if not isinstance(canonical, dict):
@@ -179,8 +182,7 @@ def main() -> int:
             mig_mode = full_rows[0][4]
             mig_query_supported = True
 
-    cc_major = int(expected_cc.split(".", 1)[0])
-    mig_capable_profile = cc_major >= 8
+    mig_capable_profile = declared_mig_capable
     normalized_mode = (mig_mode or "").strip().casefold()
     mig_enabled = normalized_mode == "enabled"
     if mig_query_supported:

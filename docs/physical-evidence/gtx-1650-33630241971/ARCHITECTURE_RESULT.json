@@ -1,0 +1,267 @@
+{
+  "atomic_equivalence": {
+    "diagnostic_digests": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a"
+    },
+    "observed_v2_over_v31_wall_ratio": 4.9519878947821345,
+    "observed_v3_over_v31_wall_ratio": 1.0237299561114137,
+    "shared_observation_equivalence": true,
+    "status": "PASS",
+    "v3_v31_exact_digest_equivalence": true
+  },
+  "bounded_tuning": {
+    "best_observed_candidate_within_declared_set": {
+      "block_size": 128,
+      "cuda_graphs": "off",
+      "exact_matched_v3_v31_digest_equivalence": true,
+      "matched_v3_max_device_kernel_milliseconds_median_of_trials": 0.11929599940776825,
+      "matched_v3_setup_milliseconds_median_of_trials": 157.375597,
+      "matched_v3_wall_milliseconds_median_of_trials": 0.141807,
+      "observed_matched_v3_minus_v31_wall_milliseconds_per_iteration": 0.004287999999999986,
+      "observed_matched_v3_over_v31_wall_ratio": 1.031181145878024,
+      "observed_max_device_kernel_milliseconds_median_of_trials": 0.11935999989509583,
+      "observed_setup_milliseconds_median_of_trials": 161.129436,
+      "observed_v2_over_v31_wall_ratio": 5.0529672263469045,
+      "observed_v31_break_even_iterations_vs_matched_v3": 876,
+      "observed_v31_minus_matched_v3_setup_milliseconds": 3.7538389999999993,
+      "observed_wall_milliseconds_median_of_trials": 0.137519,
+      "reduction_mode": "atomic",
+      "shared_v2_observation_equivalence": true,
+      "trial_count": 3,
+      "trial_wall_milliseconds_median_values": [
+        0.137485,
+        0.137731,
+        0.137519
+      ],
+      "v2_v31_digest_match": false
+    },
+    "candidate_count": 24,
+    "matched_v3_baseline_configuration_count": 12,
+    "rigorous_global_optimum_claim": false,
+    "status": "PASS"
+  },
+  "canonical_workload": {
+    "fixed_across_profiles": true,
+    "measured_iterations": 1000,
+    "repeats": 1,
+    "trials_per_candidate": 3,
+    "u_segments": 16384,
+    "v_segments": 128,
+    "warmup_iterations": 20
+  },
+  "claim_boundary": {
+    "cached_complete_observation_enabled": false,
+    "cross_device_portability_claim": false,
+    "full_point_cache_enabled": false,
+    "geometry_receipt_authority": false,
+    "performance_observation_only": true,
+    "raw_device_uuid_published": false,
+    "universal_speedup_claim": false
+  },
+  "comparison_boundary": {
+    "cross_device_digest_equality_required": false,
+    "cross_hardware_timing_ratio_is_diagnostic_only": true,
+    "raw_float_bit_digest_is_geometry_authority": false,
+    "within_device_v3_v31_digest_equality_required": true
+  },
+  "compiler_resource_telemetry": {
+    "build_exit_code": 0,
+    "capture_attempted": true,
+    "configure_exit_code": 0,
+    "geometry_receipt_authority": false,
+    "graduation_gate": false,
+    "performance_observation_only": true,
+    "ptxas_info_seen": true,
+    "ptxas_version_probe_exit_code": 0,
+    "schema": "gluball-cuda-runtime-v31-compiler-resource-capture/1",
+    "universal_speedup_claim": false
+  },
+  "completed_required_stages": [
+    "profile_definition",
+    "frozen_runtime_sources",
+    "host_validation",
+    "v1_validation",
+    "atomic_equivalence",
+    "two_stage_equivalence",
+    "bounded_tuning",
+    "v31_sanitizer",
+    "frozen_measured_build_inputs",
+    "physical_preflight"
+  ],
+  "first_incomplete_required_stage": null,
+  "frozen_measured_build_input_validation": {
+    "build_input_matches_expected": {
+      "native/cuda/CMakeLists.txt": true,
+      "native/cuda/gluball_runtime_v2.cu": true,
+      "native/cuda/gluball_runtime_v2_event_compat.cuh": true,
+      "native/cuda/gluball_runtime_v3.cu": true,
+      "native/cuda/gluball_runtime_v31.cu": true
+    },
+    "contract_matches_frozen_expected_map": true,
+    "contract_path": "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+    "expected_git_blob_ids": {
+      "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+      "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+      "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+      "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+      "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+    },
+    "geometry_receipt_authority": false,
+    "includes_cuda_cmake_target_definition": true,
+    "includes_event_timing_compat_header": true,
+    "measured_build_inputs_frozen_during_measurement": true,
+    "observed_git_blob_ids": {
+      "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+      "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+      "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+      "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+      "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+    },
+    "performance_observation_only": true,
+    "schema": "gluball-cuda-runtime-v31-frozen-build-input-validation/1",
+    "status": "PASS",
+    "universal_speedup_claim": false
+  },
+  "frozen_runtime_source_validation": {
+    "contract_matches_frozen_expected_map": true,
+    "contract_path": "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json",
+    "expected_git_blob_ids": {
+      "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+      "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+      "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874"
+    },
+    "geometry_receipt_authority": false,
+    "observed_git_blob_ids": {
+      "runtime_v2": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+      "runtime_v3": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+      "runtime_v31": "045fbf37725beb5d65b2332309626ccfa727f874"
+    },
+    "performance_observation_only": true,
+    "runtime_source_frozen_during_measurement": true,
+    "schema": "gluball-cuda-runtime-v31-frozen-source-validation/1",
+    "source_matches_expected": {
+      "runtime_v2": true,
+      "runtime_v3": true,
+      "runtime_v31": true
+    },
+    "status": "PASS",
+    "universal_speedup_claim": false
+  },
+  "gpu": {
+    "compute_capability": "7.5",
+    "expected_sm": "sm_75",
+    "model": "NVIDIA GeForce GTX 1650",
+    "raw_device_uuid_published": false
+  },
+  "physical_preflight_validation": {
+    "canonical_workload_expected": {
+      "fixed_across_profiles": true,
+      "measured_iterations": 1000,
+      "repeats": 1,
+      "trials_per_candidate": 3,
+      "u_segments": 16384,
+      "v_segments": 128,
+      "warmup_iterations": 20
+    },
+    "canonical_workload_match": true,
+    "canonical_workload_observed": {
+      "fixed_across_profiles": true,
+      "measured_iterations": 1000,
+      "repeats": 1,
+      "trials_per_candidate": 3,
+      "u_segments": 16384,
+      "v_segments": 128,
+      "warmup_iterations": 20
+    },
+    "cuda_device_ordinal": 0,
+    "cuda_ordinal_zero_mapping_unambiguous": true,
+    "cuda_visible_devices_set": false,
+    "cuda_visible_devices_value_published": false,
+    "full_gpu_required": true,
+    "geometry_receipt_authority": false,
+    "identity_query_error": null,
+    "identity_query_exit_code": 0,
+    "mig_capable_profile": false,
+    "mig_enabled": false,
+    "mig_mode_acceptable": true,
+    "mig_mode_current": "[N/A]",
+    "mig_partition_observed": false,
+    "mig_query_error": null,
+    "mig_query_exit_code": 0,
+    "mig_query_supported": true,
+    "nvidia_smi_visible_gpu_count": 1,
+    "performance_observation_only": true,
+    "profile": "gtx-1650",
+    "profile_compute_capability_match": true,
+    "profile_model_match": true,
+    "raw_device_uuid_published": false,
+    "raw_device_uuid_queried": false,
+    "required_nvidia_smi_visible_gpu_count": 1,
+    "safe_gpu_inventory": {
+      "compute_capability": "7.5",
+      "index": 0,
+      "memory_total_mib": "4096",
+      "name": "NVIDIA GeForce GTX 1650"
+    },
+    "schema": "gluball-cuda-runtime-v31-physical-preflight/1",
+    "selected_nvidia_smi_index": 0,
+    "single_visible_gpu_verified": true,
+    "status": "PASS",
+    "universal_speedup_claim": false
+  },
+  "profile": "gtx-1650",
+  "profile_definition": {
+    "architecture_family": "Turing",
+    "device_class": "consumer",
+    "expected_compute_capability": "7.5",
+    "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:GeForce )?GTX 1650$",
+    "expected_sm": "sm_75",
+    "measurement_role": "post-pr20-generation-ladder",
+    "requires_full_gpu": true,
+    "status": "pending-physical-run"
+  },
+  "required_stages": {
+    "atomic_equivalence": true,
+    "bounded_tuning": true,
+    "frozen_measured_build_inputs": true,
+    "frozen_runtime_sources": true,
+    "host_validation": true,
+    "physical_preflight": true,
+    "profile_definition": true,
+    "two_stage_equivalence": true,
+    "v1_validation": true,
+    "v31_sanitizer": true
+  },
+  "schema": "gluball-cuda-runtime-v31-architecture-result/1",
+  "source_commit": "73a32f28c6472d3f2bc3a73e30e4f47af5633490",
+  "status": "PASS",
+  "two_stage_equivalence": {
+    "diagnostic_digests": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a"
+    },
+    "observed_v2_over_v31_wall_ratio": 4.869457989233068,
+    "observed_v3_over_v31_wall_ratio": 0.9947856478480228,
+    "shared_observation_equivalence": true,
+    "status": "PASS",
+    "v3_v31_exact_digest_equivalence": true
+  },
+  "v1_correctness_anchor": {
+    "acceptance_record_count": 3,
+    "geometry_receipt_authority": false,
+    "output_repeatable_byte_identical": true,
+    "stable_acceptance_fields": {
+      "checked_points": 16384,
+      "evidence_artifact_fnv1a64": "0fd0b3ab807341fe",
+      "max_component_residual": 2.583210810591652e-06,
+      "max_euclidean_residual": 3.1237784588949408e-06,
+      "max_reported_tube_radius_error": 1.7881393432617188e-07,
+      "total_points": 16384,
+      "worst_linear_index": 15742
+    },
+    "status": "PASS"
+  }
+}

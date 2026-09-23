@@ -1,0 +1,69 @@
+{
+  "acceptance_record_count": 3,
+  "acceptance_record_files": [
+    "cuda-acceptance-1.json",
+    "cuda-acceptance-2.json",
+    "cuda-acceptance-3.json"
+  ],
+  "acceptance_record_ordinals": [
+    1,
+    2,
+    3
+  ],
+  "cuda_sidecar_count": 3,
+  "cuda_sidecar_files": [
+    "cuda-run-1.json",
+    "cuda-run-2.json",
+    "cuda-run-3.json"
+  ],
+  "cuda_sidecar_ordinals": [
+    1,
+    2,
+    3
+  ],
+  "dual_location_sanitizer_archive_observed": true,
+  "expected_ordinals": [
+    1,
+    2,
+    3
+  ],
+  "expected_runs": 3,
+  "geometry_receipt_authority": false,
+  "issues": [],
+  "memcheck_clean_summary_source": "memcheck-run.json",
+  "output_file_count": 3,
+  "output_files": [
+    "cuda-output-1.f32le",
+    "cuda-output-2.f32le",
+    "cuda-output-3.f32le"
+  ],
+  "output_ordinals": [
+    1,
+    2,
+    3
+  ],
+  "output_repeatable_byte_identical": true,
+  "output_sha256": [
+    "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+    "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+    "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb"
+  ],
+  "output_sha256_by_run": {
+    "1": "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+    "2": "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+    "3": "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb"
+  },
+  "racecheck_clean_summary_source": "racecheck-run.json",
+  "schema": "gluball-runtime-v31-v1-validation/1",
+  "stable_acceptance_fields": {
+    "checked_points": 16384,
+    "evidence_artifact_fnv1a64": "0fd0b3ab807341fe",
+    "max_component_residual": 2.583210810591652e-06,
+    "max_euclidean_residual": 3.1237784588949408e-06,
+    "max_reported_tube_radius_error": 1.7881393432617188e-07,
+    "total_points": 16384,
+    "worst_linear_index": 15742
+  },
+  "status": "PASS",
+  "universal_speedup_claim": false
+}
