@@ -26,6 +26,7 @@ _PROFILE_IDENTITY_FIELDS = (
     "architecture_family",
     "device_class",
     "measurement_role",
+    "mig_capable",
 )
 _CANONICAL_WORKLOAD = {
     "u_segments": 16384,
@@ -80,7 +81,10 @@ def immutable_profile_identity(definition: Any, label: str) -> dict[str, Any]:
     identity: dict[str, Any] = {}
     for key in _PROFILE_IDENTITY_FIELDS:
         value = definition.get(key)
-        if not isinstance(value, str) or not value:
+        if key == "mig_capable":
+            if not isinstance(value, bool):
+                raise SystemExit(f"{label}: profile identity field missing or invalid: {key}")
+        elif not isinstance(value, str) or not value:
             raise SystemExit(f"{label}: profile identity field missing or invalid: {key}")
         identity[key] = value
     return identity
@@ -138,6 +142,10 @@ def physical_preflight(payload: dict[str, Any], label: str, expected_profile: st
     result_gpu = payload.get("gpu")
     if not isinstance(result_gpu, dict):
         raise SystemExit(f"{label}: result GPU identity missing")
+    definition = _PROFILE_DEFINITIONS.get(expected_profile)
+    expected_mig_capable = definition.get("mig_capable") if isinstance(definition, dict) else None
+    if not isinstance(expected_mig_capable, bool):
+        raise SystemExit(f"{label}: profile registry MIG capability missing or invalid")
     checks = {
         "schema": receipt.get("schema") == _PREFLIGHT_SCHEMA,
         "status": receipt.get("status") == "PASS",
@@ -155,6 +163,10 @@ def physical_preflight(payload: dict[str, Any], label: str, expected_profile: st
         "inventory_model": inventory.get("name") == result_gpu.get("model"),
         "inventory_cc": inventory.get("compute_capability") == result_gpu.get("compute_capability"),
         "cuda_visible_value_private": receipt.get("cuda_visible_devices_value_published") is False,
+        "mig_capable_profile": receipt.get("mig_capable_profile") is expected_mig_capable,
+        "mig_query_supported_when_required": (
+            not expected_mig_capable or receipt.get("mig_query_supported") is True
+        ),
         "mig_acceptable": receipt.get("mig_mode_acceptable") is True,
         "mig_disabled": receipt.get("mig_enabled") is False,
         "not_partition": receipt.get("mig_partition_observed") is False,
