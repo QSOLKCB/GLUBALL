@@ -63,3 +63,34 @@ Primary/background links:
 - Hilmar Forkel, *QCD Vacuum Topology and Glueballs*, arXiv:hep-ph/0407270, DOI `10.1063/1.1843614`.
 - BESIII Collaboration, *Determination of Spin-Parity Quantum Numbers of X(2370) as 0^-+ ...*, Physical Review Letters 132, 181901 (2024), DOI `10.1103/PhysRevLett.132.181901`.
 - Ethan Siegel, Big Think, *New particle at last! Physicists detect the first "glueball"* (2024), retained as a secondary explainer rather than primary evidence.
+
+## Browser visualization references
+
+The supplied knot images and mathematical visualization references inform the
+presentation of GLUBALL's independently specified (2,3) torus-knot tube.
+They do not replace `GLUBALL-KNOT-V1` or establish a physical interpretation.
+
+The user's lattice glueball, confining-string, gradient-flow, walking-technicolor
+and holographic references concern distinct physical models and numerical
+methods. This viewer computes no SU(3) gauge ensemble, Wilson action, correlation
+function, mass spectrum, gradient flow, or gravity dual. A visually attractive
+closed tube is not evidence that GLUBALL reproduces those calculations.
+
+The two supplied PDFs are software references:
+
+- Rolland and De Vico Fallani, *Vizaj - An interactive javascript tool for
+  visualizing spatial networks*, arXiv:2212.01337v1: spatial-network presentation
+  and geometric link shaping. GLUBALL does not implement Vizaj or its algorithms.
+- Cholke et al., *Lacuna-Based JavaScript Code Visualization and Dead Code
+  Optimization: A Cross-Platform Performance Evaluation*, SSRN 5231348:
+  JavaScript analysis/optimization. Its reported results are not measurements
+  of GLUBALL, and this update does not run Lacuna or claim its reported gains.
+
+The engineering changes here are directly inspectable: static mesh buffers,
+shared rotation computation, bounded pixel density, cached fallback arrays, and
+idle/hidden-frame suspension. Browser/hardware performance must be measured on
+this implementation. None of the supplied bibliography is treated as a theorem
+or empirical validation of GLUBALL.
+
+See [the rendering notes](BROWSER_RENDERER.md) and
+[the canonical geometry](GLUBALL_KNOT.md).

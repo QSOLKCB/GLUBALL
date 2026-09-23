@@ -36,7 +36,7 @@ C(t) = (
 
 with `R = 2.10`, `r = 0.85`, and a deterministic tube of radius `ρ = 0.34`. The surface uses the host-torus normal plus an orthogonal binormal, avoiding a renderer dependency on a Frenet-normal singularity assumption.
 
-The Pages laboratory renders the same canonical surface as a moving depth-sorted mesh. Animation state is an integer tick, with pause/step/reset controls and canonical evidence JSON export.
+The Pages laboratory renders the same canonical 96 × 18 surface using a buffered WebGL presentation, with a Canvas 2D fallback. Sculpture and knot-atlas views expose lighting, mesh, host-torus guide, orbit/zoom, and projection controls. See [browser rendering](docs/BROWSER_RENDERER.md) for performance and presentation boundaries. Animation state is an integer tick, with pause/step/reset controls and canonical evidence JSON export.
 
 ## Phase 2 deterministic/evidence layer
 

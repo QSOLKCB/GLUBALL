@@ -3,48 +3,67 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0d0f">
-  <title>GLUBALL · deterministic knot laboratory</title>
+  <meta name="theme-color" content="#090d14">
+  <meta name="description" content="Explore a deterministic (2,3) torus knot in a real-time geometry laboratory. Sculpted surfaces, wireframe atlas, and reproducible evidence.">
+  <title>GLUBALL · Knot laboratory</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="shell">
-    <header>
-      <p class="eyebrow">GLUBALL-KNOT-V1 · QSOL-IMC</p>
-      <h1>THE GLUBALL HAS ENTERED THE CHAT.</h1>
-      <p class="lede">An independently specified deterministic (2,3) torus-knot tube. No transfer portal required.</p>
+    <header class="masthead">
+      <a class="brand" href="https://github.com/QSOLKCB/GLUBALL">QSOL–IMC <span>/ COMPUTATIONAL GEOMETRY</span></a>
+      <a class="source-link" href="https://github.com/QSOLKCB/GLUBALL">Source ↗</a>
     </header>
-
-    <section class="stage" aria-label="Animated GLUBALL geometry">
-      <canvas id="gluball-canvas" width="1200" height="760"></canvas>
-      <div class="stamp">MOUTH / ANUS SUBSYSTEM: <strong>NOT FOUND</strong></div>
+    <section class="intro" aria-labelledby="title">
+      <div><p class="eyebrow">EXPERIMENT 001 · CLOSED / CONTINUOUS / DETERMINISTIC</p><h1 id="title">GLUBALL<span class="title-dot">.</span></h1></div>
+      <p class="lede">A knot. An orbit. A different perspective.<br>Explore the geometry of a <strong>(2,3) torus knot.</strong></p>
     </section>
-
-    <section class="controls" aria-label="Animation controls">
-      <button id="play" type="button">Pause</button>
-      <button id="step" type="button">Step +1</button>
-      <button id="step60" type="button">Step +60</button>
-      <button id="reset" type="button">Reset</button>
-      <button id="export" type="button">Export Evidence JSON</button>
-      <label><input id="wire" type="checkbox" checked> mesh</label>
+    <section class="laboratory" aria-label="Interactive knot laboratory">
+      <div class="stage">
+        <div class="stage-heading"><span id="view-name">01 / SURFACE STUDY</span><span class="live-status" id="status" role="status">Loading geometry…</span></div>
+        <canvas id="gluball-canvas" width="1200" height="760" tabindex="0" aria-label="Torus knot. Drag or use arrow keys to orbit; plus and minus to zoom; space to play or pause." aria-describedby="navigation-help">Interactive torus-knot visualization. Enable JavaScript and Canvas to explore.</canvas>
+        <div class="stage-footer"><span><b>2</b> LONGITUDINAL TURNS <span class="divider">/</span> <b>3</b> MERIDIONAL TURNS</span><span>GLUBALL-KNOT-V1</span></div>
+      </div>
+      <aside class="inspector" aria-label="View controls">
+        <p class="eyebrow">OBSERVATION DECK</p>
+        <h2>Change your<br>point of view.</h2>
+        <div class="mode-control" role="group" aria-label="Drawing style">
+          <button type="button" data-mode="sculpture" aria-pressed="true"><span>01</span> Sculpture</button>
+          <button type="button" data-mode="atlas" aria-pressed="false"><span>02</span> Knot atlas</button>
+        </div>
+        <p class="hint">A lit tube or its wire structure, with an amber centreline in atlas view.</p>
+        <div class="view-options">
+          <label class="check"><input id="wire" type="checkbox"> Surface mesh</label>
+          <label class="check"><input id="host" type="checkbox"> Host torus guide</label>
+          <label class="field" for="projection">PROJECTION<select id="projection"><option value="perspective">Perspective</option><option value="orthographic">Orthographic</option></select></label>
+          <label class="field" for="zoom">ZOOM<input id="zoom" type="range" min="0.6" max="1.4" value="1" step="0.05"></label>
+          <button class="quiet" id="home" type="button">Reset camera ↺</button>
+        </div>
+        <p class="hint" id="navigation-help">Drag to orbit. Focus the canvas and use arrow keys to rotate, +/− to zoom, or Space to pause.</p>
+        <div class="parameter-note"><span>R 2.10</span><span>r 0.85</span><span>ρ 0.34</span></div>
+      </aside>
     </section>
-
-    <section class="telemetry">
-      <div><span>geometry</span><strong>GLUBALL-KNOT-V1</strong></div>
-      <div><span>sampling</span><strong>GLUBALL-SAMPLING-V1</strong></div>
-      <div><span>evidence</span><strong>GLUBALL-EVIDENCE-V1</strong></div>
-      <div><span>topology</span><strong>(2,3) torus knot</strong></div>
-      <div><span>animation tick</span><strong id="tick">0</strong></div>
-      <div><span>display fps</span><strong id="fps">—</strong></div>
+    <section class="transport" aria-label="Animation and evidence controls">
+      <div class="controls"><button id="play" class="primary" type="button" aria-pressed="true">Pause</button><button id="step" type="button">Step +1</button><button id="step60" type="button">Step +60</button><button id="reset" type="button">Reset tick</button></div>
+      <button id="export" type="button">Export Evidence JSON ↓</button>
     </section>
-
-    <footer>
-      <p>The moving renderer is a projection of the canonical geometry documented in <code>docs/GLUBALL_KNOT.md</code>. Phase 2 sampling/evidence is a separate deterministic layer. Rendering and receipts are not physical claims, and tube embeddedness is not yet a machine-checked theorem.</p>
-      <p class="punchline">No mouths. No anus. Now with SHA-256 receipts.</p>
-    </footer>
+    <section class="telemetry" aria-label="Live telemetry">
+      <div><span>Animation tick</span><strong id="tick">0</strong></div>
+      <div><span>Display fps</span><strong id="fps">—</strong></div>
+      <div><span>Frame submission</span><strong id="frame-cost">—</strong></div>
+      <div><span>Renderer</span><strong id="renderer">—</strong></div>
+      <div><span>Fixed mesh</span><strong>96 × 18</strong></div>
+    </section>
+    <section class="notes" aria-label="About this study">
+      <div><p class="eyebrow">THE SHAPE OF THE EXPERIMENT</p><h2>One closed curve.<br>Plenty to get tangled in.</h2></div>
+      <div class="notes-copy"><p>The tube follows an independently specified (2,3) torus knot. Its amber host-torus guide makes the two winding directions visible. Camera, lighting and overlays are presentation settings; the geometry and exact sampling remain fixed.</p><p>Integer ticks and SHA-256 receipts make state reproducible. This is a geometry study, not a QCD simulation or a computed knot fibration. Tube embeddedness is not yet a machine-checked theorem.</p>
+      <details><summary>References &amp; contracts</summary><p>Visual inspiration: <a href="https://www.cs.toronto.edu/~jessebett/projects/torus-knot-fibration/index.html">Jesse Bettencourt’s Torus Knot Fibration</a>. Its Seifert surfaces and stereographic construction are separate mathematics; this viewer implements surface and wire views of GLUBALL only.</p><p><a href="docs/GLUBALL_KNOT.md">Geometry</a> · <a href="docs/SAMPLING.md">Sampling</a> · <a href="docs/EVIDENCE.md">Evidence</a> · <a href="docs/BROWSER_RENDERER.md">Renderer &amp; performance</a> · <a href="docs/GLUEBALL_RESEARCH_BOUNDARY.md">Physics research boundary</a></p></details></div>
+    </section>
+    <footer><span>QSOL–IMC / GLUBALL</span><span>No mouths. No anus. Just a very well-connected tube.</span><a href="https://github.com/QSOLKCB/GLUBALL">MPL-2.0 ↗</a></footer>
   </main>
   <script src="gluball-core.js"></script>
   <script src="phase2-core.js"></script>
+  <script src="renderer.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

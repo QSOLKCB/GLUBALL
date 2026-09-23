@@ -137,8 +137,9 @@ const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const appSource = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 assert.ok(html.indexOf('src="gluball-core.js"') < html.indexOf('src="phase2-core.js"'));
 assert.ok(html.indexOf('src="phase2-core.js"') < html.indexOf('src="app.js"'));
-assert.match(appSource, /u: \(i \+ 0\.5\) \/ uCount/, "wrapped seam midpoint fix must remain present");
-assert.match(appSource, /if \(advanced\) \{\s*render\(\)/, "paused/high-refresh redraw guard must remain present");
+// Renderer seams and paused/high-refresh scheduling are exercised behaviorally
+// in tests/renderer.mjs and tests/browser-controls.mjs. The old per-cell hue
+// midpoint expression is obsolete with the uniform lit material.
 assert.match(appSource, /const exportTick = tick/);
 assert.match(appSource, /tick: exportTick/);
 assert.match(appSource, /canonicalJSONStringify\(payload\)/);
