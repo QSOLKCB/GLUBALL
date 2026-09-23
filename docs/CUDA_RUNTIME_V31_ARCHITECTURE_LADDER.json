@@ -197,5 +197,35 @@
     "universal_speedup_claim": false,
     "raw_device_uuid_published": false,
     "cross_device_portability_claim": false
+  },
+  "completed_supplemental_ampere_specimen": {
+    "profile": "rtx-3050",
+    "status": "PASS",
+    "physical_run_id": 35847244344,
+    "source_commit": "4d327e0151b83a61c3357e0d3f72253e4a05dbb9",
+    "model": "NVIDIA GeForce RTX 3050",
+    "compute_capability": "8.6",
+    "compiled_cuda_arch_code": 860,
+    "artifact_id": 10743669801,
+    "artifact_sha256": "f504a890bb4575c0169daaaa86bf5213a2993c14b26cb41c85b9972058be35c3",
+    "accepted_artifact_record": "docs/physical-evidence/CUDA_RUNTIME_V31_RTX3050_RUN_35847244344.json",
+    "durable_receipt_directory": "docs/physical-evidence/rtx-3050-35847244344",
+    "best_observed_candidate": {
+      "block_size": 128,
+      "cuda_graphs": "on",
+      "reduction_mode": "atomic",
+      "observed_wall_milliseconds_median_of_trials": 0.108044,
+      "observed_matched_v3_over_v31_wall_ratio": 1.061021435711377,
+      "observed_v31_break_even_iterations_vs_matched_v3": 0
+    },
+    "diagnostic_digest_relationship": {
+      "v2": "1e15cffd50e6f653",
+      "v3": "1e206a0f3b649b9a",
+      "v31": "1e206a0f3b649b9a",
+      "v2_v3_digest_equality_required": false,
+      "v3_v31_digest_equality_required": true
+    },
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false
   }
 }

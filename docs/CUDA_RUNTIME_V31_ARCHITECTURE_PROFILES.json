@@ -66,7 +66,7 @@
       "measurement_role": "supplemental-consumer-ampere-observation",
       "requires_full_gpu": true,
       "mig_capable": false,
-      "status": "pending-physical-run"
+      "status": "completed-physical-run-35847244344"
     },
     "a100": {
       "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:Tesla )?A100(?:[- ].*)?$",
