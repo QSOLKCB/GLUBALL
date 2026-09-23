@@ -158,9 +158,29 @@ assert.equal(
   record.negative_control.modern_cuda_execution_expected,
   negative.interpretation.modern_cuda_execution_expected,
 );
-assert.equal(record.claim_boundary.performance_ladder_member, false);
-assert.equal(record.claim_boundary.geometry_receipt_authority, false);
-assert.equal(record.claim_boundary.universal_speedup_claim, false);
+const {
+  performance_ladder_member: performanceLadderMember,
+  ...receiptBoundClaimBoundary
+} = record.claim_boundary;
+assert.equal(performanceLadderMember, false);
+assert.deepEqual(
+  receiptBoundClaimBoundary,
+  negative.claim_boundary,
+  "compact claim boundary must exactly match the hashed negative-control receipt",
+);
+for (const field of [
+  "performance_observation_only",
+  "geometry_receipt_authority",
+  "universal_speedup_claim",
+  "raw_device_uuid_queried",
+  "raw_device_uuid_published",
+]) {
+  assert.equal(
+    record.claim_boundary[field],
+    preflight[field],
+    `compact/preflight claim-boundary mismatch: ${field}`,
+  );
+}
 assert.equal(record.claim_boundary.cross_device_portability_claim, false);
 
 assert.match(docs, /35863047782/);
