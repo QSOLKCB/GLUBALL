@@ -9,7 +9,12 @@
   const samplingConfig = Object.freeze({ logicalCount: "16777216", renderedCount: mesh.config.uSegments, policy: phase2.UNIFORM_FLOOR });
   const data = rendererAPI.prepareMesh(mesh), guide = rendererAPI.guides(core);
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
-  const view = { mode: "sculpture", wire: false, host: false, projection: "perspective", zoom: 1, yaw: 0, pitch: 0 };
+  function controlView() {
+    return { wire: wireToggle.checked, host: $("host").checked,
+      projection: $("projection").value, zoom: Number($("zoom").value) };
+  }
+  // Browsers may retain form properties across reloads without input/change events.
+  const view = { mode: "sculpture", ...controlView(), yaw: 0, pitch: 0 };
   const fixedStepMs = 1000 / 60;
   let tick = 0, running = !motion.matches, available = true, pending = 0, dirty = true;
   let accumulator = 0, lastTime = performance.now(), fpsWindowStart = lastTime, fpsFrames = 0, frameCost = 0;
@@ -123,6 +128,11 @@
     if (!document.hidden) invalidate();
   });
   window.addEventListener("resize", invalidate);
+  window.addEventListener("pageshow", () => {
+    // History/form restoration may finish after this script's first frame.
+    Object.assign(view, controlView());
+    invalidate();
+  });
   const observer = new ResizeObserver(invalidate); observer.observe(canvas);
   function presentation() {
     return { renderer: renderer.name, rendererVersion: rendererAPI.VERSION, canvasWidth: canvas.width, canvasHeight: canvas.height,
