@@ -20,10 +20,11 @@
       "expected_pci_device_id": "10de:0f02",
       "expected_lspci_model_regex_case_insensitive": "NVIDIA Corporation GF108 \\[GeForce GT 730\\] \\[10de:0f02\\]",
       "expected_kernel_driver": "nouveau",
-      "expected_opengl_vendor": "Mesa",
+      "expected_opengl_vendor_regex_case_insensitive": "^(?:Mesa|nouveau)$",
       "expected_opengl_renderer": "NVC1",
       "expected_nvidia_smi_usable": false,
       "expected_nvidia_device_nodes_present": false,
+      "expected_nvcc_release": "12.8",
       "expected_nvcc_compute_target": "compute_21",
       "expected_nvcc_sm_target": "sm_21",
       "expected_architecture_preflight_status": "FAIL"
