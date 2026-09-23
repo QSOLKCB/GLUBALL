@@ -13,6 +13,8 @@ from typing import Any
 
 
 _PROFILE_SCHEMA = "gluball-cuda-runtime-v31-architecture-profiles/1"
+_PCI_ADDRESS_PATTERN = r"(?:(?:[0-9a-fA-F]{4}):)?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]"
+_NVCC_RELEASE_PATTERN = re.compile(r"\\brelease\\s+([0-9]+\\.[0-9]+)\\b")
 
 
 def run(command: list[str]) -> tuple[int, str, str]:
@@ -60,10 +62,11 @@ def main() -> int:
         "expected_pci_device_id",
         "expected_lspci_model_regex_case_insensitive",
         "expected_kernel_driver",
-        "expected_opengl_vendor",
+        "expected_opengl_vendor_regex_case_insensitive",
         "expected_opengl_renderer",
         "expected_compute_capability",
         "expected_sm",
+        "expected_nvcc_release",
         "expected_nvcc_compute_target",
         "expected_nvcc_sm_target",
         "expected_architecture_preflight_status",
@@ -80,25 +83,26 @@ def main() -> int:
     if definition.get("expected_nvidia_device_nodes_present") is not False:
         raise SystemExit("negative control must require NVIDIA device nodes to be absent")
 
-    pci_id = definition["expected_pci_device_id"].casefold()
-    lspci_status, lspci_out, lspci_err = run(["lspci", "-nnk"])
-    blocks = re.split(r"\n(?=[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7] )", lspci_out)
-    gpu_block = next((block for block in blocks if f"[{pci_id}]" in block.casefold()), "")
-    gpu_line = gpu_block.splitlines()[0] if gpu_block else ""
-
     try:
-        model_match = (
-            re.search(
-                definition["expected_lspci_model_regex_case_insensitive"],
-                gpu_line,
-                flags=re.IGNORECASE,
-            )
-            is not None
+        model_pattern = re.compile(
+            definition["expected_lspci_model_regex_case_insensitive"],
+            flags=re.IGNORECASE,
+        )
+        opengl_vendor_pattern = re.compile(
+            definition["expected_opengl_vendor_regex_case_insensitive"],
+            flags=re.IGNORECASE,
         )
     except re.error as exc:
-        raise SystemExit(f"invalid lspci model regex: {exc}") from exc
+        raise SystemExit(f"invalid profile regex: {exc}") from exc
 
-    driver_match = re.search(r"Kernel driver in use:\s*(\S+)", gpu_block)
+    pci_id = definition["expected_pci_device_id"].casefold()
+    lspci_status, lspci_out, lspci_err = run(["lspci", "-nnk"])
+    blocks = re.split(rf"\\n(?={_PCI_ADDRESS_PATTERN} )", lspci_out)
+    gpu_block = next((block for block in blocks if f"[{pci_id}]" in block.casefold()), "")
+    gpu_line = gpu_block.splitlines()[0] if gpu_block else ""
+    model_match = bool(gpu_line and model_pattern.search(gpu_line))
+
+    driver_match = re.search(r"Kernel driver in use:\\s*(\\S+)", gpu_block)
     observed_driver = driver_match.group(1) if driver_match else None
 
     glx_status, glx_out, glx_err = run(["glxinfo", "-B"])
@@ -107,6 +111,8 @@ def main() -> int:
     opengl_version = first_prefixed_line(glx_out, "OpenGL version string:")
 
     nvcc_status, nvcc_out, nvcc_err = run(["nvcc", "--version"])
+    nvcc_release_match = _NVCC_RELEASE_PATTERN.search(nvcc_out) if nvcc_status == 0 else None
+    observed_nvcc_release = nvcc_release_match.group(1) if nvcc_release_match else None
     arch_status, arch_out, arch_err = run(["nvcc", "--list-gpu-arch"])
     code_status, code_out, code_err = run(["nvcc", "--list-gpu-code"])
     advertised_arches = [line.strip() for line in arch_out.splitlines() if line.strip()]
@@ -128,9 +134,12 @@ def main() -> int:
         "expected_lspci_model_match": model_match,
         "expected_kernel_driver_match": observed_driver == definition["expected_kernel_driver"],
         "opengl_probe_succeeded": glx_status == 0,
-        "expected_opengl_vendor_match": opengl_vendor == definition["expected_opengl_vendor"],
+        "expected_opengl_vendor_match": (
+            opengl_vendor is not None and opengl_vendor_pattern.fullmatch(opengl_vendor) is not None
+        ),
         "expected_opengl_renderer_match": opengl_renderer == definition["expected_opengl_renderer"],
         "nvcc_version_probe_succeeded": nvcc_status == 0,
+        "expected_nvcc_release_match": observed_nvcc_release == definition["expected_nvcc_release"],
         "nvcc_arch_probe_succeeded": arch_status == 0,
         "nvcc_code_probe_succeeded": code_status == 0,
         "legacy_compute_target_absent_from_toolkit": (
@@ -159,6 +168,7 @@ def main() -> int:
         },
         "graphics": {
             "glxinfo_exit_code": glx_status,
+            "expected_vendor_regex": definition["expected_opengl_vendor_regex_case_insensitive"],
             "vendor": opengl_vendor,
             "renderer": opengl_renderer,
             "version": opengl_version,
@@ -167,6 +177,8 @@ def main() -> int:
         "cuda_toolkit": {
             "nvcc_exit_code": nvcc_status,
             "nvcc_version_output": nvcc_out or None,
+            "expected_release": definition["expected_nvcc_release"],
+            "observed_release": observed_nvcc_release,
             "nvcc_error": nvcc_err or None,
             "list_gpu_arch_exit_code": arch_status,
             "advertised_compute_targets": advertised_arches,
