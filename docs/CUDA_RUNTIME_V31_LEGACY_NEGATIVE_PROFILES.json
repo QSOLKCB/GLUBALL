@@ -1,0 +1,41 @@
+{
+  "schema": "gluball-cuda-runtime-v31-architecture-profiles/1",
+  "contract": "GLUBALL-CUDA-RUNTIME-V3.1-LEGACY-NEGATIVE-PROFILES",
+  "runner_label": "gluball-vast-v31-architecture",
+  "profile_order": [
+    "gt-730-gf108"
+  ],
+  "profiles": {
+    "gt-730-gf108": {
+      "expected_model_regex_case_insensitive": "^(?:NVIDIA )?(?:GeForce )?GT 730$",
+      "expected_compute_capability": "2.1",
+      "expected_sm": "sm_21",
+      "architecture_family": "Fermi",
+      "device_class": "consumer",
+      "measurement_role": "legacy-fermi-modern-cuda-unavailable-negative-control",
+      "requires_full_gpu": true,
+      "mig_capable": false,
+      "status": "expected-runtime-unavailable",
+      "negative_control": true,
+      "expected_pci_device_id": "10de:0f02",
+      "expected_lspci_model_regex_case_insensitive": "NVIDIA Corporation GF108 \\[GeForce GT 730\\] \\[10de:0f02\\]",
+      "expected_kernel_driver": "nouveau",
+      "expected_opengl_vendor_regex_case_insensitive": "^(?:Mesa|nouveau)$",
+      "expected_opengl_renderer": "NVC1",
+      "expected_nvidia_smi_usable": false,
+      "expected_nvidia_device_nodes_present": false,
+      "expected_nvcc_release": "12.8",
+      "expected_nvcc_compute_target": "compute_21",
+      "expected_nvcc_sm_target": "sm_21",
+      "expected_architecture_preflight_status": "FAIL"
+    }
+  },
+  "claim_boundary": {
+    "performance_observation_only": true,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "cross_device_portability_claim": false,
+    "raw_device_uuid_queried": false,
+    "raw_device_uuid_published": false
+  }
+}

@@ -26,6 +26,8 @@ It is supplemental consumer Ampere evidence, not an A100 substitute and never A1
 
 The purpose is not to turn GPU timings into a universal ranking. The purpose is to observe how one fixed Runtime V3.1 experiment behaves as execution hardware changes while keeping claim boundaries explicit.
 
+A GF108/Fermi GeForce GT 730 negative control is intentionally kept outside this performance ladder because the modern CUDA runtime cannot execute it. That host is exercised by the separate `GLUBALL Runtime V3.1 legacy negative control` workflow, which proves that NVIDIA PCI hardware plus Mesa/nouveau graphics plus an installed CUDA toolkit do not satisfy the architecture-ladder CUDA-availability gate. See `docs/CUDA_RUNTIME_V31_LEGACY_NEGATIVE_CONTROL.md`.
+
 ## Frozen runtime target
 
 Runtime implementation source is frozen while the architecture ladder is measured:
