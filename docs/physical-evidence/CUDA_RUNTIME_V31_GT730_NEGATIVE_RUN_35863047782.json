@@ -1,0 +1,83 @@
+{
+  "schema": "gluball-cuda-runtime-v31-accepted-legacy-negative-artifact/1",
+  "contract": "GLUBALL-CUDA-RUNTIME-V3.1-LEGACY-NEGATIVE-CONTROL",
+  "status": "PASS",
+  "acceptance_meaning": "declared legacy GF108 host state matched and the normal Runtime V3.1 architecture preflight failed closed as expected",
+  "profile": "gt-730-gf108",
+  "physical_run_id": 35863047782,
+  "job_id": 107187738646,
+  "actions_run_url": "https://github.com/QSOLKCB/GLUBALL/actions/runs/35863047782",
+  "source_commit": "69256247e6125d726f06c9735f21635d5e56bbe2",
+  "artifact": {
+    "id": 10750992566,
+    "name": "gluball-v31-legacy-negative-gt-730-gf108-35863047782-1",
+    "zip_size_bytes": 3543,
+    "zip_sha256": "1e8393154f59d11303a237d6a01ac57460714ece591612d094c2da254529d5ee",
+    "bundle_sha256s_manifest_sha256": "841c0d025b4f28c520efe2aaec9d46a3883167be10d3de20be63b90f8b595a76",
+    "bundle_manifest_entry_count": 5,
+    "independently_verified_after_download": true,
+    "actions_artifact_is_transient": true,
+    "durable_receipt_directory": "docs/physical-evidence/gt-730-gf108-35863047782",
+    "durable_core_independent_of_actions_retention": true,
+    "durable_supporting_receipts": [
+      "ARCHITECTURE_PREFLIGHT_EXIT_STATUS.txt",
+      "ARCHITECTURE_PREFLIGHT_REJECTION.json",
+      "BUNDLE_SHA256SUMS.txt",
+      "HOST_UNAME.txt",
+      "LEGACY_NEGATIVE_CONTROL.json",
+      "SOURCE_COMMIT.txt"
+    ],
+    "receipt_sha256": {
+      "ARCHITECTURE_PREFLIGHT_EXIT_STATUS.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "ARCHITECTURE_PREFLIGHT_REJECTION.json": "9343e1c85303c3dd05922a64ab20fd4b40e7a88f782c4e588184f98238e3a414",
+      "HOST_UNAME.txt": "a367180b361c7e1df5e5eebe4b34e4b519f9a7b162413877aa6a0a7f50b93ab5",
+      "LEGACY_NEGATIVE_CONTROL.json": "a4ada65af9aef08aaf2dd3a2aaba09b545df201e6899e0a02f12b28cc5f2bbdd",
+      "SOURCE_COMMIT.txt": "9c2c5f8c7d6cd8d74a8fa26e40cdc18546943d834af9e1e26198fef2e089d77c"
+    }
+  },
+  "host": {
+    "uname": "Linux trent-OptiPlex-9020 7.0.0-34-generic #34~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 15:38:29 UTC 2 x86_64 x86_64 x86_64 GNU/Linux"
+  },
+  "hardware": {
+    "pci_device_id": "10de:0f02",
+    "pci_model": "NVIDIA Corporation GF108 [GeForce GT 730]",
+    "architecture_family": "Fermi",
+    "expected_compute_capability": "2.1",
+    "expected_sm": "sm_21",
+    "kernel_driver": "nouveau",
+    "opengl_vendor": "Mesa",
+    "opengl_renderer": "NVC1",
+    "opengl_version": "4.3 (Compatibility Profile) Mesa 25.2.8-0ubuntu0.24.04.2"
+  },
+  "cuda_toolkit": {
+    "observed_release": "12.8",
+    "observed_version": "V12.8.93",
+    "userspace_present": true,
+    "legacy_compute_target": "compute_21",
+    "legacy_compute_target_advertised": false,
+    "legacy_sm_target": "sm_21",
+    "legacy_sm_target_advertised": false,
+    "cuda_libraries_present": true
+  },
+  "negative_control": {
+    "status": "PASS",
+    "architecture_preflight_status": "FAIL",
+    "architecture_preflight_exit_status": 1,
+    "nvidia_smi_exit_code": 9,
+    "nvidia_smi_visible_gpu_count": 0,
+    "single_visible_gpu_verified": false,
+    "safe_gpu_inventory": null,
+    "nvidia_device_nodes": [],
+    "proprietary_nvidia_runtime_usable": false,
+    "modern_cuda_execution_expected": false
+  },
+  "claim_boundary": {
+    "performance_observation_only": true,
+    "geometry_receipt_authority": false,
+    "universal_speedup_claim": false,
+    "cross_device_portability_claim": false,
+    "raw_device_uuid_queried": false,
+    "raw_device_uuid_published": false,
+    "performance_ladder_member": false
+  }
+}
