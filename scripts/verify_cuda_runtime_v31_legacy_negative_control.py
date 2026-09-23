@@ -13,8 +13,8 @@ from typing import Any
 
 
 _PROFILE_SCHEMA = "gluball-cuda-runtime-v31-architecture-profiles/1"
-_PCI_ADDRESS_PATTERN = r"(?:(?:[0-9a-fA-F]{4}):)?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]"
-_NVCC_RELEASE_PATTERN = re.compile(r"\\brelease\\s+([0-9]+\\.[0-9]+)\\b")
+_PCI_ADDRESS_PATTERN = r"(?:(?:[0-9a-fA-F]{4}):)?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]"
+_NVCC_RELEASE_PATTERN = re.compile(r"\brelease\s+([0-9]+\.[0-9]+)\b")
 
 
 def run(command: list[str]) -> tuple[int, str, str]:
@@ -97,12 +97,12 @@ def main() -> int:
 
     pci_id = definition["expected_pci_device_id"].casefold()
     lspci_status, lspci_out, lspci_err = run(["lspci", "-nnk"])
-    blocks = re.split(rf"\\n(?={_PCI_ADDRESS_PATTERN} )", lspci_out)
+    blocks = re.split(rf"\n(?={_PCI_ADDRESS_PATTERN} )", lspci_out)
     gpu_block = next((block for block in blocks if f"[{pci_id}]" in block.casefold()), "")
     gpu_line = gpu_block.splitlines()[0] if gpu_block else ""
     model_match = bool(gpu_line and model_pattern.search(gpu_line))
 
-    driver_match = re.search(r"Kernel driver in use:\\s*(\\S+)", gpu_block)
+    driver_match = re.search(r"Kernel driver in use:\s*(\S+)", gpu_block)
     observed_driver = driver_match.group(1) if driver_match else None
 
     glx_status, glx_out, glx_err = run(["glxinfo", "-B"])
