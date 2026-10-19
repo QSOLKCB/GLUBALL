@@ -1,0 +1,338 @@
+{
+  "audit_date_utc": "2026-10-19",
+  "audit_kind": "source-bound offline artifact audit; no new physical execution",
+  "claim_limitations": [
+    "The independent numerical recheck uses Python binary64 equations transcribed from the pinned Rust sources. Its observed exact receipt-metric agreement is not a claim of general Python/Rust or cross-runtime bit equivalence.",
+    "Full-output residual acceptance covers three repeats of the 512 by 32 V1 domain, 16,384 points per repeat. It does not establish full-output Rust residual acceptance for the 16,384 by 128 throughput domain or for V3/V3.1.",
+    "V2/V3/V3.1 throughput records report compact metrics and do not contain full point outputs. V3/V3.1 digest agreement is an observed compact-digest gate, not a collision-free proof of pointwise equality or a geometry receipt.",
+    "V2 and V3/V3.1 raw diagnostic digests differ as permitted by the frozen comparison contract; shared point count, radius and nonfinite observations agree.",
+    "V3.1 sanitizer checks cover both reduction modes only at 512 by 32, block size 256, graphs off, one warmup and two measured iterations. They do not exhaustively sanitize every tuning configuration or the large performance workload.",
+    "One GTX 1650 full physical device is recorded. The preflight also shows Xorg/GNOME and other graphics processes using the GPU; an isolated or dedicated benchmark host is not established.",
+    "Timing ratios are observations of this recorded configuration and bounded candidate set. They do not establish a global optimum, universal speedup, cross-device portability, isolated GPU timing or multi-GPU scaling.",
+    "File hashes and source-binding receipts establish internal integrity and declared source identity. The bundle has no independent hardware attestation or measured-executable digest proving those exact sources produced the executing binary.",
+    "Archived profile lifecycle status refers to the historical completed run 33630241971 from the source registry. It is profile metadata and is not the identity of this newer run.",
+    "No geometry-authority, physical-truth, empirical-QCD, embeddedness or formal cross-runtime equivalence claim follows from this evidence. GPU work remains outside the frozen v1.0.0 JavaScript release surface."
+  ],
+  "executed_checks": [
+    {
+      "command": "(cd \"$BUNDLE\" && sha256sum --check BUNDLE_SHA256SUMS.txt)",
+      "exit_code": 0,
+      "verified_entries": 179
+    },
+    {
+      "command": "(cd \"$BUNDLE/v1-acceptance\" && sha256sum --check SHA256SUMS.txt)",
+      "exit_code": 0,
+      "verified_entries": 17
+    },
+    {
+      "command": "git -C \"$REPO\" archive daff00294fe64ccf2d950e98c5bd652b274dfc5d | tar -xf - -C \"$AUDIT/source-snapshot\"",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 \"$SOURCE_SNAPSHOT/scripts/verify_cuda_runtime_v31_frozen_build_inputs.py\" --repo-root \"$SOURCE_SNAPSHOT\" --output \"$AUDIT/RECOMPUTED_BUILD_INPUTS.json\"",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 \"$ARCHIVE/replay_validators.py\" \"$SOURCE_SNAPSHOT\" \"$BUNDLE\" \"$AUDIT_OUTPUT\"",
+      "detail": "Replayed only read/validation and data-processing code from the pinned source, against copied evidence. No producer shell script or CUDA process was executed.",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 \"$ARCHIVE/check_numeric_and_runtime.py\" \"$SOURCE_SNAPSHOT\" \"$BUNDLE\" \"$AUDIT_OUTPUT\"",
+      "detail": "Independent binary decoding, FNV binding, full point residual recomputation, 117 performance-sidecar domain checks and four sanitizer transcript checks.",
+      "exit_code": 0
+    }
+  ],
+  "independent_numeric_audit": {
+    "117_runtime_observation_records_domain_and_boundaries": "PASS",
+    "acceptance": [
+      {
+        "artifact_fnv1a64": "0fd0b3ab807341fe",
+        "artifact_sha256": "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+        "differences": {},
+        "exact_receipt_metric_match": true,
+        "gates": {
+          "component_residual_gate": 5e-05,
+          "euclidean_residual_gate": 8.660254037844386e-05,
+          "reported_tube_radius_gate": 5e-05
+        },
+        "recomputed": {
+          "checked_points": 16384,
+          "max_component_residual": 2.583210810591652e-06,
+          "max_euclidean_residual": 3.1237784588949408e-06,
+          "max_reported_tube_radius_error": 1.7881393432617188e-07,
+          "nonfinite_records": 0,
+          "total_points": 16384,
+          "worst_linear_index": 15742
+        },
+        "run": 1,
+        "sidecar_fnv1a64": "c7b4bb03f5347dac",
+        "status": "PASS"
+      },
+      {
+        "artifact_fnv1a64": "0fd0b3ab807341fe",
+        "artifact_sha256": "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+        "differences": {},
+        "exact_receipt_metric_match": true,
+        "gates": {
+          "component_residual_gate": 5e-05,
+          "euclidean_residual_gate": 8.660254037844386e-05,
+          "reported_tube_radius_gate": 5e-05
+        },
+        "recomputed": {
+          "checked_points": 16384,
+          "max_component_residual": 2.583210810591652e-06,
+          "max_euclidean_residual": 3.1237784588949408e-06,
+          "max_reported_tube_radius_error": 1.7881393432617188e-07,
+          "nonfinite_records": 0,
+          "total_points": 16384,
+          "worst_linear_index": 15742
+        },
+        "run": 2,
+        "sidecar_fnv1a64": "344f9e9e71de621f",
+        "status": "PASS"
+      },
+      {
+        "artifact_fnv1a64": "0fd0b3ab807341fe",
+        "artifact_sha256": "4ac6d9175955222d77eaf02133613c3d3edd0715b0838e4affb3a3f44b2daeeb",
+        "differences": {},
+        "exact_receipt_metric_match": true,
+        "gates": {
+          "component_residual_gate": 5e-05,
+          "euclidean_residual_gate": 8.660254037844386e-05,
+          "reported_tube_radius_gate": 5e-05
+        },
+        "recomputed": {
+          "checked_points": 16384,
+          "max_component_residual": 2.583210810591652e-06,
+          "max_euclidean_residual": 3.1237784588949408e-06,
+          "max_reported_tube_radius_error": 1.7881393432617188e-07,
+          "nonfinite_records": 0,
+          "total_points": 16384,
+          "worst_linear_index": 15742
+        },
+        "run": 3,
+        "sidecar_fnv1a64": "c88c8202d7475d7c",
+        "status": "PASS"
+      }
+    ],
+    "method": "Independent Python binary64 transcription of pinned runtime/rust/lib_v2.rs geometry and runtime/rust/cuda_accept.rs gates. This is not an execution of the Rust binary.",
+    "profile_and_preflight_source_contract_match": true,
+    "sanitizer_exit_statuses": {
+      "memcheck_atomic": "0",
+      "memcheck_two_stage": "0",
+      "racecheck_atomic": "0",
+      "racecheck_two_stage": "0"
+    },
+    "sanitizers": [
+      {
+        "block_size": 256,
+        "file": "racecheck-two-stage.txt",
+        "graphs": "off",
+        "iterations": 2,
+        "points_per_iteration": 16384,
+        "reduction": "two-stage",
+        "summary": "RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)",
+        "warmup": 1
+      },
+      {
+        "block_size": 256,
+        "file": "racecheck-atomic.txt",
+        "graphs": "off",
+        "iterations": 2,
+        "points_per_iteration": 16384,
+        "reduction": "atomic",
+        "summary": "RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)",
+        "warmup": 1
+      },
+      {
+        "block_size": 256,
+        "file": "memcheck-two-stage.txt",
+        "graphs": "off",
+        "iterations": 2,
+        "points_per_iteration": 16384,
+        "reduction": "two-stage",
+        "summary": "ERROR SUMMARY: 0 errors",
+        "warmup": 1
+      },
+      {
+        "block_size": 256,
+        "file": "memcheck-atomic.txt",
+        "graphs": "off",
+        "iterations": 2,
+        "points_per_iteration": 16384,
+        "reduction": "atomic",
+        "summary": "ERROR SUMMARY: 0 errors",
+        "warmup": 1
+      }
+    ],
+    "status": "PASS"
+  },
+  "input_integrity": {
+    "V1_VALIDATION_json_covered_by_outer_manifest": true,
+    "bundle_manifest_all_entries_match": true,
+    "bundle_manifest_duplicate_paths": false,
+    "bundle_manifest_entry_count": 179,
+    "bundle_manifest_exact_file_coverage_except_itself": true,
+    "bundle_manifest_sha256": "4eb7b45a557ff62efa2e0eef09029fc7cf77e371ce6c0491b07200c61ac5f2e9",
+    "file_count": 180,
+    "input_bundle_modified": false,
+    "v1_manifest_all_entries_match": true,
+    "v1_manifest_entry_count": 17,
+    "v1_manifest_excludes_later_V1_VALIDATION_json": true
+  },
+  "not_executed": [
+    "No CUDA producer, new GPU measurement, sanitizer rerun or nvidia-smi query.",
+    "No Rust acceptance binary execution or Cargo tests. rustc and cargo were not available on PATH; no toolchain was installed.",
+    "No original input bundle or producing source edits. All generated audit files and replay writes were outside the repository and original evidence directory.",
+    "No external mutation by this audit."
+  ],
+  "performance_observation": {
+    "best_candidate": {
+      "block_size": 128,
+      "cuda_graphs": "off",
+      "exact_matched_v3_v31_digest_equivalence": true,
+      "matched_v3_max_device_kernel_milliseconds_median_of_trials": 0.11865600198507309,
+      "matched_v3_setup_milliseconds_median_of_trials": 167.342535,
+      "matched_v3_wall_milliseconds_median_of_trials": 0.142076,
+      "observed_matched_v3_minus_v31_wall_milliseconds_per_iteration": 0.005668000000000006,
+      "observed_matched_v3_over_v31_wall_ratio": 1.041551815142807,
+      "observed_max_device_kernel_milliseconds_median_of_trials": 0.1186240017414093,
+      "observed_setup_milliseconds_median_of_trials": 170.64858,
+      "observed_v2_over_v31_wall_ratio": 5.09207671104334,
+      "observed_v31_break_even_iterations_vs_matched_v3": 584,
+      "observed_v31_minus_matched_v3_setup_milliseconds": 3.3060450000000117,
+      "observed_wall_milliseconds_median_of_trials": 0.136408,
+      "reduction_mode": "atomic",
+      "shared_v2_observation_equivalence": true,
+      "trial_count": 3,
+      "trial_wall_milliseconds_median_values": [
+        0.136408,
+        0.136466,
+        0.136394
+      ],
+      "v2_v31_digest_match": false
+    },
+    "canonical_workload": {
+      "fixed_across_profiles": true,
+      "measured_iterations": 1000,
+      "repeats": 1,
+      "trials_per_candidate": 3,
+      "u_segments": 16384,
+      "v_segments": 128,
+      "warmup_iterations": 20
+    },
+    "points_per_measured_iteration": 2097152,
+    "v2_digest": "1e15cffd50e6f653",
+    "v2_v3_digest_equality_required": false,
+    "v3_v31_digest": "1e206a0f3b649b9a",
+    "validated_performance_sidecar_count": 117,
+    "within_device_v3_v31_digest_equality_required": true
+  },
+  "producing_source_commit": "daff00294fe64ccf2d950e98c5bd652b274dfc5d",
+  "replayed_validators": {
+    "atomic_equivalence": "PASS; regenerated EQUIVALENCE.json is byte-identical",
+    "bounded_tuner": "PASS; regenerated TUNING_RESULT.json is byte-identical; 24 candidates, 12 matched V3 configurations, 3 trials each",
+    "complete_replay_bundle": "All 180 files byte-identical to original after replay; finalizer stage-time count 176 reproduces before adding the two binder receipts",
+    "finalizer_and_two_receipt_binders": "PASS; ARCHITECTURE_RESULT.json, VALIDATION_STATUS.json and BUNDLE_SHA256SUMS.txt are byte-identical",
+    "frozen_build_input_verifier": "PASS; JSON object exactly matches archived receipt",
+    "physical_preflight_live_query": "NOT RUN; archived receipt semantics, profile/model identity and canonical workload checked offline",
+    "two_stage_equivalence": "PASS; regenerated EQUIVALENCE.json is byte-identical",
+    "v1_campaign_verifier": "PASS; JSON object exactly matches archived V1_VALIDATION.json"
+  },
+  "reproduction_scripts": {
+    "check_numeric_and_runtime.py": "CLI-parameterized archival copy of executed audit script; replayed successfully before archival",
+    "replay_validators.py": "CLI-parameterized archival copy of executed audit script; replayed successfully before archival"
+  },
+  "run_id_from_evidence_paths": 39230458215,
+  "schema": "gluball-cuda-runtime-v31-independent-offline-audit/1",
+  "source_binding": {
+    "build_input_validator_output_identical_to_archived_receipt": true,
+    "frozen_measured_build_inputs": {
+      "native/cuda/CMakeLists.txt": "c752caed1c972a680c3cf404657c8e9f9562663e",
+      "native/cuda/gluball_runtime_v2.cu": "12d49ec6f78a28ed8d6afb5e8c7df80961c8bfc1",
+      "native/cuda/gluball_runtime_v2_event_compat.cuh": "2be5d30b9d55552214f977b5057bcaf364b59192",
+      "native/cuda/gluball_runtime_v3.cu": "dc8e9b209abee3794e5e56d0b92fa6d40dd03fd0",
+      "native/cuda/gluball_runtime_v31.cu": "045fbf37725beb5d65b2332309626ccfa727f874"
+    },
+    "frozen_runtime_receipt_semantically_valid": true,
+    "physical_preflight_receipt_semantically_valid_and_matches_source_profile_and_workload": true,
+    "profile_definition_matches_source_registry": true,
+    "reproduction_required_file_sha256": {
+      "docs/CUDA_RUNTIME_V31_ARCHITECTURE_LADDER.json": "69fc8b6a30ad49b3b0a2233caf458c287cdb771735c729e2daf8da16fbd16a04",
+      "docs/CUDA_RUNTIME_V31_ARCHITECTURE_PROFILES.json": "ff82a879de19595c01c470e4b1f0e638462a17c57426bc5462b056533cd80252",
+      "native/cuda/CMakeLists.txt": "543f60ed37b2a97892aa1ad317a537a15c38c2703166729781a9c9a601a73830",
+      "native/cuda/gluball_runtime_v2.cu": "5d38fee89e72f5e6e0201b35e0dff9e15a8e9c30440c3d19d982c60e62ea99e5",
+      "native/cuda/gluball_runtime_v2_event_compat.cuh": "13c6a43a7e9d848020f115e9ec127b1efaa7a1d20881859e89da16df1a4c704e",
+      "native/cuda/gluball_runtime_v3.cu": "20c7bbfb5fef3697ec6e05307fa01cc5407bc4368342a188d22dea0e624b0f4e",
+      "native/cuda/gluball_runtime_v31.cu": "e1a93700d99afa8e3635ce78405f6076dbcbde671bfc4db1ca6b94ee0f89d12e",
+      "runtime/rust/cuda_accept.rs": "573ee7aac7745d13604fa3dbc6c3fa64018f50b3f9b29d1b9e401a8ae81b0207",
+      "runtime/rust/lib_v2.rs": "ef69411c546416da08e3b406c664069c1db5d9cba9725db1c78d3e88a7cf41dd",
+      "scripts/bind_cuda_runtime_v31_frozen_build_inputs.py": "584d49d1db7b81debbbbd1a4db314f3edf9c4c829ccab482b9cd124edadcbe67",
+      "scripts/bind_cuda_runtime_v31_physical_preflight.py": "050ba37176e4e177d46b029b5b63bb5120cd0805857f7eacd7f34f70a5a66866",
+      "scripts/compare_cuda_runtime_v2_v3_v31.sh": "668d6278f8d452f1480898ac16bc0f4455a70b14abd4864c6c38aec2b4bea3f6",
+      "scripts/finalize_cuda_runtime_v31_architecture.py": "bf35f50aa1c9328fd54095251a04b8c6362fd8a6a6fe21d480b10660caf0b1cd",
+      "scripts/tune_cuda_runtime_v31.sh": "24a0883b326f31e7f20680cf0460d46cc5ccd81d3b81913feaadc4cd12a313c7",
+      "scripts/verify_cuda_runtime_v31_frozen_build_inputs.py": "c1bab5f112888f0ee03e00966bc35620414d81234c2c6977e371fa49acfd9904",
+      "scripts/verify_cuda_v1_campaign.py": "e6131549930949d75b91ade94f27feba081685d9df155e13168fe984ec5861c9"
+    },
+    "source_commit_record_matches_pinned_commit": true,
+    "source_files_used": {
+      "runtime/rust/cuda_accept.rs": {
+        "git_blob_id": "fe76f765ee7e8a5ccb8808cf787db007e264390b",
+        "sha256": "573ee7aac7745d13604fa3dbc6c3fa64018f50b3f9b29d1b9e401a8ae81b0207",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/runtime/rust/cuda_accept.rs"
+      },
+      "runtime/rust/lib_v2.rs": {
+        "git_blob_id": "d0a29131c5a96de770d73c42795626920cf7a373",
+        "sha256": "ef69411c546416da08e3b406c664069c1db5d9cba9725db1c78d3e88a7cf41dd",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/runtime/rust/lib_v2.rs"
+      },
+      "scripts/bind_cuda_runtime_v31_frozen_build_inputs.py": {
+        "git_blob_id": "0d15bc7ae79373359fbf17c6e0023efbf23467ee",
+        "sha256": "584d49d1db7b81debbbbd1a4db314f3edf9c4c829ccab482b9cd124edadcbe67",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/bind_cuda_runtime_v31_frozen_build_inputs.py"
+      },
+      "scripts/bind_cuda_runtime_v31_physical_preflight.py": {
+        "git_blob_id": "3ae46755917cb1a2892e71565fab15fc99950ecd",
+        "sha256": "050ba37176e4e177d46b029b5b63bb5120cd0805857f7eacd7f34f70a5a66866",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/bind_cuda_runtime_v31_physical_preflight.py"
+      },
+      "scripts/compare_cuda_runtime_v2_v3_v31.sh": {
+        "git_blob_id": "b7b32ce118291cec0a0067c45b97c3a74d56697e",
+        "sha256": "668d6278f8d452f1480898ac16bc0f4455a70b14abd4864c6c38aec2b4bea3f6",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/compare_cuda_runtime_v2_v3_v31.sh"
+      },
+      "scripts/finalize_cuda_runtime_v31_architecture.py": {
+        "git_blob_id": "f5d54299a198f50eaedb4d5ef1a2ec1d695a8d12",
+        "sha256": "bf35f50aa1c9328fd54095251a04b8c6362fd8a6a6fe21d480b10660caf0b1cd",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/finalize_cuda_runtime_v31_architecture.py"
+      },
+      "scripts/tune_cuda_runtime_v31.sh": {
+        "git_blob_id": "b45fdc736868e2dd6ea1d92caa0da8abccbf7b0c",
+        "sha256": "24a0883b326f31e7f20680cf0460d46cc5ccd81d3b81913feaadc4cd12a313c7",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/tune_cuda_runtime_v31.sh"
+      },
+      "scripts/verify_cuda_runtime_v31_frozen_build_inputs.py": {
+        "git_blob_id": "d5fc47530373ee856f474d6298271cfc3343eaac",
+        "sha256": "c1bab5f112888f0ee03e00966bc35620414d81234c2c6977e371fa49acfd9904",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/verify_cuda_runtime_v31_frozen_build_inputs.py"
+      },
+      "scripts/verify_cuda_v1_campaign.py": {
+        "git_blob_id": "e595a50e41c9d794079e4ec9ef7584b314bdc54e",
+        "sha256": "e6131549930949d75b91ade94f27feba081685d9df155e13168fe984ec5861c9",
+        "source_url": "https://github.com/QSOLKCB/GLUBALL/blob/daff00294fe64ccf2d950e98c5bd652b274dfc5d/scripts/verify_cuda_v1_campaign.py"
+      }
+    },
+    "source_snapshot_method": "git archive of exact producing commit, isolated from concurrent archival checkout changes"
+  },
+  "status": "PASS",
+  "v1_sanitizer_evidence": {
+    "companion_txt_files_empty": true,
+    "dual_location_archive_handled_by_producing_verifier": true,
+    "memcheck_source": "v1-acceptance/memcheck-run.json",
+    "memcheck_summary": "ERROR SUMMARY: 0 errors",
+    "racecheck_source": "v1-acceptance/racecheck-run.json",
+    "racecheck_summary": "RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)"
+  }
+}
