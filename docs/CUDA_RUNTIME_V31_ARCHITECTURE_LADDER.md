@@ -314,3 +314,7 @@ within_device_v3_v31_digest_equality:      required
 ```
 
 Marketplace instance IDs, prices and availability are external rental logistics, not part of the scientific contract. Preserve them separately if useful for cost accounting, but do not bind a runtime result to a transient marketplace listing.
+
+## Additional GTX 1650 specimen: run 39230458215
+
+The [separate successful rerun archive](physical-evidence/gtx-1650-39230458215/README.md) retains all 179 original manifested files from attempt 1 at `daff00294fe64ccf2d950e98c5bd652b274dfc5d`, with independent integrity/receipt replay. It supplements the historical GTX 1650 specimen and leaves the GT 730 negative control intact. The archive documents source, workload and environment differences; it makes no universal performance or cross-commit equivalence claim.

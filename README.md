@@ -626,6 +626,8 @@ Accepted record:
 
 [`docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json`](docs/physical-evidence/CUDA_RUNTIME_V31_GTX1650_RUN_33630241971.json)
 
+A [separate GTX 1650 rerun, 39230458215](docs/physical-evidence/gtx-1650-39230458215/README.md), retains all original manifested evidence at producing source `daff00294fe64ccf2d950e98c5bd652b274dfc5d`. It supplements this historical specimen; the comparison explicitly separates source and environment changes from observed timings.
+
 ---
 
 ## RTX 3050 — supplemental consumer Ampere
