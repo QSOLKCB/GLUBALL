@@ -65,7 +65,8 @@ for n in (1,2,3):
     assert component<=gates['component_residual_gate'] and euclidean<=gates['euclidean_residual_gate'] and radius<=gates['reported_tube_radius_gate']
     values={'checked_points':16384,'total_points':16384,'nonfinite_records':nonfinite,'max_component_residual':component,'max_euclidean_residual':euclidean,'max_reported_tube_radius_error':radius,'worst_linear_index':worst}
     differences={k:{'recomputed':v,'recorded':accepted[k]} for k,v in values.items() if accepted[k]!=v}
-    # Exact agreement is observed, not a required cross-runtime contract.
+    # This specimen replay requires exact recorded metrics; it does not define a general cross-runtime contract.
+    assert not differences, f'Acceptance receipt metrics differ for run {n}: {differences}'
     results['acceptance'].append({'run':n,'status':'PASS','artifact_sha256':hashlib.sha256(data).hexdigest(),'artifact_fnv1a64':fnv(data),'sidecar_fnv1a64':fnv(sidep.read_bytes()),'gates':gates,'recomputed':values,'exact_receipt_metric_match':not differences,'differences':differences})
 paths=sorted([*(ROOT/'ab-atomic').glob('V*.json'),*(ROOT/'ab-two-stage').glob('V*.json'),*(ROOT/'tuning/baseline-v2').glob('*.json'),*(ROOT/'tuning/baseline-v3-matched').glob('*.json'),*(ROOT/'tuning/candidates').glob('*.json')])
 assert len(paths)==117
@@ -80,7 +81,10 @@ for p in paths:
     assert all(math.isfinite(v[k]) and v[k]>0 for k in ('iteration_wall_milliseconds_min','iteration_wall_milliseconds_median','iteration_wall_milliseconds_max','runtime_setup_milliseconds'))
 results['117_runtime_observation_records_domain_and_boundaries']='PASS'
 results['sanitizers']=[]
-for f in (ROOT/'v31-sanitizer').glob('*check-*.txt'):
+expected_transcripts = {'memcheck-atomic.txt', 'memcheck-two-stage.txt', 'racecheck-atomic.txt', 'racecheck-two-stage.txt'}
+observed_transcripts = {f.name for f in (ROOT/'v31-sanitizer').glob('*check-*.txt')}
+assert observed_transcripts == expected_transcripts, f'Incomplete sanitizer archive: {observed_transcripts}'
+for f in sorted((ROOT/'v31-sanitizer').glob('*check-*.txt')):
     raw=f.read_text();a=raw.index('{');p,end=json.JSONDecoder().raw_decode(raw[a:]);tail=raw[a+end:]
     summary='ERROR SUMMARY: 0 errors' if f.name.startswith('memcheck') else 'RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)'
     assert summary in tail

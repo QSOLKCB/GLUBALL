@@ -18,7 +18,7 @@ To verify the archive without a GPU:
 node tests/cuda-runtime-v31-gtx1650-rerun-evidence.mjs
 ```
 
-For manual reconstruction, read `durable_receipt_bundle_parts` from the accepted-artifact record in its listed order, concatenate the binary parts, check `durable_receipt_bundle_sha256`, gzip-decompress, parse the JSON and base64-decode each entry. Check each decoded SHA-256 against both its entry and `BUNDLE_SHA256SUMS.txt`. Entry paths are relative to the original artifact root. Do not normalize, reserialize or otherwise replace the original receipt bytes. The compressed bundle schema is `gluball-cuda-runtime-v31-durable-receipt-bundle/1`.
+For manual reconstruction, read `durable_receipt_bundle_parts` from the accepted-artifact record in its listed order, concatenate the binary parts, check `durable_receipt_bundle_sha256`, gzip-decompress, parse the JSON and base64-decode each entry. Check each decoded SHA-256 against both its entry and `BUNDLE_SHA256SUMS.txt`. Copy the separately retained `BUNDLE_SHA256SUMS.txt` into the reconstructed artifact root as well; the audit scripts require this 180th file. Entry paths are relative to the original artifact root. Do not normalize, reserialize or otherwise replace the original receipt bytes. The compressed bundle schema is `gluball-cuda-runtime-v31-durable-receipt-bundle/1`.
 
 ## What passed, and at what scope
 
@@ -56,6 +56,7 @@ The historical profile status remains intact. This repeat specimen does not add 
 After reconstructing the bundle to `$BUNDLE`, export the exact producing source into a fresh `$SOURCE_SNAPSHOT`, and choose a separate fresh `$AUDIT_OUTPUT` directory. Neither source nor input bundle is modified. The scripts refuse to overwrite an existing replay bundle. Run with ordinary Python (not `-O`, because assertions are audit gates):
 
 ```sh
+cp docs/physical-evidence/gtx-1650-39230458215/BUNDLE_SHA256SUMS.txt "$BUNDLE/BUNDLE_SHA256SUMS.txt"
 git archive daff00294fe64ccf2d950e98c5bd652b274dfc5d | tar -xf - -C "$SOURCE_SNAPSHOT"
 python3 docs/physical-evidence/gtx-1650-39230458215/replay_validators.py "$SOURCE_SNAPSHOT" "$BUNDLE" "$AUDIT_OUTPUT"
 python3 docs/physical-evidence/gtx-1650-39230458215/check_numeric_and_runtime.py "$SOURCE_SNAPSHOT" "$BUNDLE" "$AUDIT_OUTPUT"
